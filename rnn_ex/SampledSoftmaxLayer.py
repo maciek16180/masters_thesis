@@ -51,7 +51,7 @@ class SampledSoftmaxDenseLayer(MergeLayer):
         
         idx = voc_mask.nonzero()[0]        
         input = input.dot(self.W[:,idx]) + self.b[idx]
-        ssoft = T.nnet.softmax(input)
+        ssoft = T.nnet.softmax(input - T.log(1. / idx.shape[0])) # the -log is for normalization of sampled softmax
         
         if len(inputs) == 3:
             targets = inputs[2]
