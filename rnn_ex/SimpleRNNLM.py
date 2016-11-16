@@ -71,10 +71,55 @@ class SimpleRNNLM(object):
     def save_params(self, fname='model.npz'):
         np.savez(fname, *self.params)
 
-    @staticmethod
     def load_params(fname='model.npz'):
         with np.load(fname) as f:
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
             L.layers.set_all_param_values(net, param_values)
+            
+    @staticmethod
+    def rnd_next_word(probs, size=1):
+        return np.random.choice(np.arange(probs.shape[0], dtype=np.int32), size=size, p=probs)
 
-    
+    def beam_search(get_probs_fun, beam=10, init_seq='', mode='rr'):
+        utt = [1] + map(lambda w: mt_w_to_i.get(w, mt_w_to_i['<unk>']), init_seq.split())
+        utt = np.asarray(utt, dtype=np.int32)[np.newaxis]
+
+        if mode[0] == 's':
+            words = get_probs_fun(utt)[0].argpartition(-beam)[-beam:].astype(np.int32)
+        elif mode[0] == 'r':
+            words = rnd_next_word(get_probs_fun(utt)[0], beam)
+
+        candidates = utt.repeat(beam, axis=0)
+        candidates = np.hstack([candidates, words[np.newaxis].T])
+        scores = np.zeros(beam)
+
+        while 0 not in candidates[:,-1] and candidates.shape[1] < 100:
+
+            if mode[1] == 's':
+                log_probs = np.log(get_probs_fun(candidates))
+                tot_scores = log_probs + scores[np.newaxis].T
+
+                idx = tot_scores.ravel().argpartition(-beam)[-beam:]
+                i,j = idx / tot_scores.shape[1], (idx % tot_scores.shape[1]).astype(np.int32)
+
+                scores = tot_scores[i,j]
+
+                candidates = np.hstack([candidates[i], j[np.newaxis].T])
+
+            elif mode[1] == 'r':
+                probs = get_probs_fun(candidates)
+                words = []
+                for k in xrange(beam):
+                    words.append(rnd_next_word(probs[k], beam)) # this doesn't have to be exactly 'beam'
+                words = np.array(words)
+                idx = np.indices((beam, words.shape[1]))[0]
+                tot_scores = scores[np.newaxis].T + np.log(probs)[idx, words]
+
+                idx = tot_scores.ravel().argpartition(-beam)[-beam:]
+                i,j = idx / tot_scores.shape[1], (idx % tot_scores.shape[1])
+
+                scores = tot_scores[i,j]
+
+                candidates = np.hstack([candidates[i], words[i,j][np.newaxis].T])
+
+        return candidates[candidates[:,-1] == 0][0]
