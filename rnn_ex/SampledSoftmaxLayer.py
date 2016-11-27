@@ -1,16 +1,18 @@
 import theano.tensor as T
 import numpy as np
 from lasagne import init
-from lasagne.layers import Layer,MergeLayer, InputLayer
+from lasagne.layers import Layer, MergeLayer, InputLayer
+
+from lasagne.random import get_rng
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 
 class SampledSoftmaxDenseLayer(MergeLayer):
-    # samples is a mask vector of length voc_size
     
     def __init__(self, incoming, num_sampled, voc_size, 
-                 targets=None, 
-                 use_all_words=False,
-                 sample_unique=True,
+                 targets=None,
+                 sample_unique=False,
+                 probs=None,
                  W_init = init.GlorotUniform(),
                  b_init = init.Constant(0),
                  **kwargs):
@@ -31,20 +33,18 @@ class SampledSoftmaxDenseLayer(MergeLayer):
         
         self.voc_size = voc_size
         self.num_sampled = num_sampled
-        self.use_all_words = use_all_words
         self.sample_unique = sample_unique
+        self._srng = RandomStreams(get_rng().randint(1, 2147462579))
+        
+        if probs is None:
+            probs = np.ones(voc_size) / float(voc_size)
         
         n_inputs = incoming.output_shape[1]
         self.W = self.add_param(W_init, (n_inputs, self.voc_size), name="W")
         self.b = self.add_param(b_init, (self.voc_size,), name="b", regularizable=False)
+        self.p = self.add_param(probs, (self.voc_size,), name="p", trainable=False)
         
-    def get_output_for(self, inputs, **kwargs):
-        #
-        # if targets are NOT provided: 
-        #     returns softmax output calculated only on where samples == 1,
-        #     output is surrounded by zeros to match the shape of a full softmax output
-        # otherwise:
-        #     returns sampled softmax output only for specified class for each sample
+    def get_output_for(self, inputs, use_all_words=False, **kwargs):
         
         assert len(inputs) in [1,2]
         input = inputs[0]
@@ -53,26 +53,32 @@ class SampledSoftmaxDenseLayer(MergeLayer):
         if len(inputs) == 2:
             targets = inputs[1]
             
-            if not self.use_all_words:
+            # here we sample num_sampled negative classes for softmax
+            if not use_all_words:
+                
                 if self.sample_unique:
-                    samples = T.as_tensor(np.random.choice(np.arange(self.voc_size),
-                                                           size=self.num_sampled,
-                                                           replace=False))
+                    samples = self._srng.multinomial_wo_replacement(n=self.num_sampled, pvals=[self.p]).ravel()
                 else:
-                    samples = T.as_tensor(np.random.randint(self.voc_size, size=self.num_sampled))
+                    bins = self._srng.multinomial(n=self.num_sampled, pvals=[self.p]).ravel()
+                    samples = T.extra_ops.repeat(bins.nonzero()[0], bins.nonzero_values())
 
                 true_logits = (input * self.W[:,targets].T).sum(axis=1) + self.b[targets]
                 sampled_logits = input.dot(self.W[:,samples]) + self.b[samples]
-                #
-                # here we should subtract log(Q(y|x)), but using uniform sampling with replacement
-                # makes all of the Q values equal, so it's unnecessary
-                #
+                
+                # here we subtract log(Q(y|x))
+                if self.sample_unique:
+                    raise NotImplementedError('Not implemented: computation of Q(y|x)')
+                else:
+                    true_logits -= T.log(self.p[targets] * self.num_sampled)
+                    sampled_logits -= T.log(self.p[samples] * self.num_sampled)
+                
                 logits = T.concatenate([true_logits.dimshuffle((0,'x')), sampled_logits], axis=1)
                 ssoft = T.nnet.softmax(logits)
             
-                return ssoft[:,0] # only values for targets
+                return ssoft[:,0] # only values for actual targets
             
-            else: # this part is for validation, where we use full softmax loss
+            # this part is for validation, where we use full softmax loss
+            else:
                 logits = input.dot(self.W) + self.b
                 soft = T.nnet.softmax(logits)
             
