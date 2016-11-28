@@ -129,7 +129,7 @@ class HierarchicalSoftmaxDenseLayer(MergeLayer):
             
         """
         
-        input = inputs[0]
+        input_ = inputs[0]
         
         if len(inputs) ==1:
             target = None
@@ -137,7 +137,7 @@ class HierarchicalSoftmaxDenseLayer(MergeLayer):
             assert len(inputs) ==2
             target = inputs[1]
             
-        return T.nnet.h_softmax(input,input.shape[0],
+        return T.nnet.h_softmax(input_,input_.shape[0],
                                 self.num_units,self.n_classes,
                                 self.n_outputs_per_class,
                                 W1=self.W1,b1=self.b1,
@@ -147,6 +147,6 @@ class HierarchicalSoftmaxDenseLayer(MergeLayer):
         
     def get_output_shape_for(self,input_shapes,**kwargs):
         if len(input_shapes) ==1:
-            return (input_shapes[0][0],self.num_units)
+            return input_shapes[0][0], self.num_units
         else:
-            return (input_shapes[0][0],)
+            return input_shapes[0][0],

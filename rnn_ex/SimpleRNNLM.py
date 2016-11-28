@@ -1,4 +1,4 @@
-# work in progress, clearly
+# work in progress
 
 import numpy as np
 import theano
@@ -15,111 +15,122 @@ from SampledSoftmaxLayer import SampledSoftmaxDenseLayer
 
 class SimpleRNNLM(object):
     
-    def __init__(self, mode='ssoft'):
-        pass
+    def __init__(self, voc_size, emb_size, rec_size, mode='ssoft', **kwargs):
 
-    @staticmethod
-    def __build_net(input_var, voc_mask_var, voc_size, emb_size, rec_size,
-                    mask_input_var= None, target_var=None, mode='ssoft', gclip=100):
+        input_var = T.imatrix('inputs')
+        target_var = T.imatrix('targets')  # these will be inputs shifted by 1
+        mask_input_var = T.matrix('input_mask')
 
-        l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
-        batch_size, seq_len = l_in.input_var.shape
-
-        l_mask = None
-        if mask_input_var is not None:
-            print 'setting up input mask...'
-            l_mask = L.layers.InputLayer(shape=(batch_size, seq_len), input_var=mask_input_var)
-
-        l_emb = L.layers.EmbeddingLayer(l_in,
-                                        input_size=voc_size+1,
-                                        output_size=emb_size)
-
-        l_lstm1 = L.layers.LSTMLayer(l_emb,
-                                     num_units=rec_size,
-                                     nonlinearity=L.nonlinearities.tanh,
-                                     grad_clipping=gclip,
-                                     mask_input=l_mask)
-
-        l_lstm2 = L.layers.LSTMLayer(l_lstm1,
-                                     num_units=rec_size,
-                                     nonlinearity=L.nonlinearities.tanh,
-                                     grad_clipping=gclip,
-                                     mask_input=l_mask)
-
-        l_resh = L.layers.ReshapeLayer(l_lstm2, shape=(-1, rec_size))
-
-        l_tar = None
-        if target_var is not None:
-            print 'setting up targets for sampled softmax...'
-            l_tar = L.layers.InputLayer(shape=(-1,), input_var=target_var.reshape(shape=(batch_size * seq_len,)))
-
-        if mode == 'ssoft':
-            l_soft = SampledSoftmaxDenseLayer(l_resh, voc_mask_var, voc_size, targets=l_tar)
+        if mode == 'full':
+            self.train_net = _build_full_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size, **kwargs)
+        elif mode == 'ssoft':
+            num_sampled = kwargs['num_sampled']
+            self.train_net = _build_sampled_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                                                        num_sampled, target_var=target_var, **kwargs)
         elif mode == 'hsoft':
-            l_soft = HierarchicalSoftmaxDenseLayer(l_resh, voc_size, target=l_tar)
-        else:
-            raise NameError('Mode not recognised.')
-
-        if target_var is not None:
-            l_out = L.layers.ReshapeLayer(l_soft, shape=(batch_size, seq_len))
-        else:
-            l_out = L.layers.ReshapeLayer(l_soft, shape=(batch_size, seq_len, voc_size))
-
-        return l_out
-
+            self.train_net = _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                                                             target_var=target_var, **kwargs)
 
     def save_params(self, fname='model.npz'):
-        np.savez(fname, *self.params)
+        np.savez(fname, *L.layers.get_all_param_values(self.train_net))
 
-    def load_params(fname='model.npz'):
+    def load_params(self, fname='model.npz'):
         with np.load(fname) as f:
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
-            L.layers.set_all_param_values(net, param_values)
-            
-    @staticmethod
-    def rnd_next_word(probs, size=1):
-        return np.random.choice(np.arange(probs.shape[0], dtype=np.int32), size=size, p=probs)
+            L.layers.set_all_param_values(self.train_net, param_values)
 
-    def beam_search(get_probs_fun, beam=10, init_seq='', mode='rr'):
-        utt = [1] + map(lambda w: mt_w_to_i.get(w, mt_w_to_i['<unk>']), init_seq.split())
-        utt = np.asarray(utt, dtype=np.int32)[np.newaxis]
 
-        if mode[0] == 's':
-            words = get_probs_fun(utt)[0].argpartition(-beam)[-beam:].astype(np.int32)
-        elif mode[0] == 'r':
-            words = rnd_next_word(get_probs_fun(utt)[0], beam)
+def _build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                         emb_init=None, train_emb=True):
+    l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
 
-        candidates = utt.repeat(beam, axis=0)
-        candidates = np.hstack([candidates, words[np.newaxis].T])
-        scores = np.zeros(beam)
+    l_mask = None
+    if mask_input_var is not None:
+        print 'Setting up input mask...'
+        l_mask = L.layers.InputLayer(shape=(None, None), input_var=mask_input_var)
 
-        while 0 not in candidates[:,-1] and candidates.shape[1] < 100:
+    if emb_init is None:
+        l_emb = L.layers.EmbeddingLayer(l_in,
+                                        input_size=voc_size,  # not voc_size+1, because pad_value = <utt_end>
+                                        output_size=emb_size)
+    else:
+        l_emb = L.layers.EmbeddingLayer(l_in,
+                                        input_size=voc_size,
+                                        output_size=emb_size,
+                                        W=emb_init)
+        if not train_emb:
+            l_emb.params[l_emb.W].remove('trainable')
 
-            if mode[1] == 's':
-                log_probs = np.log(get_probs_fun(candidates))
-                tot_scores = log_probs + scores[np.newaxis].T
+    l_lstm1 = L.layers.LSTMLayer(l_emb,
+                                 num_units=rec_size,
+                                 nonlinearity=L.nonlinearities.tanh,
+                                 grad_clipping=100,
+                                 mask_input=l_mask)
 
-                idx = tot_scores.ravel().argpartition(-beam)[-beam:]
-                i,j = idx / tot_scores.shape[1], (idx % tot_scores.shape[1]).astype(np.int32)
+    l_lstm2 = L.layers.LSTMLayer(l_lstm1,
+                                 num_units=rec_size,
+                                 nonlinearity=L.nonlinearities.tanh,
+                                 grad_clipping=100,
+                                 mask_input=l_mask)
 
-                scores = tot_scores[i,j]
+    l_resh = L.layers.ReshapeLayer(l_lstm2, shape=(-1, rec_size))
 
-                candidates = np.hstack([candidates[i], j[np.newaxis].T])
+    return l_resh
 
-            elif mode[1] == 'r':
-                probs = get_probs_fun(candidates)
-                words = []
-                for k in xrange(beam):
-                    words.append(rnd_next_word(probs[k], beam)) # this doesn't have to be exactly 'beam'
-                words = np.array(words)
-                idx = np.indices((beam, words.shape[1]))[0]
-                tot_scores = scores[np.newaxis].T + np.log(probs)[idx, words]
 
-                idx = tot_scores.ravel().argpartition(-beam)[-beam:]
-                i,j = idx / tot_scores.shape[1], (idx % tot_scores.shape[1])
+def _build_full_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                             emb_init=None, train_emb=True, **kwargs):
+    l_resh = _build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                                  emb_init=emb_init, train_emb=train_emb)
 
-                scores = tot_scores[i,j]
+    l_soft = L.layers.DenseLayer(l_resh,
+                                 num_units=voc_size,
+                                 nonlinearity=L.nonlinearities.softmax)
 
-                candidates = np.hstack([candidates[i], words[i,j][np.newaxis].T])
+    l_out = L.layers.ReshapeLayer(l_soft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
 
-        return candidates[candidates[:,-1] == 0][0]
+    return l_out
+
+
+def _build_sampled_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size, num_sampled,
+                                emb_init=None, train_emb=True, target_var=None,
+                                ssoft_probs=None, sample_unique=False, **kwargs):
+    l_resh = _build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                                  emb_init=emb_init, train_emb=train_emb)
+
+    if target_var is not None:
+        print 'Setting up targets for sampled softmax...'
+        target_var = target_var.ravel()
+
+    l_ssoft = SampledSoftmaxDenseLayer(l_resh, num_sampled, voc_size,
+                                       targets=target_var,
+                                       probs=ssoft_probs,
+                                       sample_unique=sample_unique)
+
+    if target_var is not None:
+        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(input_var.shape[0], input_var.shape[1]))
+    else:
+        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
+
+    return l_out
+
+
+def _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                                     emb_init=None, train_emb=True, target_var=None, **kwargs):
+    l_resh = _build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                                  emb_init=emb_init, train_emb=train_emb)
+
+    if target_var is not None:
+        print 'Setting up targets for hierarchical softmax...'
+        target_var = target_var.ravel()
+
+    l_hsoft = HierarchicalSoftmaxDenseLayer(l_resh,
+                                            num_units=voc_size,
+                                            target=target_var)
+
+    if target_var is not None:
+        l_out = L.layers.ReshapeLayer(l_hsoft, shape=(input_var.shape[0], input_var.shape[1]))
+    else:
+        l_out = L.layers.ReshapeLayer(l_hsoft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
+
+    return l_out

@@ -1,5 +1,4 @@
 import theano.tensor as T
-from lasagne import init
 from lasagne.layers import Layer,MergeLayer, InputLayer
 
 
@@ -24,9 +23,9 @@ class MaskedReshapeLayer(MergeLayer):
     def get_output_for(self, inputs, **kwargs):
         
         assert len(inputs) == 2
-        input, input_mask = inputs
+        input_, input_mask = inputs
         
-        return input[input_mask.nonzero()].reshape(shape=self.shape)
+        return input_[input_mask.nonzero()].reshape(shape=self.shape)
         
     def get_output_shape_for(self, input_shapes, **kwargs):
         assert len(input_shapes) == 2
@@ -55,12 +54,12 @@ class UnmaskedReshapeLayer(MergeLayer):
     def get_output_for(self, inputs, **kwargs):
         
         assert len(inputs) == 2
-        input, input_unmask = inputs
+        input_, input_unmask = inputs
         
         data_shape = (-1,) + self.shape[input_unmask.ndim:]
         
         out = T.zeros(self.shape)
-        out = T.set_subtensor(out[input_unmask.nonzero()], input.reshape(shape=data_shape))
+        out = T.set_subtensor(out[input_unmask.nonzero()], input_.reshape(shape=data_shape))
         
         return out
         

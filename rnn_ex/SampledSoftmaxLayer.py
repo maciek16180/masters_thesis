@@ -47,8 +47,8 @@ class SampledSoftmaxDenseLayer(MergeLayer):
     def get_output_for(self, inputs, use_all_words=False, **kwargs):
         
         assert len(inputs) in [1,2]
-        input = inputs[0]
-        
+        input_ = inputs[0]
+
         # if targets are provided, return only probs for targets
         if len(inputs) == 2:
             targets = inputs[1]
@@ -62,8 +62,8 @@ class SampledSoftmaxDenseLayer(MergeLayer):
                     bins = self._srng.multinomial(n=self.num_sampled, pvals=[self.p]).ravel()
                     samples = T.extra_ops.repeat(bins.nonzero()[0], bins.nonzero_values())
 
-                true_logits = (input * self.W[:,targets].T).sum(axis=1) + self.b[targets]
-                sampled_logits = input.dot(self.W[:,samples]) + self.b[samples]
+                true_logits = (input_ * self.W[:,targets].T).sum(axis=1) + self.b[targets]
+                sampled_logits = input_.dot(self.W[:,samples]) + self.b[samples]
                 
                 # here we subtract log(Q(y|x))
                 if self.sample_unique:
@@ -79,14 +79,14 @@ class SampledSoftmaxDenseLayer(MergeLayer):
             
             # this part is for validation, where we use full softmax loss
             else:
-                logits = input.dot(self.W) + self.b
+                logits = input_.dot(self.W) + self.b
                 soft = T.nnet.softmax(logits)
             
                 return soft[T.arange(soft.shape[0]), targets]
         
         # if targets are not provided, return full softmax                
         else:
-            logits = input.dot(self.W) + self.b
+            logits = input_.dot(self.W) + self.b
             soft = T.nnet.softmax(logits)
             
             return soft
@@ -94,9 +94,9 @@ class SampledSoftmaxDenseLayer(MergeLayer):
     def get_output_shape_for(self, input_shapes, **kwargs):
         assert len(input_shapes) in [1,2]
         if len(input_shapes) == 2:
-            return (input_shapes[0][0],)
+            return input_shapes[0][0],
         else:
-            return (input_shapes[0][0], self.voc_size)    
+            return input_shapes[0][0], self.voc_size
     
     
     
