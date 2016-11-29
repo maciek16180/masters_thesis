@@ -3,6 +3,7 @@
 import numpy as np
 import theano
 import theano.tensor as T
+import time
 
 import lasagne as L
 
@@ -15,11 +16,17 @@ from SampledSoftmaxLayer import SampledSoftmaxDenseLayer
 
 class SimpleRNNLM(object):
     
-    def __init__(self, voc_size, emb_size, rec_size, mode='ssoft', **kwargs):
+    def __init__(self, voc_size, emb_size, rec_size, mode='ssoft', pad_value=-1, **kwargs):
+        self.pad_value = pad_value
 
         input_var = T.imatrix('inputs')
         target_var = T.imatrix('targets')  # these will be inputs shifted by 1
         mask_input_var = T.matrix('input_mask')
+        mask_idx = mask_input_var.nonzero()
+
+        # BUILD THE MODEL
+
+        assert mode in ['full', 'ssoft', 'hsoft']
 
         if mode == 'full':
             self.train_net = _build_full_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size, **kwargs)
@@ -30,6 +37,77 @@ class SimpleRNNLM(object):
         elif mode == 'hsoft':
             self.train_net = _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
                                                              target_var=target_var, **kwargs)
+
+        # CALCULATE THE LOSS
+
+        train_out = L.layers.get_output(self.train_net)
+        test_out = L.layers.get_output(self.train_net, deterministic=True)
+
+        if mode == 'full':
+            train_loss = L.objectives.categorical_crossentropy(train_out[mask_idx], target_var[mask_idx]).mean()
+            test_loss = L.objectives.categorical_crossentropy(test_out[mask_idx], target_var[mask_idx]).mean()
+        elif mode in ['ssoft', 'hsoft']:
+            train_loss = -T.sum(T.log(train_out[mask_idx])) / T.sum(mask_input_var)
+            test_loss = -T.sum(T.log(test_out[mask_idx])) / T.sum(mask_input_var)
+
+        # MAKE TRAIN AND VALIDATION FUNCTIONS
+
+        params = L.layers.get_all_params(self.train_net, trainable=True)
+        updates = L.updates.adagrad(train_loss, params, learning_rate=.01)
+
+        self.train_fn = theano.function([input_var, target_var, mask_input_var], train_loss, updates=updates)
+        self.val_fn = theano.function([input_var, target_var, mask_input_var], test_loss)
+
+    def train_one_epoch(self, train_data, batch_size):
+        train_err = 0.
+        train_batches = 0
+        start_time = time.time()
+
+        for batch in iterate_minibatches(train_data, batch_size, self.pad_value):
+            inputs, targets, mask = batch
+
+            train_err += self.train_fn(inputs, targets, mask)
+            train_batches += 1
+
+            if not train_batches % 10:
+                print "Done {} batches in {:.2f}s\ttraining loss:\t{:.6f}".format(
+                    train_batches, time.time() - start_time, train_err / train_batches)
+
+        return  train_err / train_batches
+
+    def validate(self, val_data, batch_size):
+        val_err = 0.
+        val_batches = 0
+        start_time = time.time()
+
+        for batch in iterate_minibatches(val_data, batch_size, self.pad_value):
+            inputs, targets, mask = batch
+
+            val_err += self.val_fn(inputs, targets, mask)
+            val_batches += 1
+
+            if not val_batches % 100:
+                print "Done {} batches in {:.2f}s".format(val_batches, time.time() - start_time)
+
+        return val_err / val_batches
+
+    def train_model(self, train_data, val_data, train_batch_size, val_batch_size, num_epochs,
+                    save_params=False, path=None):
+        if save_params:
+            open(path, 'w').close()
+
+        for epoch in range(num_epochs):
+            start_time = time.time()
+
+            train_err = self.train_one_epoch(train_data, train_batch_size)
+            val_err = self.validate(val_data, val_batch_size)
+
+            print "Epoch {} of {} took {:.2f}s".format(epoch + 1, num_epochs, time.time() - start_time)
+            print "  training loss:\t\t{:.6f}".format(train_err)
+            print "  validation loss:\t\t{:.6f}".format(val_err)
+
+        if save_params:
+            self.save_params(path)
 
     def save_params(self, fname='model.npz'):
         np.savez(fname, *L.layers.get_all_param_values(self.train_net))
@@ -134,3 +212,19 @@ def _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_siz
         l_out = L.layers.ReshapeLayer(l_hsoft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
 
     return l_out
+
+
+def iterate_minibatches(inputs, batch_size, pad=-1):
+    for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
+        excerpt = slice(start_idx, start_idx + batch_size)
+        inp = inputs[excerpt]
+
+        inp_max_len = len(max(inp, key=len))
+        inp = map(lambda l: l + [pad] * (inp_max_len - len(l)), inp)
+        inp = np.asarray(inp, dtype=np.int32)
+        tar = np.hstack([inp[:, 1:], np.zeros((batch_size, 1), dtype=np.int32) + pad])
+
+        v_not_pad = np.vectorize(lambda x: x != pad, otypes=[np.float32])
+        mask = v_not_pad(inp)  # there is no separate value for the end of an utterance, just pad
+
+        yield inp, tar, mask
