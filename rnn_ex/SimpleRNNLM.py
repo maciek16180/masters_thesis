@@ -1,5 +1,3 @@
-# work in progress
-
 import numpy as np
 import theano
 import theano.tensor as T
@@ -18,6 +16,9 @@ class SimpleRNNLM(object):
     
     def __init__(self, voc_size, emb_size, rec_size, mode='ssoft', pad_value=-1, **kwargs):
         self.pad_value = pad_value
+        self.voc_size = voc_size
+        self.emb_size = emb_size
+        self.rec_size = rec_size
 
         input_var = T.imatrix('inputs')
         target_var = T.imatrix('targets')  # these will be inputs shifted by 1
@@ -25,15 +26,15 @@ class SimpleRNNLM(object):
         mask_idx = mask_input_var.nonzero()
 
         # BUILD THE MODEL
+        print 'Building the model...'
 
         assert mode in ['full', 'ssoft', 'hsoft']
 
         if mode == 'full':
             self.train_net = _build_full_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size, **kwargs)
         elif mode == 'ssoft':
-            num_sampled = kwargs['num_sampled']
             self.train_net = _build_sampled_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
-                                                        num_sampled, target_var=target_var, **kwargs)
+                                                        target_var=target_var, **kwargs)
         elif mode == 'hsoft':
             self.train_net = _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
                                                              target_var=target_var, **kwargs)
@@ -51,12 +52,30 @@ class SimpleRNNLM(object):
             test_loss = -T.sum(T.log(test_out[mask_idx])) / T.sum(mask_input_var)
 
         # MAKE TRAIN AND VALIDATION FUNCTIONS
+        print 'Compiling theano functions...'
 
         params = L.layers.get_all_params(self.train_net, trainable=True)
         updates = L.updates.adagrad(train_loss, params, learning_rate=.01)
 
         self.train_fn = theano.function([input_var, target_var, mask_input_var], train_loss, updates=updates)
         self.val_fn = theano.function([input_var, target_var, mask_input_var], test_loss)
+
+        # BUILD NET FOR GENERATION, WITH SHARED PARAMETERS
+        print 'Building a network for generation...'
+
+        if mode in ['full', 'ssoft']:
+            pars = L.layers.get_all_params(self.train_net)
+            if mode == 'ssoft':
+                del pars[-1] # remove ssoft probs, not needed for generation
+            self.gen_net = _build_full_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, pars)
+        elif mode == 'hsoft':
+            self.gen_net = _build_hierarchical_softmax_net_with_params(input_var, voc_size, emb_size, rec_size,
+                                                                       L.layers.get_all_params(self.train_net))
+
+        probs = L.layers.get_output(self.gen_net)[:, -1, :]
+        self.get_probs_fn = theano.function([input_var], probs)
+        
+        print 'Done'
 
     def train_one_epoch(self, train_data, batch_size):
         train_err = 0.
@@ -118,13 +137,12 @@ class SimpleRNNLM(object):
             L.layers.set_all_param_values(self.train_net, param_values)
 
 
-def _build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
+def __build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
                          emb_init=None, train_emb=True):
     l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
 
     l_mask = None
     if mask_input_var is not None:
-        print 'Setting up input mask...'
         l_mask = L.layers.InputLayer(shape=(None, None), input_var=mask_input_var)
 
     if emb_init is None:
@@ -158,7 +176,7 @@ def _build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
 
 def _build_full_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
                              emb_init=None, train_emb=True, **kwargs):
-    l_resh = _build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
+    l_resh = __build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
                                   emb_init=emb_init, train_emb=train_emb)
 
     l_soft = L.layers.DenseLayer(l_resh,
@@ -171,13 +189,12 @@ def _build_full_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_s
 
 
 def _build_sampled_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size, num_sampled,
-                                emb_init=None, train_emb=True, target_var=None,
-                                ssoft_probs=None, sample_unique=False, **kwargs):
-    l_resh = _build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                               emb_init=None, train_emb=True, target_var=None,
+                               ssoft_probs=None, sample_unique=False, **kwargs):
+    l_resh = __build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
                                   emb_init=emb_init, train_emb=train_emb)
 
     if target_var is not None:
-        print 'Setting up targets for sampled softmax...'
         target_var = target_var.ravel()
 
     l_ssoft = SampledSoftmaxDenseLayer(l_resh, num_sampled, voc_size,
@@ -194,12 +211,11 @@ def _build_sampled_softmax_net(input_var, mask_input_var, voc_size, emb_size, re
 
 
 def _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
-                                     emb_init=None, train_emb=True, target_var=None, **kwargs):
-    l_resh = _build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                                    emb_init=None, train_emb=True, target_var=None, **kwargs):
+    l_resh = __build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
                                   emb_init=emb_init, train_emb=train_emb)
 
     if target_var is not None:
-        print 'Setting up targets for hierarchical softmax...'
         target_var = target_var.ravel()
 
     l_hsoft = HierarchicalSoftmaxDenseLayer(l_resh,
@@ -210,6 +226,105 @@ def _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_siz
         l_out = L.layers.ReshapeLayer(l_hsoft, shape=(input_var.shape[0], input_var.shape[1]))
     else:
         l_out = L.layers.ReshapeLayer(l_hsoft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
+
+    return l_out
+
+
+def __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params):
+    assert len(params) == 35
+    params = [params[:1], params[1:18], params[18:35]]
+    em, r1, r2 = map(lambda p: {x.name: x for x in p}, params)
+
+    l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
+
+    l_emb = L.layers.EmbeddingLayer(l_in,
+                                    input_size=voc_size,
+                                    output_size=emb_size,
+                                    W=em['W'])
+
+    l_lstm1 = L.layers.LSTMLayer(l_emb,
+                                 num_units=rec_size,
+                                 grad_clipping=100,
+                                 mask_input=None,
+                                 ingate=L.layers.Gate(W_in=r1['W_in_to_ingate'],
+                                                      W_hid=r1['W_hid_to_ingate'],
+                                                      W_cell=r1['W_cell_to_ingate'],
+                                                      b=r1['b_ingate']),
+                                 forgetgate=L.layers.Gate(W_in=r1['W_in_to_forgetgate'],
+                                                          W_hid=r1['W_hid_to_forgetgate'],
+                                                          W_cell=r1['W_cell_to_forgetgate'],
+                                                          b=r1['b_forgetgate']),
+                                 cell=L.layers.Gate(W_in=r1['W_in_to_cell'],
+                                                    W_hid=r1['W_hid_to_cell'],
+                                                    W_cell=None,
+                                                    b=r1['b_cell'],
+                                                    nonlinearity=L.nonlinearities.tanh),
+                                 outgate=L.layers.Gate(W_in=r1['W_in_to_outgate'],
+                                                       W_hid=r1['W_hid_to_outgate'],
+                                                       W_cell=r1['W_cell_to_outgate'],
+                                                       b=r1['b_outgate']),
+                                 cell_init=r1['cell_init'],
+                                 hid_init=r1['hid_init'])
+
+    l_lstm2 = L.layers.LSTMLayer(l_lstm1,
+                                 num_units=rec_size,
+                                 grad_clipping=100,
+                                 mask_input=None,
+                                 ingate=L.layers.Gate(W_in=r2['W_in_to_ingate'],
+                                                      W_hid=r2['W_hid_to_ingate'],
+                                                      W_cell=r2['W_cell_to_ingate'],
+                                                      b=r2['b_ingate']),
+                                 forgetgate=L.layers.Gate(W_in=r2['W_in_to_forgetgate'],
+                                                          W_hid=r2['W_hid_to_forgetgate'],
+                                                          W_cell=r2['W_cell_to_forgetgate'],
+                                                          b=r2['b_forgetgate']),
+                                 cell=L.layers.Gate(W_in=r2['W_in_to_cell'],
+                                                    W_hid=r2['W_hid_to_cell'],
+                                                    W_cell=None,
+                                                    b=r2['b_cell'],
+                                                    nonlinearity=L.nonlinearities.tanh),
+                                 outgate=L.layers.Gate(W_in=r2['W_in_to_outgate'],
+                                                       W_hid=r2['W_hid_to_outgate'],
+                                                       W_cell=r2['W_cell_to_outgate'],
+                                                       b=r2['b_outgate']),
+                                 cell_init=r2['cell_init'],
+                                 hid_init=r2['hid_init'])
+
+    l_resh = L.layers.ReshapeLayer(l_lstm2, shape=(-1, rec_size))
+
+    return l_resh
+
+
+def _build_full_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, params):
+    assert len(params) == 37
+    sm = {x.name : x for x in params[-3:]}
+    l_resh = __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params[:-2])
+
+    l_soft = L.layers.DenseLayer(l_resh,
+                                 num_units=voc_size,
+                                 nonlinearity=L.nonlinearities.softmax,
+                                 W=sm['W'],
+                                 b=sm['b'])
+
+    l_out = L.layers.ReshapeLayer(l_soft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
+
+    return l_out
+
+
+def _build_hierarchical_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, params):
+    assert len(params) == 39
+    sm = {x.name: x for x in params[-4:]}
+    l_resh = __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params[:-4])
+
+    l_hsoft = HierarchicalSoftmaxDenseLayer(l_resh,
+                                            num_units=voc_size,
+                                            target=None,
+                                            W1=sm['W1'],
+                                            b1=sm['b1'],
+                                            W2=sm['W2'],
+                                            b2=sm['b2'])
+
+    l_out = L.layers.ReshapeLayer(l_hsoft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
 
     return l_out
 

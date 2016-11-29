@@ -13,8 +13,8 @@ class SampledSoftmaxDenseLayer(MergeLayer):
                  targets=None,
                  sample_unique=False,
                  probs=None,
-                 W_init = init.GlorotUniform(),
-                 b_init = init.Constant(0),
+                 W=init.GlorotUniform(),
+                 b=init.Constant(0),
                  **kwargs):
 
         assert len(incoming.output_shape) == 2
@@ -40,8 +40,8 @@ class SampledSoftmaxDenseLayer(MergeLayer):
             probs = np.ones(voc_size) / float(voc_size)
         
         n_inputs = incoming.output_shape[1]
-        self.W = self.add_param(W_init, (n_inputs, self.voc_size), name="W")
-        self.b = self.add_param(b_init, (self.voc_size,), name="b", regularizable=False)
+        self.W = self.add_param(W, (n_inputs, self.voc_size), name="W")
+        self.b = self.add_param(b, (self.voc_size,), name="b", regularizable=False)
         self.p = self.add_param(probs, (self.voc_size,), name="p", trainable=False)
         
     def get_output_for(self, inputs, deternimistic=False, **kwargs):

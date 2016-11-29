@@ -1,7 +1,7 @@
 import numpy as np
 import theano.tensor as T
 from lasagne import init
-from lasagne.layers import Layer,MergeLayer, InputLayer,flatten
+from lasagne.layers import Layer, MergeLayer, InputLayer, flatten
 
 
 class HierarchicalSoftmaxDenseLayer(MergeLayer):
@@ -49,10 +49,10 @@ class HierarchicalSoftmaxDenseLayer(MergeLayer):
     def __init__(self,incoming,num_units,
                  n_classes='auto',
                  n_outputs_per_class='auto',
-                 W1_init = init.GlorotUniform(),
-                 b1_init = init.Constant(0),
-                 W2_init = init.GlorotUniform(),
-                 b2_init = init.Constant(0),
+                 W1=init.GlorotUniform(),
+                 b1=init.Constant(0),
+                 W2=init.GlorotUniform(),
+                 b2=init.Constant(0),
                  target=None,
                  **kwargs):
 
@@ -60,7 +60,7 @@ class HierarchicalSoftmaxDenseLayer(MergeLayer):
         
         #flatten input layer if it has higher dimensionality
         if len(incoming.output_shape) != 2:
-            assert len(incoming.output_shape) >=2
+            assert len(incoming.output_shape) >= 2
             incoming = flatten(incoming)
         
         incomings = [incoming]
@@ -69,33 +69,33 @@ class HierarchicalSoftmaxDenseLayer(MergeLayer):
         if target is not None:
             
             #convert tensor to layer
-            if not isinstance(target,Layer):
-                assert target.ndim <=2
-                if target.ndim ==1:
+            if not isinstance(target, Layer):
+                assert target.ndim <= 2
+                if target.ndim == 1:
                     target_shape = (incoming.shape[0],)
                 else:
-                    target_shape = (incoming.shape[0],1)
+                    target_shape = (incoming.shape[0], 1)
                     
-                target = InputLayer(target_shape, input_var=target,name="target inputlayer")
+                target = InputLayer(target_shape, input_var=target, name="target inputlayer")
             
             #check shape
-            assert len(target.output_shape) <=2
-            if len(target.output_shape) ==2:
-                assert target.output_shape[1]==1
+            assert len(target.output_shape) <= 2
+            if len(target.output_shape) == 2:
+                assert target.output_shape[1] == 1
             
             incomings.append(target)
         
-        super(HierarchicalSoftmaxDenseLayer,self).__init__(incomings,**kwargs)
+        super(HierarchicalSoftmaxDenseLayer, self).__init__(incomings, **kwargs)
         
         #infer classes
         if n_classes == 'auto':
             if n_outputs_per_class == 'auto':
                 n_classes = int(np.ceil(num_units**.5))
             else:
-                n_classes = int(np.ceil(float(num_units)/n_outputs_per_class))
+                n_classes = int(np.ceil(float(num_units) / n_outputs_per_class))
         if n_outputs_per_class == 'auto':
             assert n_classes != 'auto'
-            n_outputs_per_class = int(np.ceil(float(num_units)/n_classes))
+            n_outputs_per_class = int(np.ceil(float(num_units) / n_classes))
         
         assert n_classes * n_outputs_per_class >= num_units
         
@@ -106,16 +106,16 @@ class HierarchicalSoftmaxDenseLayer(MergeLayer):
         
         #create params
         n_inputs = incoming.output_shape[1]
-        self.W1 = self.add_param(W1_init, (n_inputs,self.n_classes),
+        self.W1 = self.add_param(W1, (n_inputs, self.n_classes),
                                  name="W1")
-        self.b1 = self.add_param(b1_init, (self.n_classes,),
-                                 name="b1",regularizable=False)
-        self.W2 = self.add_param(W2_init, (self.n_classes,n_inputs,self.n_outputs_per_class),
+        self.b1 = self.add_param(b1, (self.n_classes,),
+                                 name="b1", regularizable=False)
+        self.W2 = self.add_param(W2, (self.n_classes,n_inputs, self.n_outputs_per_class),
                                  name="W2")
-        self.b2 = self.add_param(b2_init, (self.n_classes,self.n_outputs_per_class),
-                                 name="b2",regularizable=False)
+        self.b2 = self.add_param(b2, (self.n_classes, self.n_outputs_per_class),
+                                 name="b2", regularizable=False)
         
-    def get_output_for(self,inputs,**kwargs):
+    def get_output_for(self, inputs, **kwargs):
         """
         Returns
         -------
@@ -131,22 +131,21 @@ class HierarchicalSoftmaxDenseLayer(MergeLayer):
         
         input_ = inputs[0]
         
-        if len(inputs) ==1:
+        if len(inputs) == 1:
             target = None
         else:
-            assert len(inputs) ==2
+            assert len(inputs) == 2
             target = inputs[1]
             
-        return T.nnet.h_softmax(input_,input_.shape[0],
-                                self.num_units,self.n_classes,
+        return T.nnet.h_softmax(input_, input_.shape[0],
+                                self.num_units, self.n_classes,
                                 self.n_outputs_per_class,
-                                W1=self.W1,b1=self.b1,
-                                W2=self.W2,b2=self.b2,
-                                target=target
-                               )
-        
-    def get_output_shape_for(self,input_shapes,**kwargs):
-        if len(input_shapes) ==1:
+                                W1=self.W1, b1=self.b1,
+                                W2=self.W2, b2=self.b2,
+                                target=target)
+
+    def get_output_shape_for(self, input_shapes, **kwargs):
+        if len(input_shapes) == 1:
             return input_shapes[0][0], self.num_units
         else:
             return input_shapes[0][0],
