@@ -29,7 +29,7 @@ class SampledSoftmaxDenseLayer(MergeLayer):
 
             incomings.append(targets)
         
-        super(SampledSoftmaxDenseLayer,self).__init__(incomings,**kwargs)
+        super(SampledSoftmaxDenseLayer, self).__init__(incomings, **kwargs)
         
         self.voc_size = voc_size
         self.num_sampled = num_sampled

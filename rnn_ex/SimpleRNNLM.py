@@ -10,6 +10,7 @@ sys.path.insert(0, '../HSoftmaxLayerLasagne/')
 
 from HSoftmaxLayer import HierarchicalSoftmaxDenseLayer
 from SampledSoftmaxLayer import SampledSoftmaxDenseLayer
+from NCELayer import NCEDenseLayer
 
 
 class SimpleRNNLM(object):
@@ -28,7 +29,7 @@ class SimpleRNNLM(object):
         # BUILD THE MODEL
         print 'Building the model...'
 
-        assert mode in ['full', 'ssoft', 'hsoft']
+        assert mode in ['full', 'ssoft', 'hsoft', 'nce']
 
         if mode == 'full':
             self.train_net = _build_full_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size, **kwargs)
@@ -38,6 +39,9 @@ class SimpleRNNLM(object):
         elif mode == 'hsoft':
             self.train_net = _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
                                                              target_var=target_var, **kwargs)
+        elif mode == 'nce':
+            self.train_net = _build_nce_net(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                                            target_var=target_var, **kwargs)
 
         # CALCULATE THE LOSS
 
@@ -48,8 +52,11 @@ class SimpleRNNLM(object):
             train_loss = L.objectives.categorical_crossentropy(train_out[mask_idx], target_var[mask_idx]).mean()
             test_loss = L.objectives.categorical_crossentropy(test_out[mask_idx], target_var[mask_idx]).mean()
         elif mode in ['ssoft', 'hsoft']:
-            train_loss = -T.sum(T.log(train_out[mask_idx])) / T.sum(mask_input_var)
-            test_loss = -T.sum(T.log(test_out[mask_idx])) / T.sum(mask_input_var)
+            train_loss = -T.log(train_out[mask_idx]).mean()
+            test_loss = -T.log(test_out[mask_idx]).mean()
+        elif mode == 'nce':
+            train_loss = -train_out[mask_idx].mean() # NCEDenseLayer uses logreg loss, so we don't T.log here
+            test_loss = -T.log(test_out[mask_idx]).mean()
 
         # MAKE TRAIN AND VALIDATION FUNCTIONS
         print 'Compiling theano functions...'
@@ -63,10 +70,10 @@ class SimpleRNNLM(object):
         # BUILD NET FOR GENERATION, WITH SHARED PARAMETERS
         print 'Building a network for generation...'
 
-        if mode in ['full', 'ssoft']:
+        if mode in ['full', 'ssoft', 'nce']:
             pars = L.layers.get_all_params(self.train_net)
-            if mode == 'ssoft':
-                del pars[-1] # remove ssoft probs, not needed for generation
+            if mode in ['ssoft', 'nce']:
+                del pars[-1] # remove ssoft/noise probs, not needed for generation
             self.gen_net = _build_full_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, pars)
         elif mode == 'hsoft':
             self.gen_net = _build_hierarchical_softmax_net_with_params(input_var, voc_size, emb_size, rec_size,
@@ -201,6 +208,28 @@ def _build_sampled_softmax_net(input_var, mask_input_var, voc_size, emb_size, re
                                        targets=target_var,
                                        probs=ssoft_probs,
                                        sample_unique=sample_unique)
+
+    if target_var is not None:
+        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(input_var.shape[0], input_var.shape[1]))
+    else:
+        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
+
+    return l_out
+
+
+def _build_nce_net(input_var, mask_input_var, voc_size, emb_size, rec_size, num_sampled,
+                   emb_init=None, train_emb=True, target_var=None,
+                   noise_probs=None, sample_unique=False, **kwargs):
+    l_resh = __build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size,
+                                  emb_init=emb_init, train_emb=train_emb)
+
+    if target_var is not None:
+        target_var = target_var.ravel()
+
+    l_ssoft = NCEDenseLayer(l_resh, num_sampled, voc_size,
+                            targets=target_var,
+                            probs=noise_probs,
+                            sample_unique=sample_unique)
 
     if target_var is not None:
         l_out = L.layers.ReshapeLayer(l_ssoft, shape=(input_var.shape[0], input_var.shape[1]))
