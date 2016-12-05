@@ -6,7 +6,6 @@ from lasagne.layers import Layer, MergeLayer, InputLayer
 from lasagne.random import get_rng
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
-
 class NCEDenseLayer(MergeLayer):
     
     def __init__(self, incoming, num_sampled, voc_size, 
@@ -68,12 +67,14 @@ class NCEDenseLayer(MergeLayer):
                 if self.sample_unique:
                     raise NotImplementedError('Not implemented: computation of Q(y|x)')
                 else:
-                    true_Q = self.p[targets] * self.num_sampled
-                    sampled_Q = self.p[samples] * self.num_sampled
-                    
-                true_part = T.log(true_logits / (true_logits + true_Q))
-                sampled_part = T.log(1 - sampled_logits / (sampled_logits + sampled_Q)).sum()
-                
+                    true_logits -= T.log(self.p[targets] * self.num_sampled)
+                    sampled_logits -= T.log(self.p[samples] * self.num_sampled)
+
+                true_part = T.max([true_logits, T.zeros_like(true_logits)], axis=0) - \
+                            true_logits + T.log(1 + T.exp(-T.abs_(true_logits)))
+                sampled_part = (T.max([sampled_logits, T.zeros_like(sampled_logits)], axis=0) + \
+                               T.log(1 + T.exp(-T.abs_(sampled_logits)))).sum(axis=1)
+
                 return true_part + sampled_part
             
             # this part is for validation, where we use full softmax loss

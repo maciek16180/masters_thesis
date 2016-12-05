@@ -55,14 +55,20 @@ class SimpleRNNLM(object):
             train_loss = -T.log(train_out[mask_idx]).mean()
             test_loss = -T.log(test_out[mask_idx]).mean()
         elif mode == 'nce':
-            train_loss = -train_out[mask_idx].mean() # NCEDenseLayer uses logreg loss, so we don't T.log here
+            train_loss = train_out[mask_idx].mean() # NCEDenseLayer uses logreg loss, so we don't -T.log here
             test_loss = -T.log(test_out[mask_idx]).mean()
 
         # MAKE TRAIN AND VALIDATION FUNCTIONS
         print 'Compiling theano functions...'
 
         params = L.layers.get_all_params(self.train_net, trainable=True)
-        updates = L.updates.adagrad(train_loss, params, learning_rate=.01)
+
+        if kwargs.has_key('update_fn'):
+            update_fn = kwargs['update_fn']
+        else:
+            update_fn = lambda l, p: L.updates.adagrad(l, p, learning_rate=.01)
+
+        updates = update_fn(train_loss, params)
 
         self.train_fn = theano.function([input_var, target_var, mask_input_var], train_loss, updates=updates)
         self.val_fn = theano.function([input_var, target_var, mask_input_var], test_loss)
