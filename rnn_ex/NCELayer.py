@@ -43,7 +43,7 @@ class NCEDenseLayer(MergeLayer):
         self.b = self.add_param(b, (self.voc_size,), name="b", regularizable=False)
         self.p = self.add_param(probs, (self.voc_size,), name="p", trainable=False)
         
-    def get_output_for(self, inputs, deternimistic=False, **kwargs):
+    def get_output_for(self, inputs, deterministic=False, **kwargs):
         
         assert len(inputs) in [1,2]
         input_ = inputs[0]
@@ -53,7 +53,7 @@ class NCEDenseLayer(MergeLayer):
             targets = inputs[1]
             
             # here we sample num_sampled noise classes for NCE
-            if not deternimistic:
+            if not deterministic:
                 
                 if self.sample_unique:
                     samples = self._srng.multinomial_wo_replacement(n=self.num_sampled, pvals=[self.p]).ravel()
