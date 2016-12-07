@@ -6,6 +6,7 @@ from lasagne.layers import Layer, MergeLayer, InputLayer
 from lasagne.random import get_rng
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
+
 class NCEDenseLayer(MergeLayer):
     
     def __init__(self, incoming, num_sampled, voc_size, 
