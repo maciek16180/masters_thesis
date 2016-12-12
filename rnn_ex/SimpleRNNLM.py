@@ -90,48 +90,54 @@ class SimpleRNNLM(object):
         
         print 'Done'
 
-    def train_one_epoch(self, train_data, batch_size):
+    def train_one_epoch(self, train_data, batch_size, log_interval=10):
         train_err = 0.
         train_batches = 0
+        num_training_words = 0
         start_time = time.time()
 
         for batch in iterate_minibatches(train_data, batch_size, self.pad_value):
             inputs, targets, mask = batch
 
-            train_err += self.train_fn(inputs, targets, mask)
+            num_batch_words = mask.sum()
+            train_err += self.train_fn(inputs, targets, mask) * num_batch_words
             train_batches += 1
+            num_training_words += num_batch_words
 
-            if not train_batches % 10:
+            if not train_batches % log_interval:
                 print "Done {} batches in {:.2f}s\ttraining loss:\t{:.6f}".format(
-                    train_batches, time.time() - start_time, train_err / train_batches)
+                    train_batches, time.time() - start_time, train_err / num_training_words)
 
-        return  train_err / train_batches
+        return  train_err / num_training_words
 
     def validate(self, val_data, batch_size):
         val_err = 0.
         val_batches = 0
+        num_validate_words = 0
         start_time = time.time()
 
         for batch in iterate_minibatches(val_data, batch_size, self.pad_value):
             inputs, targets, mask = batch
 
-            val_err += self.val_fn(inputs, targets, mask)
+            num_batch_words = mask.sum()
+            val_err += self.val_fn(inputs, targets, mask) * num_batch_words
             val_batches += 1
+            num_validate_words += num_batch_words
 
             if not val_batches % 100:
                 print "Done {} batches in {:.2f}s".format(val_batches, time.time() - start_time)
 
-        return val_err / val_batches
+        return val_err / num_validate_words
 
     def train_model(self, train_data, val_data, train_batch_size, val_batch_size, num_epochs,
-                    save_params=False, path=None):
+                    save_params=False, path=None, log_interval=10):
         if save_params:
             open(path, 'w').close()
 
         for epoch in range(num_epochs):
             start_time = time.time()
 
-            train_err = self.train_one_epoch(train_data, train_batch_size)
+            train_err = self.train_one_epoch(train_data, train_batch_size, log_interval)
             val_err = self.validate(val_data, val_batch_size)
 
             print "Epoch {} of {} took {:.2f}s".format(epoch + 1, num_epochs, time.time() - start_time)
