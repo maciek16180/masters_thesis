@@ -1,6 +1,7 @@
 from SimpleRNNLM import SimpleRNNLM
 from mt_load import load_mt, get_mt_voc, get_w2v_embs
 import numpy as np
+import lasagne as L
 import time
 
 
@@ -12,13 +13,16 @@ idx_to_w, w_to_idx, voc_size, freqs = get_mt_voc(path=mt_path, train_len=len(tra
 word2vec_embs, word2vec_embs_mask = get_w2v_embs(mt_path)
 
 
+def update_fn(l, p):
+    return L.updates.adagrad(l, p, learning_rate=.1)
+
 net = SimpleRNNLM(voc_size=voc_size,
                   emb_size=300,
                   rec_size=300,
-                  mode='ssoft',
+                  mode='nce',
                   num_sampled=200,
                   emb_init=word2vec_embs,
-                  ssoft_probs=freqs)
+                  update_fn=update_fn)
 
 
 last_scores = [np.inf]
@@ -27,7 +31,7 @@ tol = 0.001
 epoch = 1
 best_epoch = None
 
-model_filename = 'w2vInit_300_300_ssoft200unigr_bs50_cut200_nosplit_early5.npz'
+model_filename = 'w2vInit_300_300_nce200unif_lr.1_bs50_cut200_nosplit_early5.npz'
 
 t0 = time.time()
 while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last_scores) + tol:
