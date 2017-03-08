@@ -19,10 +19,11 @@ def update_fn(l, p):
 net = SimpleRNNLM(voc_size=voc_size,
                   emb_size=300,
                   rec_size=300,
-                  mode='nce',
+                  mode='ssoft',
                   num_sampled=200,
                   emb_init=word2vec_embs,
                   update_fn=update_fn)
+                  # ssoft_probs=freqs)
 
 
 last_scores = [np.inf]
@@ -31,7 +32,7 @@ tol = 0.001
 epoch = 1
 best_epoch = None
 
-model_filename = 'w2vInit_300_300_nce200unif_lr.1_bs50_cut200_nosplit_early5.npz'
+model_filename = 'w2vInit_300_300_nce200uniform_lr.1_bs50_cut200_nosplit_early5.npz'
 
 t0 = time.time()
 while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last_scores) + tol:
@@ -58,3 +59,8 @@ print '\n\nTotal training time: {:.2f}s'.format(time.time() - t0)
 print 'Best model after {} epochs with loss {}'.format(best_epoch, min(last_scores))
 print 'Validation set perplexity: {}'.format(np.exp(min(last_scores)))
 print 'Model saved as ' + model_filename
+
+test_error = net.validate(val_data=test, batch_size=25)
+
+print 'Test loss: {}'.format(test_error)
+print 'Test set perplexity: {}'.format(np.exp(test_error))
