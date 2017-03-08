@@ -73,8 +73,8 @@ class SimpleRNNLM(object):
         self.train_fn = theano.function([input_var, target_var, mask_input_var], train_loss, updates=updates)
         self.val_fn = theano.function([input_var, target_var, mask_input_var], test_loss)
 
-        # BUILD NET FOR GENERATION, WITH SHARED PARAMETERS
-        print 'Building a network for generation...'
+        # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
+        print 'Building a network for generating...'
 
         if mode in ['full', 'ssoft', 'nce']:
             pars = L.layers.get_all_params(self.train_net)
