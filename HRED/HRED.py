@@ -275,17 +275,19 @@ def _build_decoder_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, 
     params = [params[:1], params[1:10], params[10:12], params[12:13], params[13:]]
     em, dec, h0, e0, sm = map(lambda p: {x.name: x for x in p}, params)
     
-    l_in = L.layers.InputLayer(shape=(1,None), input_var=input_var)
+    l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
     
     l_emb = L.layers.EmbeddingLayer(l_in,
                                     input_size=voc_size,  # not voc_size+1, because pad_value = <utt_end>
                                     output_size=emb_size,
                                     W=em['W'])
     
+    l_dec_init = L.layers.InputLayer(shape=(None, lv1_rec_size), input_var=decoder_init)
+    
     l_dec = L.layers.GRULayer(l_emb,
                               num_units=lv1_rec_size,
                               grad_clipping=100,
-                              hid_init=decoder_init,
+                              hid_init=l_dec_init,
                               only_return_final=True,
                               resetgate=L.layers.Gate(W_in=dec['W_in_to_resetgate'],
                                                       W_hid=dec['W_hid_to_resetgate'],
