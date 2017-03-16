@@ -120,8 +120,8 @@ def _build_hred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv2
                                         input_size=voc_size,
                                         output_size=emb_size,
                                         W=emb_init)
-        if not train_emb:
-            l_emb.params[l_emb.W].remove('trainable')
+    if not train_emb:
+        l_emb.params[l_emb.W].remove('trainable')
             
     l_lv1_enc_forw = L.layers.GRULayer(l_emb, # we process all utts in parallel, out_shape is batch_size x lv1_rec_size
                                        num_units=lv1_rec_size,

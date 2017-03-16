@@ -12,6 +12,10 @@ train, valid, test = load_mt(path=mt_path, split=True, trim=200)
 idx_to_w, w_to_idx, voc_size, freqs = get_mt_voc(path=mt_path, train_len=len(train))
 word2vec_embs, word2vec_embs_mask = get_w2v_embs(mt_path)
 
+###
+emb_init = word2vec_embs
+train_emb = True
+###
 
 net = HRED(voc_size=voc_size,
            emb_size=300,
@@ -20,7 +24,11 @@ net = HRED(voc_size=voc_size,
            out_emb_size=300, 
            num_sampled=200,
            ssoft_probs=freqs,
-           emb_init=word2vec_embs)
+           emb_init=emb_init,
+           train_emb=train_emb)
+
+
+#net.load_params('pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
 
 
 last_scores = [np.inf]
