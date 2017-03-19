@@ -1,0 +1,1207 @@
+Building the model...
+Compiling theano functions...
+Building a network for generating...
+Done
+
+
+Starting epoch 1...
+
+Done 200 batches in 22.97s	training loss:	3.674828
+Done 400 batches in 46.66s	training loss:	3.557566
+Done 600 batches in 70.29s	training loss:	3.505509
+Done 800 batches in 92.86s	training loss:	3.471201
+Done 1000 batches in 116.28s	training loss:	3.448615
+Done 1200 batches in 139.39s	training loss:	3.432436
+Done 1400 batches in 163.22s	training loss:	3.421551
+Done 1600 batches in 186.42s	training loss:	3.410227
+Done 1800 batches in 209.33s	training loss:	3.403138
+Done 2000 batches in 231.94s	training loss:	3.396133
+Done 2200 batches in 255.19s	training loss:	3.388142
+Done 2400 batches in 278.65s	training loss:	3.382274
+Done 2600 batches in 300.87s	training loss:	3.376576
+Done 2800 batches in 324.49s	training loss:	3.372096
+Done 3000 batches in 347.69s	training loss:	3.367761
+Done 3200 batches in 370.37s	training loss:	3.362579
+Done 3400 batches in 393.01s	training loss:	3.359233
+Done 3600 batches in 415.70s	training loss:	3.356194
+Done 3800 batches in 438.74s	training loss:	3.352653
+Done 4000 batches in 462.69s	training loss:	3.349509
+Done 4200 batches in 485.70s	training loss:	3.346616
+Done 4400 batches in 508.65s	training loss:	3.343615
+Done 4600 batches in 531.42s	training loss:	3.341498
+Done 4800 batches in 553.97s	training loss:	3.339175
+Done 5000 batches in 576.17s	training loss:	3.336393
+Done 5200 batches in 599.14s	training loss:	3.334160
+Done 5400 batches in 621.01s	training loss:	3.332038
+Done 5600 batches in 643.91s	training loss:	3.329998
+Done 5800 batches in 666.92s	training loss:	3.328127
+Done 6000 batches in 691.53s	training loss:	3.326363
+Done 6200 batches in 715.00s	training loss:	3.324391
+Done 6400 batches in 738.82s	training loss:	3.322468
+Done 6600 batches in 761.41s	training loss:	3.320772
+Done 6800 batches in 784.63s	training loss:	3.319090
+Done 7000 batches in 808.88s	training loss:	3.317522
+Done 7200 batches in 831.86s	training loss:	3.315781
+Done 7400 batches in 855.59s	training loss:	3.314454
+Done 7600 batches in 879.83s	training loss:	3.312965
+Done 7800 batches in 902.26s	training loss:	3.311901
+Done 8000 batches in 925.44s	training loss:	3.310660
+Done 8200 batches in 948.31s	training loss:	3.309174
+Done 8400 batches in 971.84s	training loss:	3.307835
+Done 8600 batches in 995.99s	training loss:	3.306553
+Done 8800 batches in 1019.83s	training loss:	3.305432
+Done 9000 batches in 1043.34s	training loss:	3.304567
+Done 9200 batches in 1067.15s	training loss:	3.303582
+Done 9400 batches in 1090.17s	training loss:	3.302667
+Done 9600 batches in 1113.81s	training loss:	3.301649
+Done 9800 batches in 1137.80s	training loss:	3.300636
+Done 10000 batches in 1160.39s	training loss:	3.299709
+Done 10200 batches in 1183.45s	training loss:	3.298476
+Done 10400 batches in 1206.49s	training loss:	3.297584
+Done 10600 batches in 1229.15s	training loss:	3.296578
+Done 10800 batches in 1251.52s	training loss:	3.295527
+Done 11000 batches in 1274.74s	training loss:	3.294691
+Done 11200 batches in 1298.45s	training loss:	3.293781
+Done 11400 batches in 1321.72s	training loss:	3.292966
+Done 11600 batches in 1345.66s	training loss:	3.292306
+Done 11800 batches in 1369.02s	training loss:	3.291494
+Done 12000 batches in 1392.00s	training loss:	3.290764
+Done 12200 batches in 1414.78s	training loss:	3.290332
+Done 12400 batches in 1437.79s	training loss:	3.289625
+Done 12600 batches in 1461.12s	training loss:	3.288888
+Done 12800 batches in 1484.75s	training loss:	3.288048
+Done 13000 batches in 1508.34s	training loss:	3.287394
+Done 13200 batches in 1532.22s	training loss:	3.286641
+Done 13400 batches in 1556.18s	training loss:	3.285821
+Done 13600 batches in 1580.17s	training loss:	3.285201
+Done 13800 batches in 1603.31s	training loss:	3.284610
+Done 14000 batches in 1626.89s	training loss:	3.283864
+Done 14200 batches in 1650.83s	training loss:	3.283348
+Done 14400 batches in 1674.59s	training loss:	3.282679
+Done 14600 batches in 1698.37s	training loss:	3.281913
+Done 14800 batches in 1721.23s	training loss:	3.281291
+Done 15000 batches in 1745.05s	training loss:	3.280745
+Done 15200 batches in 1768.43s	training loss:	3.280174
+Done 15400 batches in 1792.05s	training loss:	3.279525
+Done 15600 batches in 1815.95s	training loss:	3.278926
+Done 15800 batches in 1838.97s	training loss:	3.278393
+Done 16000 batches in 1861.81s	training loss:	3.278023
+Done 16200 batches in 1886.12s	training loss:	3.277636
+Done 16400 batches in 1910.18s	training loss:	3.277170
+Done 16600 batches in 1933.68s	training loss:	3.276531
+Done 16800 batches in 1955.97s	training loss:	3.276007
+Done 17000 batches in 1979.35s	training loss:	3.275586
+Done 17200 batches in 2002.42s	training loss:	3.275168
+Done 17400 batches in 2024.21s	training loss:	3.274696
+Done 17600 batches in 2047.86s	training loss:	3.274248
+Done 17800 batches in 2071.04s	training loss:	3.273829
+Done 18000 batches in 2094.56s	training loss:	3.273317
+Done 18200 batches in 2118.92s	training loss:	3.272860
+Done 18400 batches in 2142.22s	training loss:	3.272324
+Done 18600 batches in 2164.79s	training loss:	3.271892
+Done 18800 batches in 2186.94s	training loss:	3.271404
+Done 19000 batches in 2209.74s	training loss:	3.271026
+Done 19200 batches in 2232.74s	training loss:	3.270661
+Done 19400 batches in 2257.26s	training loss:	3.270242
+Done 100 batches in 4.54s
+Done 200 batches in 9.28s
+Done 300 batches in 14.12s
+Done 400 batches in 18.41s
+Done 500 batches in 22.97s
+Done 600 batches in 27.33s
+Done 700 batches in 31.76s
+Done 800 batches in 36.13s
+Done 900 batches in 40.97s
+Done 1000 batches in 45.98s
+Done 1100 batches in 50.76s
+Done 1200 batches in 55.71s
+Done 1300 batches in 60.69s
+Done 1400 batches in 65.09s
+Done 1500 batches in 69.58s
+Done 1600 batches in 74.10s
+Done 1700 batches in 78.66s
+Done 1800 batches in 83.46s
+Done 1900 batches in 88.43s
+Done 2000 batches in 92.82s
+Done 2100 batches in 97.64s
+Done 2200 batches in 102.54s
+Done 2300 batches in 107.48s
+Done 2400 batches in 112.09s
+
+Training loss:   3.26997250806
+Validation loss: 3.31306295246
+
+Saving model...
+Done saving.
+
+
+Starting epoch 2...
+
+Done 200 batches in 23.24s	training loss:	3.178289
+Done 400 batches in 47.22s	training loss:	3.187398
+Done 600 batches in 71.12s	training loss:	3.188415
+Done 800 batches in 93.96s	training loss:	3.186931
+Done 1000 batches in 117.61s	training loss:	3.188205
+Done 1200 batches in 140.96s	training loss:	3.190074
+Done 1400 batches in 165.06s	training loss:	3.192398
+Done 1600 batches in 188.52s	training loss:	3.192467
+Done 1800 batches in 211.67s	training loss:	3.194664
+Done 2000 batches in 234.52s	training loss:	3.195517
+Done 2200 batches in 258.01s	training loss:	3.194938
+Done 2400 batches in 281.71s	training loss:	3.195600
+Done 2600 batches in 304.16s	training loss:	3.195242
+Done 2800 batches in 328.03s	training loss:	3.196138
+Done 3000 batches in 351.48s	training loss:	3.196528
+Done 3200 batches in 374.40s	training loss:	3.195656
+Done 3400 batches in 397.28s	training loss:	3.196142
+Done 3600 batches in 420.20s	training loss:	3.196746
+Done 3800 batches in 443.46s	training loss:	3.196585
+Done 4000 batches in 467.66s	training loss:	3.196868
+Done 4200 batches in 490.90s	training loss:	3.197105
+Done 4400 batches in 514.09s	training loss:	3.197104
+Done 4600 batches in 537.09s	training loss:	3.197819
+Done 4800 batches in 559.87s	training loss:	3.197887
+Done 5000 batches in 582.30s	training loss:	3.197701
+Done 5200 batches in 605.50s	training loss:	3.197843
+Done 5400 batches in 627.60s	training loss:	3.197806
+Done 5600 batches in 650.72s	training loss:	3.197895
+Done 5800 batches in 673.95s	training loss:	3.197963
+Done 6000 batches in 698.80s	training loss:	3.198072
+Done 6200 batches in 722.50s	training loss:	3.198102
+Done 6400 batches in 746.57s	training loss:	3.198068
+Done 6600 batches in 769.39s	training loss:	3.198195
+Done 6800 batches in 792.83s	training loss:	3.198213
+Done 7000 batches in 817.34s	training loss:	3.198211
+Done 7200 batches in 840.54s	training loss:	3.197864
+Done 7400 batches in 864.52s	training loss:	3.198013
+Done 7600 batches in 889.00s	training loss:	3.198024
+Done 7800 batches in 911.65s	training loss:	3.198117
+Done 8000 batches in 935.06s	training loss:	3.198216
+Done 8200 batches in 958.15s	training loss:	3.198044
+Done 8400 batches in 981.92s	training loss:	3.197924
+Done 8600 batches in 1006.31s	training loss:	3.197821
+Done 8800 batches in 1030.38s	training loss:	3.197891
+Done 9000 batches in 1054.12s	training loss:	3.198151
+Done 9200 batches in 1078.17s	training loss:	3.198208
+Done 9400 batches in 1101.43s	training loss:	3.198295
+Done 9600 batches in 1125.30s	training loss:	3.198317
+Done 9800 batches in 1149.53s	training loss:	3.198338
+Done 10000 batches in 1172.34s	training loss:	3.198405
+Done 10200 batches in 1195.62s	training loss:	3.198141
+Done 10400 batches in 1218.90s	training loss:	3.198252
+Done 10600 batches in 1241.79s	training loss:	3.198196
+Done 10800 batches in 1264.38s	training loss:	3.198039
+Done 11000 batches in 1288.55s	training loss:	3.198058
+Done 11200 batches in 1312.50s	training loss:	3.198018
+Done 11400 batches in 1335.98s	training loss:	3.198023
+Done 11600 batches in 1360.16s	training loss:	3.198164
+Done 11800 batches in 1383.74s	training loss:	3.198115
+Done 12000 batches in 1406.95s	training loss:	3.198121
+Done 12200 batches in 1429.95s	training loss:	3.198455
+Done 12400 batches in 1453.20s	training loss:	3.198579
+Done 12600 batches in 1476.75s	training loss:	3.198560
+Done 12800 batches in 1500.61s	training loss:	3.198451
+Done 13000 batches in 1524.45s	training loss:	3.198462
+Done 13200 batches in 1548.51s	training loss:	3.198388
+Done 13400 batches in 1572.44s	training loss:	3.198246
+Done 13600 batches in 1596.40s	training loss:	3.198336
+Done 13800 batches in 1619.53s	training loss:	3.198417
+Done 14000 batches in 1643.07s	training loss:	3.198356
+Done 14200 batches in 1666.99s	training loss:	3.198469
+Done 14400 batches in 1690.70s	training loss:	3.198342
+Done 14600 batches in 1714.43s	training loss:	3.198191
+Done 14800 batches in 1737.23s	training loss:	3.198120
+Done 15000 batches in 1761.00s	training loss:	3.198125
+Done 15200 batches in 1784.32s	training loss:	3.198127
+Done 15400 batches in 1807.88s	training loss:	3.198092
+Done 15600 batches in 1831.72s	training loss:	3.198017
+Done 15800 batches in 1854.69s	training loss:	3.198020
+Done 16000 batches in 1877.49s	training loss:	3.198180
+Done 16200 batches in 1901.74s	training loss:	3.198279
+Done 16400 batches in 1925.76s	training loss:	3.198273
+Done 16600 batches in 1949.21s	training loss:	3.198173
+Done 16800 batches in 1971.46s	training loss:	3.198112
+Done 17000 batches in 1994.80s	training loss:	3.198093
+Done 17200 batches in 2017.82s	training loss:	3.198120
+Done 17400 batches in 2039.57s	training loss:	3.198105
+Done 17600 batches in 2063.18s	training loss:	3.198114
+Done 17800 batches in 2086.31s	training loss:	3.198161
+Done 18000 batches in 2109.78s	training loss:	3.198039
+Done 18200 batches in 2134.10s	training loss:	3.198013
+Done 18400 batches in 2157.35s	training loss:	3.197897
+Done 18600 batches in 2179.87s	training loss:	3.197894
+Done 18800 batches in 2201.97s	training loss:	3.197855
+Done 19000 batches in 2224.73s	training loss:	3.197862
+Done 19200 batches in 2247.68s	training loss:	3.197933
+Done 19400 batches in 2272.15s	training loss:	3.197901
+Done 100 batches in 4.51s
+Done 200 batches in 9.21s
+Done 300 batches in 14.00s
+Done 400 batches in 18.27s
+Done 500 batches in 22.81s
+Done 600 batches in 27.15s
+Done 700 batches in 31.60s
+Done 800 batches in 35.96s
+Done 900 batches in 40.78s
+Done 1000 batches in 45.78s
+Done 1100 batches in 50.58s
+Done 1200 batches in 55.56s
+Done 1300 batches in 60.54s
+Done 1400 batches in 64.95s
+Done 1500 batches in 69.43s
+Done 1600 batches in 73.93s
+Done 1700 batches in 78.50s
+Done 1800 batches in 83.31s
+Done 1900 batches in 88.29s
+Done 2000 batches in 92.63s
+Done 2100 batches in 97.41s
+Done 2200 batches in 102.27s
+Done 2300 batches in 107.15s
+Done 2400 batches in 111.70s
+
+Training loss:   3.19796862434
+Validation loss: 3.30256794839
+
+Saving model...
+Done saving.
+
+
+Starting epoch 3...
+
+Done 200 batches in 23.29s	training loss:	3.154692
+Done 400 batches in 47.34s	training loss:	3.162267
+Done 600 batches in 71.32s	training loss:	3.163176
+Done 800 batches in 94.24s	training loss:	3.161631
+Done 1000 batches in 117.96s	training loss:	3.163042
+Done 1200 batches in 141.38s	training loss:	3.164734
+Done 1400 batches in 165.55s	training loss:	3.166898
+Done 1600 batches in 189.09s	training loss:	3.167131
+Done 1800 batches in 212.31s	training loss:	3.169502
+Done 2000 batches in 235.24s	training loss:	3.170446
+Done 2200 batches in 258.80s	training loss:	3.169703
+Done 2400 batches in 282.56s	training loss:	3.170203
+Done 2600 batches in 305.09s	training loss:	3.170032
+Done 2800 batches in 329.02s	training loss:	3.170781
+Done 3000 batches in 352.54s	training loss:	3.170910
+Done 3200 batches in 375.52s	training loss:	3.170159
+Done 3400 batches in 398.46s	training loss:	3.170763
+Done 3600 batches in 421.45s	training loss:	3.171070
+Done 3800 batches in 444.79s	training loss:	3.170836
+Done 4000 batches in 469.05s	training loss:	3.170969
+Done 4200 batches in 492.35s	training loss:	3.171143
+Done 4400 batches in 515.61s	training loss:	3.171097
+Done 4600 batches in 538.69s	training loss:	3.171784
+Done 4800 batches in 561.53s	training loss:	3.172017
+Done 5000 batches in 584.02s	training loss:	3.171710
+Done 5200 batches in 607.29s	training loss:	3.171708
+Done 5400 batches in 629.43s	training loss:	3.171880
+Done 5600 batches in 652.63s	training loss:	3.171929
+Done 5800 batches in 675.93s	training loss:	3.171965
+Done 6000 batches in 700.84s	training loss:	3.172164
+Done 6200 batches in 724.61s	training loss:	3.172174
+Done 6400 batches in 748.73s	training loss:	3.172223
+Done 6600 batches in 771.61s	training loss:	3.172310
+Done 6800 batches in 795.12s	training loss:	3.172300
+Done 7000 batches in 819.68s	training loss:	3.172210
+Done 7200 batches in 842.95s	training loss:	3.172042
+Done 7400 batches in 866.99s	training loss:	3.172336
+Done 7600 batches in 891.53s	training loss:	3.172382
+Done 7800 batches in 914.25s	training loss:	3.172592
+Done 8000 batches in 937.72s	training loss:	3.172727
+Done 8200 batches in 960.88s	training loss:	3.172690
+Done 8400 batches in 984.70s	training loss:	3.172532
+Done 8600 batches in 1009.13s	training loss:	3.172446
+Done 8800 batches in 1033.27s	training loss:	3.172519
+Done 9000 batches in 1057.06s	training loss:	3.172742
+Done 9200 batches in 1081.18s	training loss:	3.172821
+Done 9400 batches in 1104.50s	training loss:	3.172963
+Done 9600 batches in 1128.42s	training loss:	3.172986
+Done 9800 batches in 1152.72s	training loss:	3.172985
+Done 10000 batches in 1175.59s	training loss:	3.173055
+Done 10200 batches in 1198.93s	training loss:	3.172789
+Done 10400 batches in 1222.26s	training loss:	3.172944
+Done 10600 batches in 1245.21s	training loss:	3.172965
+Done 10800 batches in 1267.86s	training loss:	3.172885
+Done 11000 batches in 1291.37s	training loss:	3.172962
+Done 11200 batches in 1315.36s	training loss:	3.173006
+Done 11400 batches in 1338.91s	training loss:	3.173022
+Done 11600 batches in 1363.15s	training loss:	3.173205
+Done 11800 batches in 1386.79s	training loss:	3.173202
+Done 12000 batches in 1410.05s	training loss:	3.173297
+Done 12200 batches in 1433.11s	training loss:	3.173615
+Done 12400 batches in 1456.40s	training loss:	3.173759
+Done 12600 batches in 1480.01s	training loss:	3.173757
+Done 12800 batches in 1503.92s	training loss:	3.173653
+Done 13000 batches in 1527.80s	training loss:	3.173632
+Done 13200 batches in 1551.92s	training loss:	3.173634
+Done 13400 batches in 1575.91s	training loss:	3.173488
+Done 13600 batches in 1599.91s	training loss:	3.173677
+Done 13800 batches in 1623.09s	training loss:	3.173734
+Done 14000 batches in 1646.68s	training loss:	3.173660
+Done 14200 batches in 1670.65s	training loss:	3.173776
+Done 14400 batches in 1694.44s	training loss:	3.173700
+Done 14600 batches in 1718.24s	training loss:	3.173559
+Done 14800 batches in 1741.13s	training loss:	3.173523
+Done 15000 batches in 1764.98s	training loss:	3.173612
+Done 15200 batches in 1788.38s	training loss:	3.173704
+Done 15400 batches in 1812.02s	training loss:	3.173652
+Done 15600 batches in 1835.95s	training loss:	3.173646
+Done 15800 batches in 1859.00s	training loss:	3.173714
+Done 16000 batches in 1881.88s	training loss:	3.173955
+Done 16200 batches in 1906.21s	training loss:	3.174073
+Done 16400 batches in 1930.31s	training loss:	3.174179
+Done 16600 batches in 1953.85s	training loss:	3.174081
+Done 16800 batches in 1976.18s	training loss:	3.174072
+Done 17000 batches in 1999.60s	training loss:	3.174134
+Done 17200 batches in 2022.70s	training loss:	3.174235
+Done 17400 batches in 2044.53s	training loss:	3.174251
+Done 17600 batches in 2068.21s	training loss:	3.174280
+Done 17800 batches in 2091.40s	training loss:	3.174299
+Done 18000 batches in 2114.92s	training loss:	3.174264
+Done 18200 batches in 2139.32s	training loss:	3.174284
+Done 18400 batches in 2162.64s	training loss:	3.174217
+Done 18600 batches in 2185.23s	training loss:	3.174244
+Done 18800 batches in 2207.40s	training loss:	3.174221
+Done 19000 batches in 2230.23s	training loss:	3.174309
+Done 19200 batches in 2253.25s	training loss:	3.174357
+Done 19400 batches in 2277.80s	training loss:	3.174387
+Done 100 batches in 4.49s
+Done 200 batches in 9.18s
+Done 300 batches in 14.01s
+Done 400 batches in 18.30s
+Done 500 batches in 22.86s
+Done 600 batches in 27.24s
+Done 700 batches in 31.70s
+Done 800 batches in 36.08s
+Done 900 batches in 40.92s
+Done 1000 batches in 45.93s
+Done 1100 batches in 50.75s
+Done 1200 batches in 55.71s
+Done 1300 batches in 60.69s
+Done 1400 batches in 65.11s
+Done 1500 batches in 69.60s
+Done 1600 batches in 74.11s
+Done 1700 batches in 78.67s
+Done 1800 batches in 83.48s
+Done 1900 batches in 88.45s
+Done 2000 batches in 92.80s
+Done 2100 batches in 97.58s
+Done 2200 batches in 102.42s
+Done 2300 batches in 107.31s
+Done 2400 batches in 111.87s
+
+Training loss:   3.1744756255
+Validation loss: 3.30064826203
+
+Saving model...
+Done saving.
+
+
+Starting epoch 4...
+
+Done 200 batches in 23.22s	training loss:	3.141376
+Done 400 batches in 47.17s	training loss:	3.148958
+Done 600 batches in 71.05s	training loss:	3.148937
+Done 800 batches in 93.88s	training loss:	3.146956
+Done 1000 batches in 117.49s	training loss:	3.147544
+Done 1200 batches in 140.81s	training loss:	3.148529
+Done 1400 batches in 164.87s	training loss:	3.150662
+Done 1600 batches in 188.29s	training loss:	3.150161
+Done 1800 batches in 211.41s	training loss:	3.151829
+Done 2000 batches in 234.22s	training loss:	3.152701
+Done 2200 batches in 257.67s	training loss:	3.152327
+Done 2400 batches in 281.36s	training loss:	3.152861
+Done 2600 batches in 303.80s	training loss:	3.152771
+Done 2800 batches in 327.65s	training loss:	3.153707
+Done 3000 batches in 351.07s	training loss:	3.153971
+Done 3200 batches in 373.98s	training loss:	3.153089
+Done 3400 batches in 396.84s	training loss:	3.153757
+Done 3600 batches in 419.73s	training loss:	3.154177
+Done 3800 batches in 442.97s	training loss:	3.153925
+Done 4000 batches in 467.14s	training loss:	3.154104
+Done 4200 batches in 490.36s	training loss:	3.154187
+Done 4400 batches in 513.53s	training loss:	3.154167
+Done 4600 batches in 536.51s	training loss:	3.154916
+Done 4800 batches in 559.28s	training loss:	3.155167
+Done 5000 batches in 581.69s	training loss:	3.154986
+Done 5200 batches in 604.87s	training loss:	3.155074
+Done 5400 batches in 626.94s	training loss:	3.155095
+Done 5600 batches in 650.06s	training loss:	3.155163
+Done 5800 batches in 673.27s	training loss:	3.155196
+Done 6000 batches in 698.10s	training loss:	3.155414
+Done 6200 batches in 721.79s	training loss:	3.155434
+Done 6400 batches in 745.83s	training loss:	3.155552
+Done 6600 batches in 768.64s	training loss:	3.155594
+Done 6800 batches in 792.07s	training loss:	3.155593
+Done 7000 batches in 816.56s	training loss:	3.155540
+Done 7200 batches in 839.75s	training loss:	3.155408
+Done 7400 batches in 863.71s	training loss:	3.155660
+Done 7600 batches in 888.17s	training loss:	3.155786
+Done 7800 batches in 910.80s	training loss:	3.155958
+Done 8000 batches in 934.19s	training loss:	3.156045
+Done 8200 batches in 957.27s	training loss:	3.156037
+Done 8400 batches in 981.00s	training loss:	3.155991
+Done 8600 batches in 1005.33s	training loss:	3.155945
+Done 8800 batches in 1029.36s	training loss:	3.156109
+Done 9000 batches in 1053.04s	training loss:	3.156338
+Done 9200 batches in 1077.04s	training loss:	3.156512
+Done 9400 batches in 1100.25s	training loss:	3.156674
+Done 9600 batches in 1124.07s	training loss:	3.156772
+Done 9800 batches in 1148.27s	training loss:	3.156805
+Done 10000 batches in 1171.03s	training loss:	3.156904
+Done 10200 batches in 1194.26s	training loss:	3.156718
+Done 10400 batches in 1217.49s	training loss:	3.156760
+Done 10600 batches in 1241.06s	training loss:	3.156770
+Done 10800 batches in 1263.60s	training loss:	3.156644
+Done 11000 batches in 1287.00s	training loss:	3.156694
+Done 11200 batches in 1310.90s	training loss:	3.156692
+Done 11400 batches in 1334.34s	training loss:	3.156711
+Done 11600 batches in 1358.48s	training loss:	3.156881
+Done 11800 batches in 1382.02s	training loss:	3.156851
+Done 12000 batches in 1405.17s	training loss:	3.156970
+Done 12200 batches in 1428.12s	training loss:	3.157262
+Done 12400 batches in 1451.31s	training loss:	3.157432
+Done 12600 batches in 1474.82s	training loss:	3.157451
+Done 12800 batches in 1498.63s	training loss:	3.157361
+Done 13000 batches in 1522.40s	training loss:	3.157372
+Done 13200 batches in 1546.41s	training loss:	3.157362
+Done 13400 batches in 1570.30s	training loss:	3.157293
+Done 13600 batches in 1594.24s	training loss:	3.157443
+Done 13800 batches in 1617.35s	training loss:	3.157532
+Done 14000 batches in 1640.88s	training loss:	3.157479
+Done 14200 batches in 1664.78s	training loss:	3.157670
+Done 14400 batches in 1688.50s	training loss:	3.157658
+Done 14600 batches in 1712.24s	training loss:	3.157532
+Done 14800 batches in 1735.06s	training loss:	3.157513
+Done 15000 batches in 1758.84s	training loss:	3.157614
+Done 15200 batches in 1782.18s	training loss:	3.157689
+Done 15400 batches in 1805.75s	training loss:	3.157703
+Done 15600 batches in 1829.62s	training loss:	3.157685
+Done 15800 batches in 1852.60s	training loss:	3.157686
+Done 16000 batches in 1875.42s	training loss:	3.157900
+Done 16200 batches in 1899.68s	training loss:	3.158102
+Done 16400 batches in 1923.72s	training loss:	3.158213
+Done 16600 batches in 1947.19s	training loss:	3.158188
+Done 16800 batches in 1969.45s	training loss:	3.158141
+Done 17000 batches in 1992.79s	training loss:	3.158191
+Done 17200 batches in 2015.83s	training loss:	3.158283
+Done 17400 batches in 2037.59s	training loss:	3.158322
+Done 17600 batches in 2061.20s	training loss:	3.158387
+Done 17800 batches in 2084.35s	training loss:	3.158453
+Done 18000 batches in 2107.82s	training loss:	3.158428
+Done 18200 batches in 2132.16s	training loss:	3.158423
+Done 18400 batches in 2155.41s	training loss:	3.158410
+Done 18600 batches in 2177.95s	training loss:	3.158437
+Done 18800 batches in 2200.07s	training loss:	3.158438
+Done 19000 batches in 2222.84s	training loss:	3.158486
+Done 19200 batches in 2245.82s	training loss:	3.158576
+Done 19400 batches in 2270.30s	training loss:	3.158595
+Done 100 batches in 4.50s
+Done 200 batches in 9.19s
+Done 300 batches in 13.98s
+Done 400 batches in 18.24s
+Done 500 batches in 22.82s
+Done 600 batches in 27.18s
+Done 700 batches in 31.61s
+Done 800 batches in 35.97s
+Done 900 batches in 40.79s
+Done 1000 batches in 45.82s
+Done 1100 batches in 50.63s
+Done 1200 batches in 55.61s
+Done 1300 batches in 60.58s
+Done 1400 batches in 65.01s
+Done 1500 batches in 69.52s
+Done 1600 batches in 74.03s
+Done 1700 batches in 78.60s
+Done 1800 batches in 83.41s
+Done 1900 batches in 88.38s
+Done 2000 batches in 92.74s
+Done 2100 batches in 97.52s
+Done 2200 batches in 102.35s
+Done 2300 batches in 107.25s
+Done 2400 batches in 111.82s
+
+Training loss:   3.15873001294
+Validation loss: 3.29619368294
+
+Saving model...
+Done saving.
+
+
+Starting epoch 5...
+
+Done 200 batches in 23.25s	training loss:	3.129880
+Done 400 batches in 47.24s	training loss:	3.136969
+Done 600 batches in 71.16s	training loss:	3.138300
+Done 800 batches in 94.02s	training loss:	3.136496
+Done 1000 batches in 117.68s	training loss:	3.136395
+Done 1200 batches in 141.05s	training loss:	3.137402
+Done 1400 batches in 165.16s	training loss:	3.139677
+Done 1600 batches in 188.64s	training loss:	3.139158
+Done 1800 batches in 211.80s	training loss:	3.141209
+Done 2000 batches in 234.67s	training loss:	3.141801
+Done 2200 batches in 258.21s	training loss:	3.141174
+Done 2400 batches in 281.94s	training loss:	3.141681
+Done 2600 batches in 304.43s	training loss:	3.141371
+Done 2800 batches in 328.30s	training loss:	3.142030
+Done 3000 batches in 351.76s	training loss:	3.142209
+Done 3200 batches in 374.70s	training loss:	3.141630
+Done 3400 batches in 397.61s	training loss:	3.142305
+Done 3600 batches in 420.55s	training loss:	3.142653
+Done 3800 batches in 443.84s	training loss:	3.142453
+Done 4000 batches in 468.06s	training loss:	3.142557
+Done 4200 batches in 491.32s	training loss:	3.142541
+Done 4400 batches in 514.52s	training loss:	3.142277
+Done 4600 batches in 537.55s	training loss:	3.142926
+Done 4800 batches in 560.35s	training loss:	3.143061
+Done 5000 batches in 582.80s	training loss:	3.142622
+Done 5200 batches in 606.01s	training loss:	3.142700
+Done 5400 batches in 628.12s	training loss:	3.142765
+Done 5600 batches in 651.27s	training loss:	3.142808
+Done 5800 batches in 674.51s	training loss:	3.142881
+Done 6000 batches in 699.38s	training loss:	3.142995
+Done 6200 batches in 723.11s	training loss:	3.143101
+Done 6400 batches in 747.19s	training loss:	3.143057
+Done 6600 batches in 770.02s	training loss:	3.143259
+Done 6800 batches in 793.49s	training loss:	3.143238
+Done 7000 batches in 818.01s	training loss:	3.143260
+Done 7200 batches in 841.23s	training loss:	3.143177
+Done 7400 batches in 865.22s	training loss:	3.143428
+Done 7600 batches in 889.71s	training loss:	3.143520
+Done 7800 batches in 912.38s	training loss:	3.143674
+Done 8000 batches in 935.77s	training loss:	3.143787
+Done 8200 batches in 958.85s	training loss:	3.143677
+Done 8400 batches in 982.60s	training loss:	3.143589
+Done 8600 batches in 1006.97s	training loss:	3.143536
+Done 8800 batches in 1031.03s	training loss:	3.143683
+Done 9000 batches in 1054.76s	training loss:	3.143998
+Done 9200 batches in 1078.80s	training loss:	3.144077
+Done 9400 batches in 1102.04s	training loss:	3.144160
+Done 9600 batches in 1125.90s	training loss:	3.144286
+Done 9800 batches in 1150.13s	training loss:	3.144295
+Done 10000 batches in 1172.93s	training loss:	3.144362
+Done 10200 batches in 1196.19s	training loss:	3.144230
+Done 10400 batches in 1219.45s	training loss:	3.144354
+Done 10600 batches in 1242.32s	training loss:	3.144394
+Done 10800 batches in 1264.92s	training loss:	3.144309
+Done 11000 batches in 1288.35s	training loss:	3.144453
+Done 11200 batches in 1312.28s	training loss:	3.144488
+Done 11400 batches in 1335.76s	training loss:	3.144536
+Done 11600 batches in 1359.93s	training loss:	3.144753
+Done 11800 batches in 1383.50s	training loss:	3.144826
+Done 12000 batches in 1406.69s	training loss:	3.144863
+Done 12200 batches in 1429.67s	training loss:	3.145170
+Done 12400 batches in 1452.90s	training loss:	3.145341
+Done 12600 batches in 1476.43s	training loss:	3.145321
+Done 12800 batches in 1500.27s	training loss:	3.145298
+Done 13000 batches in 1524.09s	training loss:	3.145306
+Done 13200 batches in 1548.12s	training loss:	3.145323
+Done 13400 batches in 1572.05s	training loss:	3.145263
+Done 13600 batches in 1596.00s	training loss:	3.145470
+Done 13800 batches in 1619.11s	training loss:	3.145546
+Done 14000 batches in 1642.65s	training loss:	3.145541
+Done 14200 batches in 1666.56s	training loss:	3.145679
+Done 14400 batches in 1690.28s	training loss:	3.145593
+Done 14600 batches in 1714.03s	training loss:	3.145476
+Done 14800 batches in 1736.85s	training loss:	3.145506
+Done 15000 batches in 1760.64s	training loss:	3.145593
+Done 15200 batches in 1783.97s	training loss:	3.145700
+Done 15400 batches in 1807.54s	training loss:	3.145662
+Done 15600 batches in 1831.41s	training loss:	3.145673
+Done 15800 batches in 1854.38s	training loss:	3.145707
+Done 16000 batches in 1877.19s	training loss:	3.145901
+Done 16200 batches in 1901.46s	training loss:	3.146067
+Done 16400 batches in 1925.49s	training loss:	3.146148
+Done 16600 batches in 1948.96s	training loss:	3.146081
+Done 16800 batches in 1971.21s	training loss:	3.146057
+Done 17000 batches in 1994.55s	training loss:	3.146088
+Done 17200 batches in 2017.58s	training loss:	3.146212
+Done 17400 batches in 2039.34s	training loss:	3.146260
+Done 17600 batches in 2062.95s	training loss:	3.146347
+Done 17800 batches in 2086.13s	training loss:	3.146407
+Done 18000 batches in 2109.63s	training loss:	3.146344
+Done 18200 batches in 2133.99s	training loss:	3.146369
+Done 18400 batches in 2157.28s	training loss:	3.146339
+Done 18600 batches in 2179.85s	training loss:	3.146374
+Done 18800 batches in 2201.99s	training loss:	3.146390
+Done 19000 batches in 2224.79s	training loss:	3.146472
+Done 19200 batches in 2247.79s	training loss:	3.146594
+Done 19400 batches in 2272.30s	training loss:	3.146640
+Done 100 batches in 4.49s
+Done 200 batches in 9.18s
+Done 300 batches in 13.96s
+Done 400 batches in 18.21s
+Done 500 batches in 22.79s
+Done 600 batches in 27.16s
+Done 700 batches in 31.59s
+Done 800 batches in 35.94s
+Done 900 batches in 40.77s
+Done 1000 batches in 45.79s
+Done 1100 batches in 50.59s
+Done 1200 batches in 55.55s
+Done 1300 batches in 60.52s
+Done 1400 batches in 64.94s
+Done 1500 batches in 69.43s
+Done 1600 batches in 73.93s
+Done 1700 batches in 78.49s
+Done 1800 batches in 83.28s
+Done 1900 batches in 88.24s
+Done 2000 batches in 92.59s
+Done 2100 batches in 97.36s
+Done 2200 batches in 102.20s
+Done 2300 batches in 107.08s
+Done 2400 batches in 111.64s
+
+Training loss:   3.1467736798
+Validation loss: 3.29575433684
+
+Saving model...
+Done saving.
+
+
+Starting epoch 6...
+
+Done 200 batches in 23.23s	training loss:	3.125329
+Done 400 batches in 47.21s	training loss:	3.131142
+Done 600 batches in 71.10s	training loss:	3.131497
+Done 800 batches in 93.94s	training loss:	3.128213
+Done 1000 batches in 117.58s	training loss:	3.128704
+Done 1200 batches in 140.92s	training loss:	3.129463
+Done 1400 batches in 165.00s	training loss:	3.132112
+Done 1600 batches in 188.45s	training loss:	3.131148
+Done 1800 batches in 211.59s	training loss:	3.132775
+Done 2000 batches in 234.44s	training loss:	3.133207
+Done 2200 batches in 257.92s	training loss:	3.132298
+Done 2400 batches in 281.60s	training loss:	3.132805
+Done 2600 batches in 304.04s	training loss:	3.132322
+Done 2800 batches in 327.90s	training loss:	3.132697
+Done 3000 batches in 351.33s	training loss:	3.132920
+Done 3200 batches in 374.24s	training loss:	3.131968
+Done 3400 batches in 397.10s	training loss:	3.132666
+Done 3600 batches in 420.01s	training loss:	3.133038
+Done 3800 batches in 443.26s	training loss:	3.132654
+Done 4000 batches in 467.44s	training loss:	3.132764
+Done 4200 batches in 490.67s	training loss:	3.132933
+Done 4400 batches in 513.85s	training loss:	3.132847
+Done 4600 batches in 536.84s	training loss:	3.133467
+Done 4800 batches in 559.61s	training loss:	3.133670
+Done 5000 batches in 582.03s	training loss:	3.133436
+Done 5200 batches in 605.22s	training loss:	3.133584
+Done 5400 batches in 627.31s	training loss:	3.133603
+Done 5600 batches in 650.45s	training loss:	3.133574
+Done 5800 batches in 673.68s	training loss:	3.133619
+Done 6000 batches in 698.54s	training loss:	3.133805
+Done 6200 batches in 722.24s	training loss:	3.133836
+Done 6400 batches in 746.31s	training loss:	3.133926
+Done 6600 batches in 769.13s	training loss:	3.134040
+Done 6800 batches in 792.59s	training loss:	3.134062
+Done 7000 batches in 817.09s	training loss:	3.134071
+Done 7200 batches in 840.29s	training loss:	3.133890
+Done 7400 batches in 864.26s	training loss:	3.134094
+Done 7600 batches in 888.73s	training loss:	3.134088
+Done 7800 batches in 911.37s	training loss:	3.134309
+Done 8000 batches in 934.78s	training loss:	3.134353
+Done 8200 batches in 957.86s	training loss:	3.134243
+Done 8400 batches in 981.61s	training loss:	3.134175
+Done 8600 batches in 1005.99s	training loss:	3.134151
+Done 8800 batches in 1030.06s	training loss:	3.134177
+Done 9000 batches in 1053.79s	training loss:	3.134489
+Done 9200 batches in 1077.83s	training loss:	3.134568
+Done 9400 batches in 1101.08s	training loss:	3.134627
+Done 9600 batches in 1124.93s	training loss:	3.134698
+Done 9800 batches in 1149.17s	training loss:	3.134723
+Done 10000 batches in 1171.97s	training loss:	3.134802
+Done 10200 batches in 1195.24s	training loss:	3.134641
+Done 10400 batches in 1218.51s	training loss:	3.134695
+Done 10600 batches in 1241.39s	training loss:	3.134771
+Done 10800 batches in 1263.97s	training loss:	3.134633
+Done 11000 batches in 1287.41s	training loss:	3.134817
+Done 11200 batches in 1311.34s	training loss:	3.134828
+Done 11400 batches in 1334.83s	training loss:	3.134857
+Done 11600 batches in 1359.00s	training loss:	3.135047
+Done 11800 batches in 1382.58s	training loss:	3.135062
+Done 12000 batches in 1405.78s	training loss:	3.135198
+Done 12200 batches in 1428.77s	training loss:	3.135487
+Done 12400 batches in 1452.00s	training loss:	3.135636
+Done 12600 batches in 1475.55s	training loss:	3.135576
+Done 12800 batches in 1499.40s	training loss:	3.135567
+Done 13000 batches in 1523.22s	training loss:	3.135661
+Done 13200 batches in 1547.26s	training loss:	3.135681
+Done 13400 batches in 1571.19s	training loss:	3.135564
+Done 13600 batches in 1595.14s	training loss:	3.135731
+Done 13800 batches in 1618.25s	training loss:	3.135841
+Done 14000 batches in 1641.78s	training loss:	3.135845
+Done 14200 batches in 1665.68s	training loss:	3.136005
+Done 14400 batches in 1689.40s	training loss:	3.135917
+Done 14600 batches in 1713.14s	training loss:	3.135804
+Done 14800 batches in 1735.96s	training loss:	3.135804
+Done 15000 batches in 1759.74s	training loss:	3.135884
+Done 15200 batches in 1783.08s	training loss:	3.135956
+Done 15400 batches in 1806.66s	training loss:	3.135951
+Done 15600 batches in 1830.53s	training loss:	3.135915
+Done 15800 batches in 1853.51s	training loss:	3.135985
+Done 16000 batches in 1876.33s	training loss:	3.136222
+Done 16200 batches in 1900.60s	training loss:	3.136423
+Done 16400 batches in 1924.64s	training loss:	3.136484
+Done 16600 batches in 1948.12s	training loss:	3.136428
+Done 16800 batches in 1970.38s	training loss:	3.136418
+Done 17000 batches in 1993.73s	training loss:	3.136503
+Done 17200 batches in 2016.77s	training loss:	3.136634
+Done 17400 batches in 2038.53s	training loss:	3.136697
+Done 17600 batches in 2062.15s	training loss:	3.136783
+Done 17800 batches in 2085.30s	training loss:	3.136817
+Done 18000 batches in 2108.79s	training loss:	3.136811
+Done 18200 batches in 2133.15s	training loss:	3.136876
+Done 18400 batches in 2156.43s	training loss:	3.136802
+Done 18600 batches in 2178.99s	training loss:	3.136901
+Done 18800 batches in 2201.14s	training loss:	3.136930
+Done 19000 batches in 2223.93s	training loss:	3.137012
+Done 19200 batches in 2246.93s	training loss:	3.137133
+Done 19400 batches in 2271.45s	training loss:	3.137175
+Done 100 batches in 4.48s
+Done 200 batches in 9.15s
+Done 300 batches in 13.91s
+Done 400 batches in 18.14s
+Done 500 batches in 22.67s
+Done 600 batches in 27.02s
+Done 700 batches in 31.46s
+Done 800 batches in 35.80s
+Done 900 batches in 40.61s
+Done 1000 batches in 45.65s
+Done 1100 batches in 50.45s
+Done 1200 batches in 55.39s
+Done 1300 batches in 60.34s
+Done 1400 batches in 64.74s
+Done 1500 batches in 69.22s
+Done 1600 batches in 73.71s
+Done 1700 batches in 79.03s
+Done 1800 batches in 83.78s
+Done 1900 batches in 88.72s
+Done 2000 batches in 93.05s
+Done 2100 batches in 97.83s
+Done 2200 batches in 102.66s
+Done 2300 batches in 107.53s
+Done 2400 batches in 112.07s
+
+Training loss:   3.13732144146
+Validation loss: 3.29552178424
+
+Saving model...
+Done saving.
+
+
+Starting epoch 7...
+
+Done 200 batches in 23.19s	training loss:	3.116336
+Done 400 batches in 47.13s	training loss:	3.122351
+Done 600 batches in 70.99s	training loss:	3.121701
+Done 800 batches in 93.79s	training loss:	3.119717
+Done 1000 batches in 117.39s	training loss:	3.119716
+Done 1200 batches in 140.70s	training loss:	3.120818
+Done 1400 batches in 164.76s	training loss:	3.122973
+Done 1600 batches in 188.18s	training loss:	3.122630
+Done 1800 batches in 211.29s	training loss:	3.124463
+Done 2000 batches in 234.10s	training loss:	3.124875
+Done 2200 batches in 257.55s	training loss:	3.124073
+Done 2400 batches in 281.20s	training loss:	3.124536
+Done 2600 batches in 303.61s	training loss:	3.123924
+Done 2800 batches in 327.43s	training loss:	3.124467
+Done 3000 batches in 350.82s	training loss:	3.124864
+Done 3200 batches in 373.69s	training loss:	3.123804
+Done 3400 batches in 396.52s	training loss:	3.124459
+Done 3600 batches in 419.40s	training loss:	3.124977
+Done 3800 batches in 442.62s	training loss:	3.124842
+Done 4000 batches in 466.77s	training loss:	3.124959
+Done 4200 batches in 489.96s	training loss:	3.124954
+Done 4400 batches in 513.10s	training loss:	3.124893
+Done 4600 batches in 536.06s	training loss:	3.125637
+Done 4800 batches in 558.82s	training loss:	3.125751
+Done 5000 batches in 581.24s	training loss:	3.125358
+Done 5200 batches in 604.43s	training loss:	3.125426
+Done 5400 batches in 626.51s	training loss:	3.125292
+Done 5600 batches in 649.63s	training loss:	3.125251
+Done 5800 batches in 672.85s	training loss:	3.125278
+Done 6000 batches in 697.70s	training loss:	3.125490
+Done 6200 batches in 721.39s	training loss:	3.125571
+Done 6400 batches in 745.45s	training loss:	3.125594
+Done 6600 batches in 768.26s	training loss:	3.125643
+Done 6800 batches in 791.71s	training loss:	3.125617
+Done 7000 batches in 816.21s	training loss:	3.125527
+Done 7200 batches in 839.41s	training loss:	3.125301
+Done 7400 batches in 863.37s	training loss:	3.125484
+Done 7600 batches in 887.84s	training loss:	3.125527
+Done 7800 batches in 910.49s	training loss:	3.125739
+Done 8000 batches in 933.89s	training loss:	3.125830
+Done 8200 batches in 956.98s	training loss:	3.125777
+Done 8400 batches in 980.73s	training loss:	3.125732
+Done 8600 batches in 1005.11s	training loss:	3.125648
+Done 8800 batches in 1029.18s	training loss:	3.125849
+Done 9000 batches in 1052.92s	training loss:	3.126020
+Done 9200 batches in 1076.96s	training loss:	3.126055
+Done 9400 batches in 1100.22s	training loss:	3.126106
+Done 9600 batches in 1124.08s	training loss:	3.126217
+Done 9800 batches in 1148.32s	training loss:	3.126262
+Done 10000 batches in 1171.12s	training loss:	3.126329
+Done 10200 batches in 1194.39s	training loss:	3.126118
+Done 10400 batches in 1217.66s	training loss:	3.126256
+Done 10600 batches in 1240.54s	training loss:	3.126320
+Done 10800 batches in 1263.13s	training loss:	3.126152
+Done 11000 batches in 1286.56s	training loss:	3.126273
+Done 11200 batches in 1310.51s	training loss:	3.126294
+Done 11400 batches in 1333.99s	training loss:	3.126299
+Done 11600 batches in 1358.17s	training loss:	3.126453
+Done 11800 batches in 1381.75s	training loss:	3.126560
+Done 12000 batches in 1404.95s	training loss:	3.126659
+Done 12200 batches in 1427.95s	training loss:	3.126974
+Done 12400 batches in 1451.18s	training loss:	3.127099
+Done 12600 batches in 1474.73s	training loss:	3.127120
+Done 12800 batches in 1498.57s	training loss:	3.127041
+Done 13000 batches in 1522.41s	training loss:	3.127090
+Done 13200 batches in 1546.48s	training loss:	3.127101
+Done 13400 batches in 1570.41s	training loss:	3.126985
+Done 13600 batches in 1594.35s	training loss:	3.127122
+Done 13800 batches in 1617.46s	training loss:	3.127274
+Done 14000 batches in 1640.99s	training loss:	3.127240
+Done 14200 batches in 1664.88s	training loss:	3.127408
+Done 14400 batches in 1688.61s	training loss:	3.127375
+Done 14600 batches in 1712.34s	training loss:	3.127201
+Done 14800 batches in 1735.16s	training loss:	3.127214
+Done 15000 batches in 1758.94s	training loss:	3.127256
+Done 15200 batches in 1782.27s	training loss:	3.127351
+Done 15400 batches in 1805.83s	training loss:	3.127402
+Done 15600 batches in 1829.68s	training loss:	3.127413
+Done 15800 batches in 1852.65s	training loss:	3.127468
+Done 16000 batches in 1875.44s	training loss:	3.127681
+Done 16200 batches in 1899.69s	training loss:	3.127855
+Done 16400 batches in 1923.70s	training loss:	3.127943
+Done 16600 batches in 1947.15s	training loss:	3.127908
+Done 16800 batches in 1969.39s	training loss:	3.127920
+Done 17000 batches in 1992.71s	training loss:	3.127999
+Done 17200 batches in 2015.72s	training loss:	3.128103
+Done 17400 batches in 2037.46s	training loss:	3.128168
+Done 17600 batches in 2061.05s	training loss:	3.128237
+Done 17800 batches in 2084.17s	training loss:	3.128271
+Done 18000 batches in 2107.62s	training loss:	3.128246
+Done 18200 batches in 2131.93s	training loss:	3.128287
+Done 18400 batches in 2155.18s	training loss:	3.128219
+Done 18600 batches in 2177.72s	training loss:	3.128217
+Done 18800 batches in 2199.85s	training loss:	3.128268
+Done 19000 batches in 2222.62s	training loss:	3.128321
+Done 19200 batches in 2245.60s	training loss:	3.128451
+Done 19400 batches in 2270.09s	training loss:	3.128488
+Done 100 batches in 4.52s
+Done 200 batches in 9.22s
+Done 300 batches in 14.03s
+Done 400 batches in 18.29s
+Done 500 batches in 22.84s
+Done 600 batches in 27.19s
+Done 700 batches in 31.63s
+Done 800 batches in 36.00s
+Done 900 batches in 40.83s
+Done 1000 batches in 45.83s
+Done 1100 batches in 50.63s
+Done 1200 batches in 55.59s
+Done 1300 batches in 60.57s
+Done 1400 batches in 65.00s
+Done 1500 batches in 69.50s
+Done 1600 batches in 74.03s
+Done 1700 batches in 78.61s
+Done 1800 batches in 83.43s
+Done 1900 batches in 88.41s
+Done 2000 batches in 92.78s
+Done 2100 batches in 97.57s
+Done 2200 batches in 102.44s
+Done 2300 batches in 107.34s
+Done 2400 batches in 111.91s
+
+Training loss:   3.12861932613
+Validation loss: 3.29617315046
+
+
+Starting epoch 8...
+
+Done 200 batches in 23.25s	training loss:	3.110098
+Done 400 batches in 47.26s	training loss:	3.115829
+Done 600 batches in 71.20s	training loss:	3.115399
+Done 800 batches in 94.07s	training loss:	3.112774
+Done 1000 batches in 117.74s	training loss:	3.113284
+Done 1200 batches in 141.12s	training loss:	3.113885
+Done 1400 batches in 165.25s	training loss:	3.115852
+Done 1600 batches in 188.74s	training loss:	3.114869
+Done 1800 batches in 211.92s	training loss:	3.116825
+Done 2000 batches in 234.80s	training loss:	3.117348
+Done 2200 batches in 258.32s	training loss:	3.116840
+Done 2400 batches in 282.04s	training loss:	3.117249
+Done 2600 batches in 304.52s	training loss:	3.116693
+Done 2800 batches in 328.41s	training loss:	3.117367
+Done 3000 batches in 351.88s	training loss:	3.117579
+Done 3200 batches in 374.82s	training loss:	3.116766
+Done 3400 batches in 397.73s	training loss:	3.117342
+Done 3600 batches in 420.67s	training loss:	3.117595
+Done 3800 batches in 443.95s	training loss:	3.117205
+Done 4000 batches in 468.17s	training loss:	3.117356
+Done 4200 batches in 491.44s	training loss:	3.117469
+Done 4400 batches in 514.65s	training loss:	3.117567
+Done 4600 batches in 537.69s	training loss:	3.118355
+Done 4800 batches in 560.49s	training loss:	3.118496
+Done 5000 batches in 582.94s	training loss:	3.118161
+Done 5200 batches in 606.17s	training loss:	3.118247
+Done 5400 batches in 628.28s	training loss:	3.118163
+Done 5600 batches in 651.44s	training loss:	3.118135
+Done 5800 batches in 674.70s	training loss:	3.118253
+Done 6000 batches in 699.58s	training loss:	3.118388
+Done 6200 batches in 723.32s	training loss:	3.118389
+Done 6400 batches in 747.42s	training loss:	3.118541
+Done 6600 batches in 770.27s	training loss:	3.118704
+Done 6800 batches in 793.75s	training loss:	3.118729
+Done 7000 batches in 818.28s	training loss:	3.118630
+Done 7200 batches in 841.52s	training loss:	3.118410
+Done 7400 batches in 865.53s	training loss:	3.118686
+Done 7600 batches in 890.04s	training loss:	3.118696
+Done 7800 batches in 912.72s	training loss:	3.118915
+Done 8000 batches in 936.16s	training loss:	3.118970
+Done 8200 batches in 959.28s	training loss:	3.118945
+Done 8400 batches in 983.07s	training loss:	3.118855
+Done 8600 batches in 1007.49s	training loss:	3.118711
+Done 8800 batches in 1031.60s	training loss:	3.118793
+Done 9000 batches in 1055.37s	training loss:	3.118904
+Done 9200 batches in 1079.46s	training loss:	3.118986
+Done 9400 batches in 1102.76s	training loss:	3.119132
+Done 9600 batches in 1126.65s	training loss:	3.119262
+Done 9800 batches in 1150.94s	training loss:	3.119285
+Done 10000 batches in 1173.80s	training loss:	3.119336
+Done 10200 batches in 1197.14s	training loss:	3.119165
+Done 10400 batches in 1220.48s	training loss:	3.119270
+Done 10600 batches in 1243.42s	training loss:	3.119342
+Done 10800 batches in 1266.07s	training loss:	3.119277
+Done 11000 batches in 1289.57s	training loss:	3.119446
+Done 11200 batches in 1313.57s	training loss:	3.119487
+Done 11400 batches in 1337.12s	training loss:	3.119474
+Done 11600 batches in 1361.35s	training loss:	3.119700
+Done 11800 batches in 1384.99s	training loss:	3.119681
+Done 12000 batches in 1408.25s	training loss:	3.119759
+Done 12200 batches in 1431.31s	training loss:	3.119991
+Done 12400 batches in 1454.59s	training loss:	3.120119
+Done 12600 batches in 1478.19s	training loss:	3.120107
+Done 12800 batches in 1502.09s	training loss:	3.120065
+Done 13000 batches in 1525.95s	training loss:	3.120136
+Done 13200 batches in 1550.04s	training loss:	3.120146
+Done 13400 batches in 1574.01s	training loss:	3.120061
+Done 13600 batches in 1597.99s	training loss:	3.120198
+Done 13800 batches in 1621.14s	training loss:	3.120323
+Done 14000 batches in 1644.71s	training loss:	3.120281
+Done 14200 batches in 1668.65s	training loss:	3.120466
+Done 14400 batches in 1692.40s	training loss:	3.120461
+Done 14600 batches in 1716.18s	training loss:	3.120300
+Done 14800 batches in 1739.05s	training loss:	3.120260
+Done 15000 batches in 1762.87s	training loss:	3.120352
+Done 15200 batches in 1786.25s	training loss:	3.120437
+Done 15400 batches in 1809.86s	training loss:	3.120412
+Done 15600 batches in 1833.77s	training loss:	3.120363
+Done 15800 batches in 1856.80s	training loss:	3.120418
+Done 16000 batches in 1879.65s	training loss:	3.120626
+Done 16200 batches in 1903.96s	training loss:	3.120792
+Done 16400 batches in 1928.04s	training loss:	3.120919
+Done 16600 batches in 1951.56s	training loss:	3.120875
+Done 16800 batches in 1973.86s	training loss:	3.120936
+Done 17000 batches in 1997.25s	training loss:	3.120998
+Done 17200 batches in 2020.33s	training loss:	3.121143
+Done 17400 batches in 2042.13s	training loss:	3.121210
+Done 17600 batches in 2065.79s	training loss:	3.121322
+Done 17800 batches in 2088.97s	training loss:	3.121365
+Done 18000 batches in 2112.50s	training loss:	3.121336
+Done 18200 batches in 2136.88s	training loss:	3.121413
+Done 18400 batches in 2160.19s	training loss:	3.121353
+Done 18600 batches in 2182.76s	training loss:	3.121395
+Done 18800 batches in 2204.93s	training loss:	3.121413
+Done 19000 batches in 2227.74s	training loss:	3.121511
+Done 19200 batches in 2250.76s	training loss:	3.121614
+Done 19400 batches in 2275.29s	training loss:	3.121671
+Done 100 batches in 4.51s
+Done 200 batches in 9.22s
+Done 300 batches in 14.02s
+Done 400 batches in 18.28s
+Done 500 batches in 22.85s
+Done 600 batches in 27.23s
+Done 700 batches in 31.68s
+Done 800 batches in 36.05s
+Done 900 batches in 40.89s
+Done 1000 batches in 45.89s
+Done 1100 batches in 50.68s
+Done 1200 batches in 55.66s
+Done 1300 batches in 60.65s
+Done 1400 batches in 65.06s
+Done 1500 batches in 69.55s
+Done 1600 batches in 74.07s
+Done 1700 batches in 78.65s
+Done 1800 batches in 83.46s
+Done 1900 batches in 88.44s
+Done 2000 batches in 92.78s
+Done 2100 batches in 97.58s
+Done 2200 batches in 102.44s
+Done 2300 batches in 107.34s
+Done 2400 batches in 111.92s
+
+Training loss:   3.12182129175
+Validation loss: 3.29649151831
+
+
+Starting epoch 9...
+
+Done 200 batches in 23.22s	training loss:	3.107333
+Done 400 batches in 47.21s	training loss:	3.112404
+Done 600 batches in 71.11s	training loss:	3.111153
+Done 800 batches in 93.96s	training loss:	3.107954
+Done 1000 batches in 117.60s	training loss:	3.107883
+Done 1200 batches in 140.96s	training loss:	3.109306
+Done 1400 batches in 165.05s	training loss:	3.111180
+Done 1600 batches in 188.52s	training loss:	3.110213
+Done 1800 batches in 211.67s	training loss:	3.111853
+Done 2000 batches in 234.52s	training loss:	3.112312
+Done 2200 batches in 258.02s	training loss:	3.111598
+Done 2400 batches in 281.71s	training loss:	3.111918
+Done 2600 batches in 304.17s	training loss:	3.111454
+Done 2800 batches in 328.03s	training loss:	3.112025
+Done 3000 batches in 351.47s	training loss:	3.112104
+Done 3200 batches in 374.39s	training loss:	3.111257
+Done 3400 batches in 397.27s	training loss:	3.111701
+Done 3600 batches in 420.18s	training loss:	3.111989
+Done 3800 batches in 443.45s	training loss:	3.111585
+Done 4000 batches in 467.65s	training loss:	3.111533
+Done 4200 batches in 490.88s	training loss:	3.111570
+Done 4400 batches in 514.06s	training loss:	3.111333
+Done 4600 batches in 537.07s	training loss:	3.112068
+Done 4800 batches in 559.84s	training loss:	3.112301
+Done 5000 batches in 582.27s	training loss:	3.111749
+Done 5200 batches in 605.46s	training loss:	3.111946
+Done 5400 batches in 627.55s	training loss:	3.111811
+Done 5600 batches in 650.68s	training loss:	3.111792
+Done 5800 batches in 673.90s	training loss:	3.111791
+Done 6000 batches in 698.75s	training loss:	3.111887
+Done 6200 batches in 722.45s	training loss:	3.111976
+Done 6400 batches in 746.51s	training loss:	3.111949
+Done 6600 batches in 769.33s	training loss:	3.112045
+Done 6800 batches in 792.78s	training loss:	3.112139
+Done 7000 batches in 817.28s	training loss:	3.111982
+Done 7200 batches in 840.48s	training loss:	3.111822
+Done 7400 batches in 864.45s	training loss:	3.112089
+Done 7600 batches in 888.93s	training loss:	3.112041
+Done 7800 batches in 911.58s	training loss:	3.112262
+Done 8000 batches in 934.98s	training loss:	3.112248
+Done 8200 batches in 958.07s	training loss:	3.112142
+Done 8400 batches in 981.83s	training loss:	3.112063
+Done 8600 batches in 1006.25s	training loss:	3.112002
+Done 8800 batches in 1030.35s	training loss:	3.112117
+Done 9000 batches in 1054.13s	training loss:	3.112423
+Done 9200 batches in 1078.22s	training loss:	3.112551
+Done 9400 batches in 1101.51s	training loss:	3.112643
+Done 9600 batches in 1125.40s	training loss:	3.112736
+Done 9800 batches in 1149.68s	training loss:	3.112772
+Done 10000 batches in 1172.52s	training loss:	3.112821
+Done 10200 batches in 1195.82s	training loss:	3.112650
+Done 10400 batches in 1219.13s	training loss:	3.112706
+Done 10600 batches in 1242.05s	training loss:	3.112777
+Done 10800 batches in 1264.68s	training loss:	3.112659
+Done 11000 batches in 1288.16s	training loss:	3.112768
+Done 11200 batches in 1312.14s	training loss:	3.112781
+Done 11400 batches in 1335.66s	training loss:	3.112818
+Done 11600 batches in 1359.87s	training loss:	3.112989
+Done 11800 batches in 1383.48s	training loss:	3.113088
+Done 12000 batches in 1406.70s	training loss:	3.113128
+Done 12200 batches in 1429.72s	training loss:	3.113398
+Done 12400 batches in 1452.98s	training loss:	3.113548
+Done 12600 batches in 1476.55s	training loss:	3.113564
+Done 12800 batches in 1500.42s	training loss:	3.113435
+Done 13000 batches in 1524.26s	training loss:	3.113483
+Done 13200 batches in 1548.32s	training loss:	3.113521
+Done 13400 batches in 1572.26s	training loss:	3.113474
+Done 13600 batches in 1596.22s	training loss:	3.113647
+Done 13800 batches in 1619.35s	training loss:	3.113792
+Done 14000 batches in 1642.89s	training loss:	3.113771
+Done 14200 batches in 1666.81s	training loss:	3.113963
+Done 14400 batches in 1690.55s	training loss:	3.113939
+Done 14600 batches in 1714.31s	training loss:	3.113817
+Done 14800 batches in 1737.14s	training loss:	3.113840
+Done 15000 batches in 1760.93s	training loss:	3.113910
+Done 15200 batches in 1784.29s	training loss:	3.114005
+Done 15400 batches in 1807.87s	training loss:	3.113988
+Done 15600 batches in 1831.75s	training loss:	3.113964
+Done 15800 batches in 1854.75s	training loss:	3.113998
+Done 16000 batches in 1877.58s	training loss:	3.114193
+Done 16200 batches in 1901.86s	training loss:	3.114355
+Done 16400 batches in 1925.91s	training loss:	3.114425
+Done 16600 batches in 1949.39s	training loss:	3.114365
+Done 16800 batches in 1971.67s	training loss:	3.114351
+Done 17000 batches in 1995.03s	training loss:	3.114423
+Done 17200 batches in 2018.08s	training loss:	3.114530
+Done 17400 batches in 2039.86s	training loss:	3.114585
+Done 17600 batches in 2063.49s	training loss:	3.114719
+Done 17800 batches in 2086.65s	training loss:	3.114775
+Done 18000 batches in 2110.15s	training loss:	3.114779
+Done 18200 batches in 2134.50s	training loss:	3.114841
+Done 18400 batches in 2157.78s	training loss:	3.114797
+Done 18600 batches in 2180.33s	training loss:	3.114846
+Done 18800 batches in 2202.46s	training loss:	3.114866
+Done 19000 batches in 2225.24s	training loss:	3.114921
+Done 19200 batches in 2248.23s	training loss:	3.115066
+Done 19400 batches in 2272.73s	training loss:	3.115102
+Done 100 batches in 4.50s
+Done 200 batches in 9.20s
+Done 300 batches in 14.00s
+Done 400 batches in 18.25s
+Done 500 batches in 22.81s
+Done 600 batches in 27.18s
+Done 700 batches in 31.62s
+Done 800 batches in 35.98s
+Done 900 batches in 40.81s
+Done 1000 batches in 45.84s
+Done 1100 batches in 50.66s
+Done 1200 batches in 55.63s
+Done 1300 batches in 60.60s
+Done 1400 batches in 65.01s
+Done 1500 batches in 69.50s
+Done 1600 batches in 74.02s
+Done 1700 batches in 78.60s
+Done 1800 batches in 83.41s
+Done 1900 batches in 88.38s
+Done 2000 batches in 92.77s
+Done 2100 batches in 97.58s
+Done 2200 batches in 102.44s
+Done 2300 batches in 107.34s
+Done 2400 batches in 111.91s
+
+Training loss:   3.11520992964
+Validation loss: 3.29677843964
+Done 100 batches in 4.44s
+Done 200 batches in 9.25s
+Done 300 batches in 14.00s
+Done 400 batches in 19.05s
+Done 500 batches in 23.38s
+Done 600 batches in 28.18s
+Done 700 batches in 33.06s
+Done 800 batches in 37.79s
+Done 900 batches in 42.59s
+Done 1000 batches in 47.46s
+Done 1100 batches in 52.17s
+Done 1200 batches in 56.94s
+Done 1300 batches in 61.61s
+Done 1400 batches in 66.91s
+Done 1500 batches in 71.83s
+Done 1600 batches in 76.64s
+Done 1700 batches in 81.26s
+Done 1800 batches in 85.98s
+Done 1900 batches in 90.93s
+Done 2000 batches in 95.85s
+Done 2100 batches in 100.73s
+Done 2200 batches in 105.64s
+Done 2300 batches in 110.18s
+Done 2400 batches in 114.98s
+
+
+Total training time: 21812.83s
+Best model after 6 epochs with loss 3.29552178424
+Validation set perplexity: 26.9914941325
+Model saved as subtleFixed_300_300_300_300_ssoft200unigr_bs30_cut200_early5.npz
+
+Test loss: 3.2829753846
+Test set perplexity: 26.6549635979

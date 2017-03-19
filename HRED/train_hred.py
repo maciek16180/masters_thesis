@@ -14,7 +14,7 @@ word2vec_embs, word2vec_embs_mask = get_w2v_embs(mt_path)
 
 ###
 emb_init = word2vec_embs
-train_emb = True
+train_emb = False
 ###
 
 net = HRED(voc_size=voc_size,
@@ -24,11 +24,11 @@ net = HRED(voc_size=voc_size,
            out_emb_size=300, 
            num_sampled=200,
            ssoft_probs=freqs,
-           emb_init=emb_init,
+           #emb_init=emb_init,
            train_emb=train_emb)
 
 
-#net.load_params('pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
+net.load_params('trained_models/pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
 
 
 last_scores = [np.inf]
@@ -37,7 +37,7 @@ tol = 0.001
 epoch = 1
 best_epoch = None
 
-model_filename = 'w2vInit_300_300_300_300_ssoft200unigr_bs30_cut200_early5.npz'
+model_filename = 'subtleFixed_300_300_300_300_ssoft200unigr_bs30_cut200_early5.npz'
 
 t0 = time.time()
 while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last_scores) + tol:
