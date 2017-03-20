@@ -219,7 +219,8 @@ def _build_context_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, 
                                        hidden_update=L.layers.Gate(W_in=lv1f['W_in_to_hidden_update'],
                                                                    W_hid=lv1f['W_hid_to_hidden_update'],
                                                                    W_cell=None,
-                                                                   b=lv1f['b_hidden_update']),
+                                                                   b=lv1f['b_hidden_update'],
+                                                                   nonlinearity=L.nonlinearities.tanh),
                                        hid_init=lv1f['hid_init'])
     
     l_lv1_enc_back = L.layers.GRULayer(l_emb, # backward pass of encoder rnn
@@ -238,7 +239,8 @@ def _build_context_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, 
                                        hidden_update=L.layers.Gate(W_in=lv1b['W_in_to_hidden_update'],
                                                                    W_hid=lv1b['W_hid_to_hidden_update'],
                                                                    W_cell=None,
-                                                                   b=lv1b['b_hidden_update']),
+                                                                   b=lv1b['b_hidden_update'],
+                                                                   nonlinearity=L.nonlinearities.tanh),
                                        hid_init=lv1b['hid_init'])
     
     l2_pooled_forw = L2PoolingLayer(l_lv1_enc_forw)
@@ -264,7 +266,8 @@ def _build_context_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, 
                                   hidden_update=L.layers.Gate(W_in=lv2['W_in_to_hidden_update'],
                                                               W_hid=lv2['W_hid_to_hidden_update'],
                                                               W_cell=None,
-                                                              b=lv2['b_hidden_update']))
+                                                              b=lv2['b_hidden_update'],
+                                                              nonlinearity=L.nonlinearities.tanh))
 
     return l_lv2_enc
 
@@ -300,7 +303,8 @@ def _build_decoder_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, 
                               hidden_update=L.layers.Gate(W_in=dec['W_in_to_hidden_update'],
                                                           W_hid=dec['W_hid_to_hidden_update'],
                                                           W_cell=None,
-                                                          b=dec['b_hidden_update']))
+                                                          b=dec['b_hidden_update'],
+                                                          nonlinearity=L.nonlinearities.tanh))
     
     l_H0 = L.layers.DenseLayer(l_dec,
                                num_units=out_emb_size,
