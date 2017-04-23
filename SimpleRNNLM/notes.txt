@@ -1,0 +1,20 @@
+When calculating freqs for sampled softmax in train scripts I used the length of a trimmed 
+train set instead of a full train set.
+result: the <utt_end> token will have *slightly* lower chance that it should have
+        (but it probably doesn't matter at all)
+
+How can I compare the beam search scores for sequences of different lengths? The smaller one
+will usually be better just because it's shorter. I tried comparing the means, which seemed to
+do something. 
+
+####
+TODO
+####
+
+Run pretrain_simple_rnnlm.py to do Subtle bootstrapping for that model.
+
+I should probably repeat training for SimpleRNNLM due to the change of embedding initializer
+(uniform -> normal, the default in the embedding layer).
+
+In beam search: merging branches with similar decoder states (not sure how to do that yet).
+I don't think it solves the problem of very short resposes getting the best scores though.
