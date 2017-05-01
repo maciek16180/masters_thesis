@@ -11,7 +11,8 @@ do something.
 TODO
 ####
 
-Run pretrain_simple_rnnlm.py to do Subtle bootstrapping for that model.
+# Run pretrain_simple_rnnlm.py to do Subtle bootstrapping for that model.
+# Didn't help.
 
 I should probably repeat training for SimpleRNNLM due to the change of embedding initializer
 (uniform -> normal, the default in the embedding layer).

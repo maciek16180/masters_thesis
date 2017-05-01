@@ -1,5 +1,7 @@
 from SimpleRNNLM import SimpleRNNLM
 from mt_load import load_mt, get_mt_voc, get_w2v_embs
+import sys
+sys.path.insert(0, '../HRED/')
 from load_subtle import load_subtle
 import numpy as np
 import lasagne as L

@@ -21,9 +21,12 @@ net = SimpleRNNLM(voc_size=voc_size,
                   rec_size=300,
                   mode='ssoft',
                   num_sampled=200,
-                  emb_init=word2vec_embs,
-                  update_fn=update_fn)
-                  # ssoft_probs=freqs)
+                  #emb_init=word2vec_embs,
+                  update_fn=update_fn,
+                  train_emb=False,
+                  ssoft_probs=freqs)
+
+net.load_params('trained_models/pretrained_subtle_GaussInit_300_300_ssoft200unigr_bs50_cut200_nosplit.npz')
 
 
 last_scores = [np.inf]
@@ -32,7 +35,7 @@ tol = 0.001
 epoch = 1
 best_epoch = None
 
-model_filename = 'w2vInit_300_300_nce200uniform_lr.1_bs50_cut200_nosplit_early5.npz'
+model_filename = 'temp/fixedSubtle_300_300_ssoft200unigr_lr.1_bs50_cut200_nosplit_early5.npz'
 
 t0 = time.time()
 while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last_scores) + tol:
