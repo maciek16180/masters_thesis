@@ -17,7 +17,7 @@ from L2PoolingLayer import L2PoolingLayer
 
 from itertools import chain
 
-max_context_len = 28
+max_context_len = 10
 
 class HRED(SimpleRNNLM):
     
@@ -380,7 +380,7 @@ def _build_decoder_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, 
     return l_out, l_dec # l_out - probabilities, l_dec - new decoder init
 
 
-def iterate_minibatches(inputs, batch_size, pad=-1, max_context_len=28):
+def iterate_minibatches(inputs, batch_size, pad=-1, max_context_len=max_context_len):
     for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
         excerpt = slice(start_idx, start_idx + batch_size)
         examples = inputs[excerpt]
@@ -397,9 +397,16 @@ def iterate_minibatches(inputs, batch_size, pad=-1, max_context_len=28):
             e_padded = np.vstack([e_padded, fill])
             inp.append(e_padded)
             
-            ans_inds = list(chain(*e[0]))
-            # tutaj trzeba jakos wpisac jedynki w answers
+            ans_inds = np.array(list(chain(*e[0])))
             
+            idx = 1
+            while ans_inds.size:
+                while ans_inds.size and ans_inds[0] < len(e[1][idx]):
+                    ans_idx = ans_inds[0]
+                    ans_inds = ans_inds[1:]
+                    answers[idx, ans_idx] = 1
+                ans_inds -= len(e[1][idx])
+                idx += 1
             
         inp = np.vstack(inp)
 
