@@ -42,14 +42,16 @@ def load_mt(path, split=False, trim=200):
 def get_mt_voc(path, train_len, pad_value=-1):
     word_list = np.load(path + 'Training.dict.pkl')
     word_list.sort(key=lambda x: x[1])
-    freqs = np.array(map(lambda x: x[2], word_list) + [train_len])
+    freqs = np.array([x[2] for x in word_list] + [train_len])
     total_count = float(sum(freqs))
 
-    words = map(lambda x: x[:2], word_list)
+    words = [x[:2] for x in word_list]
 
     w_to_idx = dict(words)
+    idx_to_w = sorted(w_to_idx, key=lambda w: w_to_idx[w])
+    
     w_to_idx['<utt_end>'] = pad_value
-    idx_to_w = {v: k for (k, v) in w_to_idx.items()}
+    idx_to_w.append('<utt_end>')
 
     return idx_to_w, w_to_idx, len(w_to_idx), freqs / total_count
 

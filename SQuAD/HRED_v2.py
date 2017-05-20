@@ -1,4 +1,6 @@
-import numpy as np
+# HRED architecture modified for SQuAD task
+
+mport numpy as np
 import theano
 import theano.tensor as T
 import time
@@ -42,7 +44,6 @@ class HRED(SimpleRNNLM):
         answer_var = T.matrix('answer')
         ###
         
-        context_init = T.matrix('context_init')
         decoder_init = T.matrix('decoder_init')
 
         # BUILD THE MODEL
@@ -78,7 +79,7 @@ class HRED(SimpleRNNLM):
         updates = update_fn(train_loss, params)
         
         #
-        # to train only part of the embeddings I can modify updates by hand here
+        # to train only part of the embeddings I can modify updates by hand here?
         # I will need additional __init__ argument: indices of words that are fixed
         #
         
@@ -99,12 +100,6 @@ class HRED(SimpleRNNLM):
         #                                                  context_init, all_params[:30])
         #self.decoder_net = _build_decoder_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size,
         #                                                  out_emb_size, decoder_init, all_params[:1] + all_params[33:])
-        
-        #dec_net_out = LL.get_output(self.decoder_net, deterministic=True)
-        #new_con_init = LL.get_output(self.context_net, deterministic=True)
-        
-        #self.get_probs_and_new_dec_init_fn = theano.function([input_var, decoder_init], dec_net_out)
-        #self.get_new_con_init_fn = theano.function([input_var, context_init], new_con_init)
         
         print 'Done'
         
@@ -189,8 +184,6 @@ def _build_hred(input_var, bin_feat_var, mask_input_var, mask_context_var, voc_s
                 lv2_rec_size, out_emb_size, emb_init=None, train_emb=True, **kwargs):
     l_in = LL.InputLayer(shape=(None, None), input_var=input_var)
     
-    l_bin_feat = LL.InputLayer(shape=(None, None), input_var=bin_feat_var)
-    
     l_mask = None
     if mask_input_var is not None:
         l_mask = LL.InputLayer(shape=(None, None), input_var=mask_input_var)
@@ -201,17 +194,17 @@ def _build_hred(input_var, bin_feat_var, mask_input_var, mask_context_var, voc_s
     
     if emb_init is None:
         l_emb = LL.EmbeddingLayer(l_in,
-                                        input_size=voc_size,  # not voc_size+1, because pad_value = <utt_end>
-                                        output_size=emb_size)
+                                  input_size=voc_size,  # not voc_size+1, because pad_value = <utt_end>
+                                  output_size=emb_size)
     else:
         l_emb = LL.EmbeddingLayer(l_in,
-                                        input_size=voc_size,
-                                        output_size=emb_size,
-                                        W=emb_init)
+                                  input_size=voc_size,
+                                  output_size=emb_size,
+                                  W=emb_init)
     if not train_emb:
         l_emb.params[l_emb.W].remove('trainable')
         
-    # here we calculate wiq from https://arxiv.org/abs/1703.04816
+    # here we calculate wiq features from https://arxiv.org/abs/1703.04816
     
     batch_size = input_var.shape[0] / max_context_len
     seq_len = input_var.shape[1]
@@ -239,70 +232,72 @@ def _build_hred(input_var, bin_feat_var, mask_input_var, mask_context_var, voc_s
     
     l_weighted_feat = LL.reshape(l_feat, shape=(batch_size * max_context_len, seq_len, 1))
     
-    
-    ###
-        
+    l_bin_feat = LL.InputLayer(shape=(None, None), input_var=bin_feat_var)        
     l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
         
-    l_emb = LL.concat([l_emb, l_bin_feat, l_weighted_feat], axis=2)
-            
-    l_lv1_enc_forw = LL.GRULayer(l_emb, # we process all utts in parallel, out_shape is batch_size x lv1_rec_size
-                                       num_units=lv1_rec_size,
-                                       grad_clipping=100,
-                                       # only_return_final=True,
-                                       mask_input=l_mask)
+    l_emb = LL.concat([l_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
     
-    l_lv1_enc_back = LL.GRULayer(l_emb, # backward pass of encoder rnn, out_shape is batch_size x lv1_rec_size
-                                       num_units=lv1_rec_size,
-                                       grad_clipping=100,
-                                       # only_return_final=True,
-                                       mask_input=l_mask,
-                                       backwards=True)
+    # level 1 encoding (word-level)
+            
+    l_lv1_enc_forw = LL.GRULayer(l_emb, # we process all utts in parallel
+                                 num_units=lv1_rec_size,
+                                 grad_clipping=100,
+                                 # only_return_final=True,
+                                 mask_input=l_mask)
+    
+    l_lv1_enc_back = LL.GRULayer(l_emb, # backward pass of level 1 encoder rnn
+                                 num_units=lv1_rec_size,
+                                 grad_clipping=100,
+                                 # only_return_final=True,
+                                 mask_input=l_mask,
+                                 backwards=True)
     
     l2_pooled_forw = L2PoolingLayer(l_lv1_enc_forw)
     l2_pooled_back = L2PoolingLayer(l_lv1_enc_back)
 
     l_lv1_enc = LL.concat([l2_pooled_forw, l2_pooled_back], axis=1) # concatenation of L2-pooled states
     
-    l_resh = LL.reshape(l_lv1_enc, shape=(-1, max_context_len, 2*lv1_rec_size))
+    # level 2 encoding (sentence-level)
+    
+    l_resh = LL.reshape(l_lv1_enc, shape=(-1, max_context_len, 2 * lv1_rec_size))
     
     l_lv2_enc = LL.GRULayer(l_resh, # out_shape is batch_size/max_context_len x max_context_len x lv2_rec_size
-                                  num_units=lv2_rec_size,
-                                  grad_clipping=100,
-                                  mask_input=l_mask2)
+                            num_units=lv2_rec_size,
+                            grad_clipping=100,
+                            mask_input=l_mask2)
     
-    ############
+    # decoder section
     
     l_shift = ShiftLayer(l_lv2_enc)
 
     l_resh2 = LL.reshape(l_shift, shape=(-1, lv2_rec_size))
     
     l_dec_inits = LL.DenseLayer(l_resh2, # out_shape is batch_size x lv1_rec_size
-                                      num_units=lv1_rec_size,
-                                      nonlinearity=L.nonlinearities.tanh)
+                                num_units=lv1_rec_size,
+                                nonlinearity=L.nonlinearities.tanh)
     
     l_dec = LL.GRULayer(l_emb, # out_shape is batch_size x seq_len x lv1_rec_size
-                              num_units=lv1_rec_size,
-                              grad_clipping=100,
-                              mask_input=l_mask,
-                              hid_init=l_dec_inits)
+                        num_units=lv1_rec_size,
+                        grad_clipping=100,
+                        mask_input=l_mask,
+                        hid_init=l_dec_inits)
     
     l_resh3 = LL.reshape(l_dec, shape=(-1, lv1_rec_size))
     
     l_H0 = LL.DenseLayer(l_resh3,
-                               num_units=out_emb_size,
-                               nonlinearity=None)
+                         num_units=out_emb_size,
+                         nonlinearity=None)
     
     l_resh4 = LL.reshape(l_emb, shape=(-1, emb_size + 2))
     
     l_E0 = LL.DenseLayer(l_resh4,
-                               num_units=out_emb_size,
-                               b=None,
-                               nonlinearity=None)
+                         num_units=out_emb_size,
+                         b=None,
+                         nonlinearity=None)
     
     l_sig_in = LL.ElemwiseSumLayer([l_H0, l_E0])
 
-    ###
+    # output is a sigmoid
     
     l_sig = LL.DenseLayer(l_sig_in, 1, nonlinearity=L.nonlinearities.sigmoid)
 
