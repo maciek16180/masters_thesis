@@ -1,6 +1,6 @@
 # HRED architecture modified for SQuAD task
 
-mport numpy as np
+import numpy as np
 import theano
 import theano.tensor as T
 import time
@@ -12,13 +12,13 @@ import sys
 sys.path.insert(0, '../SimpleRNNLM/')
 sys.path.insert(0, '../HRED/')
 
-from SimpleRNNLM import iterate_minibatches, SimpleRNNLM
+from SimpleRNNLM import SimpleRNNLM
 from SampledSoftmaxLayer import SampledSoftmaxDenseLayer
 
 from ShiftLayer import ShiftLayer
 from L2PoolingLayer import L2PoolingLayer
 from ForgetSizeLayer import ForgetSizeLayer
-from MaskedPaddedSoftmaxSumsLayer import MaskedPaddedSoftmaxSumsLayer
+from WeightedFeatureLayer import WeightedFeatureLayer
 
 from itertools import chain
 
@@ -210,25 +210,16 @@ def _build_hred(input_var, bin_feat_var, mask_input_var, mask_context_var, voc_s
     seq_len = input_var.shape[1]
     
     l_emb_temp = LL.reshape(l_emb, shape=(batch_size, max_context_len, seq_len, emb_size))
-    l_qs = LL.reshape(LL.SliceLayer(l_emb_temp, 0, axis=1), shape=(batch_size * seq_len, emb_size))
+    l_qs = LL.reshape(LL.SliceLayer(l_emb_temp, 0, axis=1), shape=(batch_size, seq_len, emb_size))
     l_cs = LL.reshape(LL.SliceLayer(l_emb_temp, slice(1, max_context_len), axis=1), 
-                      shape=(batch_size * (max_context_len - 1) * seq_len, emb_size))
-    
-    l_v1 = LL.DenseLayer(l_qs, 1, b=None)
-    l_v2 = LL.DenseLayer(l_cs, 1, W=l_v1.W, b=None)
-    
-    l_sim1 = LL.reshape(l_v1, shape=(batch_size, seq_len, 1))
-    l_sim2 = LL.reshape(l_v2, shape=(batch_size, 1, (max_context_len - 1) * seq_len))
-    
-    l_sim1 = ForgetSizeLayer(l_sim1, axis=2)
-    l_sim2 = ForgetSizeLayer(l_sim2, axis=1)
-    
-    l_sim = LL.ElemwiseSumLayer([l_sim1, l_sim2])
+                      shape=(batch_size, (max_context_len - 1) * seq_len, emb_size))
     
     l_feat_mask = LL.reshape(LL.SliceLayer(LL.reshape(l_mask, shape=(batch_size, max_context_len, seq_len)), 
-                                slice(1, max_context_len), axis=1), shape=(batch_size, 1, (max_context_len - 1) * seq_len))
+                                slice(1, max_context_len), axis=1), shape=(batch_size, (max_context_len - 1) * seq_len))
     
-    l_feat = MaskedPaddedSoftmaxSumsLayer([l_sim, l_feat_mask])
+    l_feat = WeightedFeatureLayer([l_cs, l_qs, l_feat_mask])
+    
+    l_feat = LL.pad(l_feat, width=[(seq_len, 0)] , val=1, batch_ndim=1)
     
     l_weighted_feat = LL.reshape(l_feat, shape=(batch_size * max_context_len, seq_len, 1))
     
