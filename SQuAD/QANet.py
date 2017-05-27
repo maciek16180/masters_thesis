@@ -42,8 +42,6 @@ class QANet(SimpleRNNLM):
         answer_starts_var = T.ivector('answer_starts')
         answer_ends_var = T.ivector('answer_ends')
         
-        #mask_idx = mask_input_var.nonzero()
-        
         # BUILD THE MODEL
         print 'Building the model...'
         
@@ -53,19 +51,15 @@ class QANet(SimpleRNNLM):
         # CALCULATE THE LOSS
 
         train_out = LL.get_output(self.train_net)
-        #test_out = LL.get_output(self.train_net, deterministic=True)
+        test_out = LL.get_output(self.train_net, deterministic=True)
         
         start_probs = train_out[0][T.arange(context_var.shape[0]), answer_starts_var]
         end_conditional_probs = train_out[1][T.arange(context_var.shape[0]), answer_ends_var]
         span_probs = start_probs * end_conditional_probs
 
         train_loss = -T.log(span_probs).mean()
-        #test_loss = L.objectives.binary_crossentropy(test_out[mask_idx].ravel(), answer_var[mask_idx].ravel()).mean()
-        
-        #train_loss = weighted_bin_ce(train_out[mask_idx].ravel(), answer_var[mask_idx].ravel()).mean()
-        #test_loss = weighted_bin_ce(test_out[mask_idx].ravel(), answer_var[mask_idx].ravel()).mean()
 
-        # MAKE TRAIN AND VALIDATION FUNCTIONS
+        # MAKE THEANO FUNCTIONS
         print 'Compiling theano functions...'
 
         params = LL.get_all_params(self.train_net, trainable=True)
@@ -77,55 +71,55 @@ class QANet(SimpleRNNLM):
 
         updates = update_fn(train_loss, params)
         
-        #
         # to train only part of the embeddings I can modify updates by hand here?
         # I will need additional __init__ argument: indices of words that are fixed
-        #
         
         self.train_fn = theano.function([context_var, question_var, bin_feat_var, mask_context_var, mask_question_var, 
                                          answer_starts_var, answer_ends_var], train_loss, updates=updates)
-        #self.val_fn = theano.function([input_var, bin_feat_var, answer_var, mask_input_var, mask_context_var], 
-        #                              test_loss)
         
-        #self.get_output_fn = theano.function([input_var, bin_feat_var, mask_input_var, mask_context_var], test_out)
-
-        # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
-        
-        #print 'Building a network for generating...'
-
-        #all_params = LL.get_all_params(self.train_net)
-        
-        #self.context_net = _build_context_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size,
-        #                                                  context_init, all_params[:30])
-        #self.decoder_net = _build_decoder_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size,
-        #                                                  out_emb_size, decoder_init, all_params[:1] + all_params[33:])
+        self.get_start_probs_fn = theano.function([context_var, question_var, bin_feat_var, mask_context_var,
+                                                   mask_question_var], test_out[0])
+        self.get_end_probs_fn = theano.function([context_var, question_var, bin_feat_var, mask_context_var,
+                                                 mask_question_var, answer_starts_var], test_out[1])
         
         print 'Done'
-    '''    
-    def get_output(self, data, batch_size):
+        
+       
+    def get_start_probs(self, data, batch_size):
         result = []
-        for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answers=False):
-            inputs, bin_feat, input_mask, context_mask = batch
-            out = self.get_output_fn(inputs, bin_feat, input_mask, context_mask).reshape(batch_size, max_context_len, -1)
-            input_mask = input_mask.reshape(batch_size, max_context_len, -1).astype(np.bool)
-            context_mask = context_mask.astype(np.bool)
+        for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False):
+            questions, contexts, bin_feats, question_mask, context_mask = batch
+            out = self.get_start_probs_fn(contexts, questions, bin_feats, context_mask, question_mask)
+            result.append(out)
             
-            for i in xrange(batch_size):
-                out_i_list = []
-                out_i = out[i][context_mask[i]]
-                for j in xrange(1, out_i.shape[0]): # from 1, because the question is at 0
-                    out_i_list.append(out_i[j][input_mask[i][j]])
-                result.append(out_i_list)
-                
-        return result
+        return np.vstack(result)
+    
     '''
+    tu jest blad! rozne batche maja rozna dlugosc, trzeba to zrobic inaczej
+    '''        
+    
+    
+    # current implementation only allows for generating ends for one start index per example
+    # to get end probs for k candidates for the start index, get_end_probs needs to be run k times
+    def get_end_probs(self, data, answer_start_inds, batch_size):
+        result = []
+        idx = 0
+        for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False):
+            questions, contexts, bin_feats, question_mask, context_mask = batch
+            start_inds = answer_start_inds[idx:idx + batch_size]
+            out = self.get_end_probs_fn(contexts, questions, bin_feats, context_mask, question_mask, start_inds)
+            result.append(out)
+            idx += batch_size
+                
+        return np.vstack(result)
+
             
     def train_one_epoch(self, train_data, batch_size, log_interval=10):
         train_err = 0.
         train_batches = 0
         start_time = time.time()
 
-        for batch in iterate_minibatches(train_data, batch_size, self.pad_value):
+        for batch in iterate_minibatches(train_data, batch_size, self.pad_value, shuffle=True):
             questions, contexts, bin_feats, question_mask, context_mask, answer_inds = batch
             
             train_err += self.train_fn(contexts, questions, bin_feats, context_mask, question_mask, 
@@ -137,26 +131,7 @@ class QANet(SimpleRNNLM):
                     train_batches, time.time() - start_time, train_err / train_batches)
 
         return  train_err / train_batches
-    '''
-    def validate(self, val_data, batch_size):
-        val_err = 0.
-        val_batches = 0
-        num_validate_words = 0
-        start_time = time.time()
     
-        for batch in iterate_minibatches(val_data, batch_size, self.pad_value):
-            inputs, bin_feat, answers, input_mask, context_mask = batch
-    
-            num_batch_words = input_mask.sum()
-            val_err += self.val_fn(inputs, bin_feat, answers, input_mask, context_mask) * num_batch_words
-            val_batches += 1
-            num_validate_words += num_batch_words
-    
-            if not val_batches % 100:
-                print "Done {} batches in {:.2f}s".format(val_batches, time.time() - start_time)
-    
-        return val_err / num_validate_words
-    '''
             
 '''          
 MODEL PARAMETERS (as in LL.get_params(train_net))
@@ -183,21 +158,16 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
         l_c_emb = LL.EmbeddingLayer(l_context,
                                     input_size=voc_size,  # not voc_size+1, because pad_value = <utt_end>
                                     output_size=emb_size)
-        
-        l_q_emb = LL.EmbeddingLayer(l_question,
-                                    input_size=voc_size,
-                                    output_size=emb_size,
-                                    W=l_c_emb.W)
     else:
         l_c_emb = LL.EmbeddingLayer(l_context,
                                     input_size=voc_size,
                                     output_size=emb_size,
                                     W=emb_init)
         
-        l_q_emb = LL.EmbeddingLayer(l_question,
-                                    input_size=voc_size,
-                                    output_size=emb_size,
-                                    W=l_c_emb.W)
+    l_q_emb = LL.EmbeddingLayer(l_question,
+                                input_size=voc_size,
+                                output_size=emb_size,
+                                W=l_c_emb.W)
     if not train_emb:
         l_c_emb.params[l_c_emb.W].remove('trainable')
         l_q_emb.params[l_q_emb.W].remove('trainable')
@@ -340,14 +310,20 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
     return l_start_soft, l_end_soft
 
 
-def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True):
+def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False):
+    
+    if shuffle:
+        indices = np.arange(len(inputs))
+        np.random.shuffle(indices)
+        inputs = np.array(inputs)
+    
     for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
-        excerpt = slice(start_idx, start_idx + batch_size)
+        if shuffle:
+            excerpt = indices[start_idx:start_idx + batch_size]
+        else:
+            excerpt = slice(start_idx, start_idx + batch_size)
+            
         examples = inputs[excerpt]
-        
-        for i in xrange(len(examples)):
-            examples[i].append(list(chain(*examples[i][1][1:])))
-            examples[i][1] = examples[i][1][0]
 
         context_len = max(len(e[2]) for e in examples)
         question_len = max(len(e[1]) for e in examples)
@@ -361,10 +337,10 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True):
         
         for ans, q, c in examples:
             q_words = set(q)
-            q += [pad] * (question_len - len(q))
+            q = q + [pad] * (question_len - len(q))
             
             bin_feat = [w in q_words for w in c] + [pad] * (context_len - len(c))
-            c += [pad] * (context_len - len(c))
+            c = c + [pad] * (context_len - len(c))
             
             if with_answer_inds:
                 answer_inds.append((min(ans[0]), max(ans[0])))
@@ -376,7 +352,9 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True):
         questions = np.vstack(questions).astype(np.int32)
         contexts = np.vstack(contexts).astype(np.int32)
         bin_feats = np.vstack(bin_feats).astype(np.float32)
-        answer_inds = np.vstack(answer_inds).astype(np.int32)
+        
+        if with_answer_inds:
+            answer_inds = np.vstack(answer_inds).astype(np.int32)
         
         question_mask = (questions != pad).astype(np.float32)
         context_mask = (contexts != pad).astype(np.float32)

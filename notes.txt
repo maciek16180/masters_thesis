@@ -17,5 +17,5 @@ TODO
 I should probably repeat training for SimpleRNNLM due to the change of embedding initializer
 (uniform -> normal, the default in the embedding layer).
 
-In beam search: merging branches with similar decoder states (not sure how to do that yet).
+In beam search: merging branches with similar decoder states.
 I don't think it solves the problem of very short resposes getting the best scores though.
