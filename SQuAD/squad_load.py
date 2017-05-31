@@ -3,8 +3,8 @@ import io
 import lasagne as L
 
 
-def load_squad_train(path):
-    return np.load(path + 'train.pkl')
+def load_squad_train(path, with_chars=False):
+    return np.load(path + 'train.pkl'), np.load(path + 'train_char.pkl')
 
 def get_squad_train_voc(path, pad_value=-1):
     w_to_i = {}
@@ -16,11 +16,29 @@ def get_squad_train_voc(path, pad_value=-1):
             w = line[:-1]
             w_to_i[w] = idx
             i_to_w.append(w)
+            idx += 1
             
     w_to_i['<pad_value>'] = pad_value
     i_to_w.append('<pad_value>')
 
     return i_to_w, w_to_i, len(w_to_i)
+
+def get_squad_train_chars(path, pad_value=-1):
+    c_to_i = {}
+    i_to_c = []
+    
+    idx = 0
+    with io.open(path + 'train_charlist.txt', 'r', encoding='utf-8') as f:
+        for line in f:
+            c = line[:-1]
+            c_to_i[c] = idx
+            i_to_c.append(c)
+            idx += 1
+            
+    c_to_i['<pad_value>'] = pad_value
+    i_to_c.append('<pad_value>')
+
+    return i_to_c, c_to_i, len(c_to_i)
 
 def get_glove_train_embs(path, glove_path):
     glove_words = []

@@ -19,6 +19,8 @@ from BatchedDotLayer import BatchedDotLayer
 from MaskedSoftmaxLayer import MaskedSoftmaxLayer
 from StartFeaturesLayer import StartFeaturesLayer
 from EndFeaturesLayer import EndFeaturesLayer
+from HighwayLayer import HighwayLayer
+from ForgetSizeLayer import ForgetSizeLayer
 
 from itertools import chain
 
@@ -40,7 +42,10 @@ class QANet(SimpleRNNLM):
         mask_question_var = T.matrix('question_mask')
         
         context_char_var = T.itensor3('context_char')
+        mask_context_char_var = T.tensor3('context_char_mask')
+        
         question_char_var = T.itensor3('question_char')
+        mask_question_char_var = T.tensor3('question_char_mask')
         
         bin_feat_var = T.matrix('bin_feat')
         answer_starts_var = T.ivector('answer_starts')
@@ -50,8 +55,9 @@ class QANet(SimpleRNNLM):
         print 'Building the model...'
         
         self.train_net = _build_net(context_var, question_var, context_char_var, question_char_var, bin_feat_var,
-                                    mask_context_var, mask_question_var, answer_starts_var, voc_size, alphabet_size, 
-                                    emb_size, emb_char_size, num_emb_char_filters, rec_size, **kwargs)
+                                    mask_context_var, mask_question_var, mask_context_char_var, mask_question_char_var,
+                                    answer_starts_var, voc_size, alphabet_size, emb_size, emb_char_size, 
+                                    num_emb_char_filters, rec_size, **kwargs)
 
         # CALCULATE THE LOSS
 
@@ -80,14 +86,15 @@ class QANet(SimpleRNNLM):
         # I will need additional __init__ argument: indices of words that are fixed
         
         self.train_fn = theano.function([context_var, question_var, context_char_var, question_char_var, bin_feat_var,
-                                         mask_context_var, mask_question_var, answer_starts_var, answer_ends_var], 
-                                        train_loss, updates=updates)
+                                         mask_context_var, mask_question_var, mask_context_char_var, mask_question_char_var,
+                                         answer_starts_var, answer_ends_var], train_loss, updates=updates)
         
         self.get_start_probs_fn = theano.function([context_var, question_var, context_char_var, question_char_var,
-                                                   bin_feat_var, mask_context_var, mask_question_var], test_out[0])
+                                                   bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
+                                                   mask_question_char_var], test_out[0])
         self.get_end_probs_fn = theano.function([context_var, question_var, context_char_var, question_char_var, 
-                                                 bin_feat_var, mask_context_var, mask_question_var, answer_starts_var], 
-                                                test_out[1])
+                                                 bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
+                                                 mask_question_char_var, answer_starts_var], test_out[1])
         
         print 'Done'
         
@@ -95,9 +102,10 @@ class QANet(SimpleRNNLM):
     def get_start_probs(self, data, batch_size):
         result = []
         for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False):
-            questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask = batch
+            questions, contexts, questions_char, contexts_char, bin_feats, \
+                question_mask, context_mask, question_char_mask, context_char_mask = batch
             out = self.get_start_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats, 
-                                          context_mask, question_mask)
+                                          context_mask, question_mask, context_char_mask, question_char_mask)
             result.append(out)
             
         return np.vstack(result)
@@ -113,10 +121,11 @@ class QANet(SimpleRNNLM):
         result = []
         idx = 0
         for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False):
-            questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask = batch
+            questions, contexts, questions_char, contexts_char, bin_feats, \
+                question_mask, context_mask, question_char_mask, context_char_mask = batch
             start_inds = answer_start_inds[idx:idx + batch_size]
             out = self.get_end_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats, 
-                                        context_mask, question_mask, start_inds)
+                                        context_mask, question_mask, context_char_mask, question_char_mask, start_inds)
             result.append(out)
             idx += batch_size
                 
@@ -129,10 +138,12 @@ class QANet(SimpleRNNLM):
         start_time = time.time()
 
         for batch in iterate_minibatches(train_data, batch_size, self.pad_value, shuffle=True):
-            questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, answer_inds = batch
+            questions, contexts, questions_char, contexts_char, bin_feats, \
+                question_mask, context_mask, question_char_mask, context_char_mask, answer_inds = batch
             
             train_err += self.train_fn(contexts, questions, contexts_char, questions_char, bin_feats, 
-                                       context_mask, question_mask, answer_inds[:,0], answer_inds[:,1])
+                                       context_mask, question_mask, context_char_mask, question_char_mask, 
+                                       answer_inds[:,0], answer_inds[:,1])
             train_batches += 1
 
             if not train_batches % log_interval:
@@ -150,8 +161,9 @@ MODEL PARAMETERS (as in LL.get_params(train_net))
             
 
 def _build_net(context_var, question_var, context_char_var, question_char_var, bin_feat_var, mask_context_var,
-               mask_question_var, answer_starts_var, voc_size, alphabet_size, emb_size, emb_char_size, num_emb_char_filters,
-               rec_size, emb_char_filter_size=5, emb_init=None, train_emb=True, emb_char_init=None, train_emb_char=True, 
+               mask_question_var, mask_context_char_var, mask_question_char_var, answer_starts_var, voc_size, alphabet_size,
+               emb_size, emb_char_size, num_emb_char_filters, rec_size, 
+               emb_char_filter_size=5, emb_init=None, train_emb=True, emb_char_init=None, train_emb_char=True, 
                **kwargs):
     
     batch_size = question_var.shape[0]
@@ -174,7 +186,10 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
 
     l_q_mask = None
     if mask_question_var is not None:
-        l_q_mask = LL.InputLayer(shape=(None, None), input_var=mask_question_var)        
+        l_q_mask = LL.InputLayer(shape=(None, None), input_var=mask_question_var)
+        
+    l_c_char_mask = LL.InputLayer(shape=(None, None, None), input_var=mask_context_char_var)
+    l_q_char_mask = LL.InputLayer(shape=(None, None, None), input_var=mask_question_char_var)
     
     ''' Word embeddings '''
     
@@ -215,9 +230,20 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
                                      output_size=emb_char_size,
                                      W=l_c_char_emb.W)
     
-    if not train_char_emb:
+    if not train_emb_char:
         l_c_char_emb.params[l_c_char_emb.W].remove('trainable')
         l_q_char_emb.params[l_q_char_emb.W].remove('trainable')
+    
+    # here I do multiplication of character embeddings with masks, because I want to pad them with constant zeros
+    # (I don't want those padding zeros to change over time)
+    
+    l_c_char_mask = ForgetSizeLayer(LL.dimshuffle(l_c_char_mask, (0, 1, 2, 'x')))
+    l_q_char_mask = ForgetSizeLayer(LL.dimshuffle(l_q_char_mask, (0, 1, 2, 'x')))
+    
+    l_c_char_emb = LL.ElemwiseMergeLayer([l_c_char_emb, l_c_char_mask], T.mul)
+    l_q_char_emb = LL.ElemwiseMergeLayer([l_q_char_emb, l_q_char_mask], T.mul)
+    
+    #
         
     l_c_char_emb = LL.dimshuffle(LL.reshape(l_c_char_emb, (batch_size * context_len, context_word_len, emb_char_size)), 
                                  (0, 2, 1))    
@@ -244,11 +270,30 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
     
     l_q_char_emb = LL.ExpressionLayer(l_q_char_conv, lambda X: X.max(2), output_shape='auto')    
     l_q_char_emb = LL.reshape(l_q_char_emb, (batch_size, question_len, num_emb_char_filters))    
-    l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)   
-       
-    ###
-    # I skip the highway layer, it should be here
-    ###
+    l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)
+    
+    ''' Highway layer allowing for interaction between embeddings '''
+    
+    l_c_P = LL.DenseLayer(LL.reshape(l_c_emb, (batch_size * context_len, emb_size + emb_char_size)),
+                          num_units=rec_size,
+                          b=None,
+                          nonlinearity=None)
+    
+    l_c_high = HighwayLayer(l_c_P)
+    l_c_emb = LL.reshape(l_c_high, (batch_size, context_len, rec_size))
+    
+    l_q_P = LL.DenseLayer(LL.reshape(l_q_emb, (batch_size * question_len, emb_size + emb_char_size)),
+                          num_units=rec_size,
+                          W=l_c_P.W,
+                          b=None,
+                          nonlinearity=None)
+    
+    l_q_high = HighwayLayer(l_q_P,
+                            W1=l_c_high.W1,
+                            b1=l_c_high.b1,
+                            W2=l_c_high.W2,
+                            b2=l_c_high.b2)
+    l_q_emb = LL.reshape(l_q_high, (batch_size, question_len, rec_size))    
         
     ''' Here we calculate wiq features from https://arxiv.org/abs/1703.04816 '''
     
@@ -261,55 +306,63 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
     l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
     l_q_emb = LL.pad(l_q_emb, width=[(2, 0)], val=1, batch_ndim=2) # for the question we fix the features to 1
 
-    ''' Context and question encoding using the same BiGRU for both '''
+    ''' Context and question encoding using the same BiLSTM for both '''
     
-    l_c_enc_forw = LL.GRULayer(l_c_emb, # output shape is (batch_size x context_len x rec_size)
-                               num_units=rec_size,
-                               grad_clipping=100,
-                               mask_input=l_c_mask)
+    l_c_enc_forw = LL.LSTMLayer(l_c_emb, # output shape is (batch_size x context_len x rec_size)
+                                num_units=rec_size,
+                                grad_clipping=100,
+                                mask_input=l_c_mask)
     
-    l_c_enc_back = LL.GRULayer(l_c_emb,
-                               num_units=rec_size,
-                               grad_clipping=100,
-                               mask_input=l_c_mask,
-                               backwards=True)
+    l_c_enc_back = LL.LSTMLayer(l_c_emb,
+                                num_units=rec_size,
+                                grad_clipping=100,
+                                mask_input=l_c_mask,
+                                backwards=True)
     
-    l_q_enc_forw = LL.GRULayer(l_q_emb, # output shape is (batch_size x question_len x rec_size)
-                               num_units=rec_size,
-                               grad_clipping=100,
-                               mask_input=l_q_mask,
-                               resetgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_resetgate,
-                                                 W_hid=l_c_enc_forw.W_hid_to_resetgate,
-                                                 W_cell=None, 
-                                                 b=l_c_enc_forw.b_resetgate),
-                               updategate=LL.Gate(W_in=l_c_enc_forw.W_in_to_updategate,
-                                                  W_hid=l_c_enc_forw.W_hid_to_updategate,
-                                                  W_cell=None, 
-                                                  b=l_c_enc_forw.b_updategate),
-                               hidden_update=LL.Gate(W_in=l_c_enc_forw.W_in_to_hidden_update,
-                                                     W_hid=l_c_enc_forw.W_hid_to_hidden_update,
-                                                     W_cell=None, 
-                                                     b=l_c_enc_forw.b_hidden_update,
-                                                     nonlinearity=L.nonlinearities.tanh))
+    l_q_enc_forw = LL.LSTMLayer(l_q_emb, # output shape is (batch_size x question_len x rec_size)
+                                num_units=rec_size,
+                                grad_clipping=100,
+                                mask_input=l_q_mask,
+                                ingate=LL.Gate(W_in=l_c_enc_forw.W_in_to_ingate,
+                                               W_hid=l_c_enc_forw.W_hid_to_ingate,
+                                               W_cell=l_c_enc_forw.W_cell_to_ingate, 
+                                               b=l_c_enc_forw.b_ingate),
+                                forgetgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_forgetgate,
+                                                   W_hid=l_c_enc_forw.W_hid_to_forgetgate,
+                                                   W_cell=l_c_enc_forw.W_cell_to_forgetgate, 
+                                                   b=l_c_enc_forw.b_forgetgate),
+                                outgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_outgate,
+                                                W_hid=l_c_enc_forw.W_hid_to_outgate,
+                                                W_cell=l_c_enc_forw.W_cell_to_outgate, 
+                                                b=l_c_enc_forw.b_outgate),
+                                cell=LL.Gate(W_in=l_c_enc_forw.W_in_to_cell,
+                                             W_hid=l_c_enc_forw.W_hid_to_cell,
+                                             W_cell=None,
+                                             b=l_c_enc_forw.b_cell,
+                                             nonlinearity=L.nonlinearities.tanh))
     
-    l_q_enc_back = LL.GRULayer(l_q_emb,
-                               num_units=rec_size,
-                               grad_clipping=100,
-                               mask_input=l_q_mask,
-                               backwards=True,                               
-                               resetgate=LL.Gate(W_in=l_c_enc_back.W_in_to_resetgate,
-                                                 W_hid=l_c_enc_back.W_hid_to_resetgate,
-                                                 W_cell=None, 
-                                                 b=l_c_enc_back.b_resetgate),
-                               updategate=LL.Gate(W_in=l_c_enc_back.W_in_to_updategate,
-                                                  W_hid=l_c_enc_back.W_hid_to_updategate,
-                                                  W_cell=None, 
-                                                  b=l_c_enc_back.b_updategate),
-                               hidden_update=LL.Gate(W_in=l_c_enc_back.W_in_to_hidden_update,
-                                                     W_hid=l_c_enc_back.W_hid_to_hidden_update,
-                                                     W_cell=None, 
-                                                     b=l_c_enc_back.b_hidden_update,
-                                                     nonlinearity=L.nonlinearities.tanh))
+    l_q_enc_back = LL.LSTMLayer(l_q_emb,
+                                num_units=rec_size,
+                                grad_clipping=100,
+                                mask_input=l_q_mask,
+                                backwards=True,                               
+                                ingate=LL.Gate(W_in=l_c_enc_back.W_in_to_ingate,
+                                               W_hid=l_c_enc_back.W_hid_to_ingate,
+                                               W_cell=l_c_enc_back.W_cell_to_ingate, 
+                                               b=l_c_enc_back.b_ingate),
+                                forgetgate=LL.Gate(W_in=l_c_enc_back.W_in_to_forgetgate,
+                                                   W_hid=l_c_enc_back.W_hid_to_forgetgate,
+                                                   W_cell=l_c_enc_back.W_cell_to_forgetgate, 
+                                                   b=l_c_enc_back.b_forgetgate),
+                                outgate=LL.Gate(W_in=l_c_enc_back.W_in_to_outgate,
+                                                W_hid=l_c_enc_back.W_hid_to_outgate,
+                                                W_cell=l_c_enc_back.W_cell_to_outgate, 
+                                                b=l_c_enc_back.b_outgate),
+                                cell=LL.Gate(W_in=l_c_enc_back.W_in_to_cell,
+                                             W_hid=l_c_enc_back.W_hid_to_cell,
+                                             W_cell=None,
+                                             b=l_c_enc_back.b_cell,
+                                             nonlinearity=L.nonlinearities.tanh))
     
 
     l_c_enc = LL.concat([l_c_enc_forw, l_c_enc_back], axis=2) # batch_size x context_len x 2*rec_size
@@ -384,10 +437,13 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuff
     # TODO: dopisac questions_char, contexts_char
     # inputs bedzie krotka, inputs[0] to to co jest teraz, inputs[1] to beda dane char
     
+    inputs, inputs_char = inputs
+    
     if shuffle:
         indices = np.arange(len(inputs))
         np.random.shuffle(indices)
         inputs = np.array(inputs)
+        inputs_char = np.array(inputs_char)
     
     for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
         if shuffle:
@@ -396,6 +452,7 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuff
             excerpt = slice(start_idx, start_idx + batch_size)
             
         examples = inputs[excerpt]
+        examples_char = inputs_char[excerpt]
 
         context_len = max(len(e[2]) for e in examples)
         question_len = max(len(e[1]) for e in examples)
@@ -431,6 +488,24 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuff
         question_mask = (questions != pad).astype(np.float32)
         context_mask = (contexts != pad).astype(np.float32)
         
+        c_word_len = max(len(w) for w in e[1] for e in examples_char)
+        q_word_len = max(len(w) for w in e[0] for e in examples_char)
+        
+        questions_char = []
+        contexts_char = []
+        
+        for q, c in examples_char:
+            q  = q + [[]] * (question_len - len(q))
+            c  = c + [[]] * (context_len - len(c))            
+            q = [w + [pad] * (q_word_len - len(w)) for w in q]
+            c = [w + [pad] * (c_word_len - len(w)) for w in c]
+            
+            questions_char.append(q)
+            contexts_char.append(c)
+            
+        # TODO: przerobic questions_char i contexts_char na np.array            
+        
+        # TODO: dopisac maski _char i je zwrocic
         if with_answer_inds:
             yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, answer_inds
         else:
