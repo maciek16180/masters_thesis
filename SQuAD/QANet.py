@@ -25,7 +25,8 @@ from itertools import chain
 
 class QANet(SimpleRNNLM):
     
-    def __init__(self, voc_size, emb_size, rec_size, pad_value=-1, **kwargs):
+    def __init__(self, voc_size, alphabet_size, emb_size, emb_char_size, num_emb_char_filters, rec_size, 
+                 pad_value=-1, **kwargs):
         
         self.pad_value = pad_value
         self.voc_size = voc_size
@@ -38,6 +39,9 @@ class QANet(SimpleRNNLM):
         question_var = T.imatrix('questions')
         mask_question_var = T.matrix('question_mask')
         
+        context_char_var = T.itensor3('context_char')
+        question_char_var = T.itensor3('question_char')
+        
         bin_feat_var = T.matrix('bin_feat')
         answer_starts_var = T.ivector('answer_starts')
         answer_ends_var = T.ivector('answer_ends')
@@ -45,8 +49,9 @@ class QANet(SimpleRNNLM):
         # BUILD THE MODEL
         print 'Building the model...'
         
-        self.train_net = _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_question_var, 
-                                    answer_starts_var, voc_size, emb_size, rec_size, **kwargs)
+        self.train_net = _build_net(context_var, question_var, context_char_var, question_char_var, bin_feat_var,
+                                    mask_context_var, mask_question_var, answer_starts_var, voc_size, alphabet_size, 
+                                    emb_size, emb_char_size, num_emb_char_filters, rec_size, **kwargs)
 
         # CALCULATE THE LOSS
 
@@ -74,13 +79,15 @@ class QANet(SimpleRNNLM):
         # to train only part of the embeddings I can modify updates by hand here?
         # I will need additional __init__ argument: indices of words that are fixed
         
-        self.train_fn = theano.function([context_var, question_var, bin_feat_var, mask_context_var, mask_question_var, 
-                                         answer_starts_var, answer_ends_var], train_loss, updates=updates)
+        self.train_fn = theano.function([context_var, question_var, context_char_var, question_char_var, bin_feat_var,
+                                         mask_context_var, mask_question_var, answer_starts_var, answer_ends_var], 
+                                        train_loss, updates=updates)
         
-        self.get_start_probs_fn = theano.function([context_var, question_var, bin_feat_var, mask_context_var,
-                                                   mask_question_var], test_out[0])
-        self.get_end_probs_fn = theano.function([context_var, question_var, bin_feat_var, mask_context_var,
-                                                 mask_question_var, answer_starts_var], test_out[1])
+        self.get_start_probs_fn = theano.function([context_var, question_var, context_char_var, question_char_var,
+                                                   bin_feat_var, mask_context_var, mask_question_var], test_out[0])
+        self.get_end_probs_fn = theano.function([context_var, question_var, context_char_var, question_char_var, 
+                                                 bin_feat_var, mask_context_var, mask_question_var, answer_starts_var], 
+                                                test_out[1])
         
         print 'Done'
         
@@ -88,16 +95,17 @@ class QANet(SimpleRNNLM):
     def get_start_probs(self, data, batch_size):
         result = []
         for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False):
-            questions, contexts, bin_feats, question_mask, context_mask = batch
-            out = self.get_start_probs_fn(contexts, questions, bin_feats, context_mask, question_mask)
+            questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask = batch
+            out = self.get_start_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats, 
+                                          context_mask, question_mask)
             result.append(out)
             
         return np.vstack(result)
     
     '''
-    tu jest blad! rozne batche maja rozna dlugosc, trzeba to zrobic inaczej
-    '''        
-    
+    tu jest blad! rozne batche maja rozna dlugosc, trzeba to zrobic inaczej (albo wsadzac jednobatchowe porcje danych)
+    (batchowanie na zewnatrz)
+    '''    
     
     # current implementation only allows for generating ends for one start index per example
     # to get end probs for k candidates for the start index, get_end_probs needs to be run k times
@@ -105,9 +113,10 @@ class QANet(SimpleRNNLM):
         result = []
         idx = 0
         for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False):
-            questions, contexts, bin_feats, question_mask, context_mask = batch
+            questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask = batch
             start_inds = answer_start_inds[idx:idx + batch_size]
-            out = self.get_end_probs_fn(contexts, questions, bin_feats, context_mask, question_mask, start_inds)
+            out = self.get_end_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats, 
+                                        context_mask, question_mask, start_inds)
             result.append(out)
             idx += batch_size
                 
@@ -120,10 +129,10 @@ class QANet(SimpleRNNLM):
         start_time = time.time()
 
         for batch in iterate_minibatches(train_data, batch_size, self.pad_value, shuffle=True):
-            questions, contexts, bin_feats, question_mask, context_mask, answer_inds = batch
+            questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, answer_inds = batch
             
-            train_err += self.train_fn(contexts, questions, bin_feats, context_mask, question_mask, 
-                                       answer_inds[:,0], answer_inds[:,1])
+            train_err += self.train_fn(contexts, questions, contexts_char, questions_char, bin_feats, 
+                                       context_mask, question_mask, answer_inds[:,0], answer_inds[:,1])
             train_batches += 1
 
             if not train_batches % log_interval:
@@ -140,12 +149,25 @@ MODEL PARAMETERS (as in LL.get_params(train_net))
 '''
             
 
-def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_question_var, answer_starts_var,
-               voc_size, emb_size, rec_size, emb_init=None, train_emb=True, **kwargs):
+def _build_net(context_var, question_var, context_char_var, question_char_var, bin_feat_var, mask_context_var,
+               mask_question_var, answer_starts_var, voc_size, alphabet_size, emb_size, emb_char_size, num_emb_char_filters,
+               rec_size, emb_char_filter_size=5, emb_init=None, train_emb=True, emb_char_init=None, train_emb_char=True, 
+               **kwargs):
+    
+    batch_size = question_var.shape[0]
+    context_len = context_var.shape[1]
+    question_len = question_var.shape[1]
+    context_word_len = context_char_var.shape[2]
+    question_word_len = question_char_var.shape[2]
+    
+    ''' Inputs '''
     
     l_context = LL.InputLayer(shape=(None, None), input_var=context_var)
     l_question = LL.InputLayer(shape=(None, None), input_var=question_var)
     
+    l_context_char = LL.InputLayer(shape=(None, None, None), input_var=context_char_var)
+    l_question_char = LL.InputLayer(shape=(None, None, None), input_var=question_char_var)
+        
     l_c_mask = None
     if mask_context_var is not None:
         l_c_mask = LL.InputLayer(shape=(None, None), input_var=mask_context_var)
@@ -154,9 +176,12 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
     if mask_question_var is not None:
         l_q_mask = LL.InputLayer(shape=(None, None), input_var=mask_question_var)        
     
+    ''' Word embeddings '''
+    
+    # voc_size should be 1 larger, to make the pad_value of -1 have its own vector at the end, just to be sure
     if emb_init is None:
         l_c_emb = LL.EmbeddingLayer(l_context,
-                                    input_size=voc_size,  # not voc_size+1, because pad_value = <utt_end>
+                                    input_size=voc_size,
                                     output_size=emb_size)
     else:
         l_c_emb = LL.EmbeddingLayer(l_context,
@@ -171,12 +196,61 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
     if not train_emb:
         l_c_emb.params[l_c_emb.W].remove('trainable')
         l_q_emb.params[l_q_emb.W].remove('trainable')
+        
+    ''' Char-embeddings '''
+        
+    if emb_char_init is None:
+        l_c_char_emb = LL.EmbeddingLayer(l_context_char,
+                                         input_size=alphabet_size,
+                                         output_size=emb_char_size) 
+    else:
+        l_c_char_emb = LL.EmbeddingLayer(l_context_char,
+                                         input_size=alphabet_size,
+                                         output_size=emb_char_size,
+                                         W=emb_char_init)
+    # l_c_char_emb.shape is (batch_size x context_len x context_word_len x emb_char_size)
+        
+    l_q_char_emb = LL.EmbeddingLayer(l_question_char,
+                                     input_size=alphabet_size,
+                                     output_size=emb_char_size,
+                                     W=l_c_char_emb.W)
+    
+    if not train_char_emb:
+        l_c_char_emb.params[l_c_char_emb.W].remove('trainable')
+        l_q_char_emb.params[l_q_char_emb.W].remove('trainable')
+        
+    l_c_char_emb = LL.dimshuffle(LL.reshape(l_c_char_emb, (batch_size * context_len, context_word_len, emb_char_size)), 
+                                 (0, 2, 1))    
+    l_c_char_conv = LL.Conv1DLayer(l_c_char_emb,
+                                   num_filters=num_emb_char_filters, 
+                                   filter_size=emb_char_filter_size,
+                                   nonlinearity=L.nonlinearities.tanh) 
+    # (batch_size * context_len x num_filters x context_word_len - filter_size + 1)
+    
+    l_c_char_emb = LL.ExpressionLayer(l_c_char_conv, lambda X: X.max(2), output_shape='auto')    
+    l_c_char_emb = LL.reshape(l_c_char_emb, (batch_size, context_len, num_emb_char_filters))    
+    l_c_emb = LL.concat([l_c_emb, l_c_char_emb], axis=2)
+    
+    
+    l_q_char_emb = LL.dimshuffle(LL.reshape(l_q_char_emb, (batch_size * question_len, question_word_len, emb_char_size)), 
+                                 (0, 2, 1))    
+    l_q_char_conv = LL.Conv1DLayer(l_q_char_emb,
+                                   num_filters=num_emb_char_filters, 
+                                   filter_size=emb_char_filter_size,
+                                   nonlinearity=L.nonlinearities.tanh,
+                                   W=l_c_char_conv.W,
+                                   b=l_c_char_conv.b)
+    # (batch_size * question_len x num_filters x question_word_len - filter_size + 1)
+    
+    l_q_char_emb = LL.ExpressionLayer(l_q_char_conv, lambda X: X.max(2), output_shape='auto')    
+    l_q_char_emb = LL.reshape(l_q_char_emb, (batch_size, question_len, num_emb_char_filters))    
+    l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)   
        
     ###
     # I skip the highway layer, it should be here
     ###
         
-    # here we calculate wiq features from https://arxiv.org/abs/1703.04816
+    ''' Here we calculate wiq features from https://arxiv.org/abs/1703.04816 '''
     
     l_feat = WeightedFeatureLayer([l_c_emb, l_q_emb, l_c_mask])    
     l_weighted_feat = LL.dimshuffle(l_feat, (0, 1, 'x'))
@@ -187,7 +261,7 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
     l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
     l_q_emb = LL.pad(l_q_emb, width=[(2, 0)], val=1, batch_ndim=2) # for the question we fix the features to 1
 
-    # context and question encoding using the same BiGRU for both
+    ''' Context and question encoding using the same BiGRU for both '''
     
     l_c_enc_forw = LL.GRULayer(l_c_emb, # output shape is (batch_size x context_len x rec_size)
                                num_units=rec_size,
@@ -255,11 +329,8 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
                              b=None,
                              nonlinearity=L.nonlinearities.tanh)
         
-    # additional, weighted question encoding
-    
-    batch_size = question_var.shape[0]
-    context_len = context_var.shape[1]
-    
+    ''' Additional, weighted question encoding (alphas from https://arxiv.org/abs/1703.04816) '''
+     
     l_alpha = LL.DenseLayer(l_q_proj, # batch_size * question_len x 1
                             num_units=1,
                             b=None,
@@ -269,9 +340,7 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
     
     l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, -1, rec_size)), l_alpha]) # batch_size x rec_size
     
-    # # # # # # # # # # # # #
-    # answer span predction #
-    # # # # # # # # # # # # #
+    ''' Answer span prediction '''
     
     # span start
     
@@ -311,6 +380,9 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
 
 
 def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False):
+  
+    # TODO: dopisac questions_char, contexts_char
+    # inputs bedzie krotka, inputs[0] to to co jest teraz, inputs[1] to beda dane char
     
     if shuffle:
         indices = np.arange(len(inputs))
@@ -360,6 +432,6 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuff
         context_mask = (contexts != pad).astype(np.float32)
         
         if with_answer_inds:
-            yield questions, contexts, bin_feats, question_mask, context_mask, answer_inds
+            yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, answer_inds
         else:
-            yield questions, contexts, bin_feats, question_mask, context_mask
+            yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask
