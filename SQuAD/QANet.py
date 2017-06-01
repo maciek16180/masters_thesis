@@ -71,7 +71,7 @@ class QANet(SimpleRNNLM):
         train_loss = -T.log(span_probs).mean()
 
         # MAKE THEANO FUNCTIONS
-        print 'Compiling theano functions...'
+        print 'Compiling theano functions:'
 
         params = LL.get_all_params(self.train_net, trainable=True)
 
@@ -85,18 +85,39 @@ class QANet(SimpleRNNLM):
         # to train only part of the embeddings I can modify updates by hand here?
         # I will need additional __init__ argument: indices of words that are fixed
         
+        print '    train_fn...'
+        
         self.train_fn = theano.function([context_var, question_var, context_char_var, question_char_var, bin_feat_var,
                                          mask_context_var, mask_question_var, mask_context_char_var, mask_question_char_var,
                                          answer_starts_var, answer_ends_var], train_loss, updates=updates)
         
-        self.get_start_probs_fn = theano.function([context_var, question_var, context_char_var, question_char_var,
-                                                   bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
-                                                   mask_question_char_var], test_out[0])
-        self.get_end_probs_fn = theano.function([context_var, question_var, context_char_var, question_char_var, 
-                                                 bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
-                                                 mask_question_char_var, answer_starts_var], test_out[1])
+        compile_pred_fns = not kwargs.get('skip_pred_fns', False)
+        
+        if compile_pred_fns:
+            
+            print '    get_start_probs_fn...'
+
+            compile_get_start_probs_fn([context_var, question_var, context_char_var, question_char_var,
+                                        bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
+                                        mask_question_char_var], test_out[0])
+
+            print '    get_end_probs_fn...'
+
+            compile_get_end_probs_fn([context_var, question_var, context_char_var, question_char_var, 
+                                      bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
+                                      mask_question_char_var, answer_starts_var], test_out[1])
+        else:
+            print 'Skipping predictions functions.'
         
         print 'Done'
+        
+    
+    def compile_get_start_probs_fn(variables, out):
+        self.get_start_probs_fn = theano.function(variables, out)
+        
+        
+    def compile_get_end_probs_fn(variables, out):
+        self.get_end_probs_fn = theano.function(variables, out)
         
        
     def get_start_probs(self, data, batch_size):
@@ -274,7 +295,7 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
     
     ''' Highway layer allowing for interaction between embeddings '''
     
-    l_c_P = LL.DenseLayer(LL.reshape(l_c_emb, (batch_size * context_len, emb_size + emb_char_size)),
+    l_c_P = LL.DenseLayer(LL.reshape(l_c_emb, (batch_size * context_len, emb_size + num_emb_char_filters)),
                           num_units=rec_size,
                           b=None,
                           nonlinearity=None)
@@ -282,7 +303,7 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
     l_c_high = HighwayLayer(l_c_P)
     l_c_emb = LL.reshape(l_c_high, (batch_size, context_len, rec_size))
     
-    l_q_P = LL.DenseLayer(LL.reshape(l_q_emb, (batch_size * question_len, emb_size + emb_char_size)),
+    l_q_P = LL.DenseLayer(LL.reshape(l_q_emb, (batch_size * question_len, emb_size + num_emb_char_filters)),
                           num_units=rec_size,
                           W=l_c_P.W,
                           b=None,
@@ -434,9 +455,6 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
 
 def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False):
   
-    # TODO: dopisac questions_char, contexts_char
-    # inputs bedzie krotka, inputs[0] to to co jest teraz, inputs[1] to beda dane char
-    
     inputs, inputs_char = inputs
     
     if shuffle:
@@ -488,25 +506,41 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuff
         question_mask = (questions != pad).astype(np.float32)
         context_mask = (contexts != pad).astype(np.float32)
         
-        c_word_len = max(len(w) for w in e[1] for e in examples_char)
-        q_word_len = max(len(w) for w in e[0] for e in examples_char)
+        c_word_len = max(len(w) for e in examples_char for w in e[1])
+        q_word_len = max(len(w) for e in examples_char for w in e[0])
         
         questions_char = []
         contexts_char = []
         
         for q, c in examples_char:
-            q  = q + [[]] * (question_len - len(q))
-            c  = c + [[]] * (context_len - len(c))            
+            q = q + [[]] * (question_len - len(q))
+            c = c + [[]] * (context_len - len(c))            
             q = [w + [pad] * (q_word_len - len(w)) for w in q]
+            if not all(len(x) == q_word_len for x in q):
+                print map(len, q)
             c = [w + [pad] * (c_word_len - len(w)) for w in c]
             
-            questions_char.append(q)
-            contexts_char.append(c)
+            if not all(len(x) == c_word_len for x in c):
+                print map(len, c)
             
-        # TODO: przerobic questions_char i contexts_char na np.array            
+            questions_char.append([q])
+            contexts_char.append([c])
+            
+        if not all(len(x[0]) == question_len for x in questions_char):
+            print [len(x[0]) for x in questions_char]
+                
+        if not all(len(x[0]) == context_len for x in contexts_char):
+            print [len(x[0]) for x in contexts_char]
+            
+        questions_char = np.vstack(questions_char).astype(np.int32)
+        contexts_char = np.vstack(contexts_char).astype(np.int32)      
         
-        # TODO: dopisac maski _char i je zwrocic
+        question_char_mask = (questions_char != pad).astype(np.float32)
+        context_char_mask = (contexts_char != pad).astype(np.float32)
+        
         if with_answer_inds:
-            yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, answer_inds
+            yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
+                    question_char_mask, context_char_mask, answer_inds
         else:
-            yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask
+            yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
+                    question_char_mask, context_char_mask
