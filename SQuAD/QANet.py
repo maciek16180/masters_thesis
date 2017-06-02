@@ -97,26 +97,26 @@ class QANet(SimpleRNNLM):
             
             print '    get_start_probs_fn...'
 
-            compile_get_start_probs_fn([context_var, question_var, context_char_var, question_char_var,
-                                        bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
-                                        mask_question_char_var], test_out[0])
+            self.compile_get_start_probs_fn([context_var, question_var, context_char_var, question_char_var,
+                                             bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
+                                             mask_question_char_var], test_out[0])
 
             print '    get_end_probs_fn...'
 
-            compile_get_end_probs_fn([context_var, question_var, context_char_var, question_char_var, 
-                                      bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
-                                      mask_question_char_var, answer_starts_var], test_out[1])
+            self.compile_get_end_probs_fn([context_var, question_var, context_char_var, question_char_var, 
+                                           bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
+                                           mask_question_char_var, answer_starts_var], test_out[1])
         else:
             print 'Skipping predictions functions.'
         
         print 'Done'
         
     
-    def compile_get_start_probs_fn(variables, out):
+    def compile_get_start_probs_fn(self, variables, out):
         self.get_start_probs_fn = theano.function(variables, out)
         
         
-    def compile_get_end_probs_fn(variables, out):
+    def compile_get_end_probs_fn(self, variables, out):
         self.get_end_probs_fn = theano.function(variables, out)
         
        
