@@ -189,53 +189,61 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
 
     # context and question encoding using the same BiGRU for both
     
-    l_c_enc_forw = LL.GRULayer(l_c_emb, # output shape is (batch_size x context_len x rec_size)
-                               num_units=rec_size,
-                               grad_clipping=100,
-                               mask_input=l_c_mask)
+    l_c_enc_forw = LL.LSTMLayer(l_c_emb, # output shape is (batch_size x context_len x rec_size)
+                                num_units=rec_size,
+                                grad_clipping=100,
+                                mask_input=l_c_mask)
     
-    l_c_enc_back = LL.GRULayer(l_c_emb,
-                               num_units=rec_size,
-                               grad_clipping=100,
-                               mask_input=l_c_mask,
-                               backwards=True)
+    l_c_enc_back = LL.LSTMLayer(l_c_emb,
+                                num_units=rec_size,
+                                grad_clipping=100,
+                                mask_input=l_c_mask,
+                                backwards=True)
     
-    l_q_enc_forw = LL.GRULayer(l_q_emb, # output shape is (batch_size x question_len x rec_size)
-                               num_units=rec_size,
-                               grad_clipping=100,
-                               mask_input=l_q_mask,
-                               resetgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_resetgate,
-                                                 W_hid=l_c_enc_forw.W_hid_to_resetgate,
-                                                 W_cell=None, 
-                                                 b=l_c_enc_forw.b_resetgate),
-                               updategate=LL.Gate(W_in=l_c_enc_forw.W_in_to_updategate,
-                                                  W_hid=l_c_enc_forw.W_hid_to_updategate,
-                                                  W_cell=None, 
-                                                  b=l_c_enc_forw.b_updategate),
-                               hidden_update=LL.Gate(W_in=l_c_enc_forw.W_in_to_hidden_update,
-                                                     W_hid=l_c_enc_forw.W_hid_to_hidden_update,
-                                                     W_cell=None, 
-                                                     b=l_c_enc_forw.b_hidden_update,
-                                                     nonlinearity=L.nonlinearities.tanh))
+    l_q_enc_forw = LL.LSTMLayer(l_q_emb, # output shape is (batch_size x question_len x rec_size)
+                                num_units=rec_size,
+                                grad_clipping=100,
+                                mask_input=l_q_mask,
+                                ingate=LL.Gate(W_in=l_c_enc_forw.W_in_to_ingate,
+                                               W_hid=l_c_enc_forw.W_hid_to_ingate,
+                                               W_cell=l_c_enc_forw.W_cell_to_ingate, 
+                                               b=l_c_enc_forw.b_ingate),
+                                forgetgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_forgetgate,
+                                                   W_hid=l_c_enc_forw.W_hid_to_forgetgate,
+                                                   W_cell=l_c_enc_forw.W_cell_to_forgetgate, 
+                                                   b=l_c_enc_forw.b_forgetgate),
+                                outgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_outgate,
+                                                W_hid=l_c_enc_forw.W_hid_to_outgate,
+                                                W_cell=l_c_enc_forw.W_cell_to_outgate, 
+                                                b=l_c_enc_forw.b_outgate),
+                                cell=LL.Gate(W_in=l_c_enc_forw.W_in_to_cell,
+                                             W_hid=l_c_enc_forw.W_hid_to_cell,
+                                             W_cell=None,
+                                             b=l_c_enc_forw.b_cell,
+                                             nonlinearity=L.nonlinearities.tanh))
     
-    l_q_enc_back = LL.GRULayer(l_q_emb,
-                               num_units=rec_size,
-                               grad_clipping=100,
-                               mask_input=l_q_mask,
-                               backwards=True,                               
-                               resetgate=LL.Gate(W_in=l_c_enc_back.W_in_to_resetgate,
-                                                 W_hid=l_c_enc_back.W_hid_to_resetgate,
-                                                 W_cell=None, 
-                                                 b=l_c_enc_back.b_resetgate),
-                               updategate=LL.Gate(W_in=l_c_enc_back.W_in_to_updategate,
-                                                  W_hid=l_c_enc_back.W_hid_to_updategate,
-                                                  W_cell=None, 
-                                                  b=l_c_enc_back.b_updategate),
-                               hidden_update=LL.Gate(W_in=l_c_enc_back.W_in_to_hidden_update,
-                                                     W_hid=l_c_enc_back.W_hid_to_hidden_update,
-                                                     W_cell=None, 
-                                                     b=l_c_enc_back.b_hidden_update,
-                                                     nonlinearity=L.nonlinearities.tanh))
+    l_q_enc_back = LL.LSTMLayer(l_q_emb,
+                                num_units=rec_size,
+                                grad_clipping=100,
+                                mask_input=l_q_mask,
+                                backwards=True,                               
+                                ingate=LL.Gate(W_in=l_c_enc_back.W_in_to_ingate,
+                                               W_hid=l_c_enc_back.W_hid_to_ingate,
+                                               W_cell=l_c_enc_back.W_cell_to_ingate, 
+                                               b=l_c_enc_back.b_ingate),
+                                forgetgate=LL.Gate(W_in=l_c_enc_back.W_in_to_forgetgate,
+                                                   W_hid=l_c_enc_back.W_hid_to_forgetgate,
+                                                   W_cell=l_c_enc_back.W_cell_to_forgetgate, 
+                                                   b=l_c_enc_back.b_forgetgate),
+                                outgate=LL.Gate(W_in=l_c_enc_back.W_in_to_outgate,
+                                                W_hid=l_c_enc_back.W_hid_to_outgate,
+                                                W_cell=l_c_enc_back.W_cell_to_outgate, 
+                                                b=l_c_enc_back.b_outgate),
+                                cell=LL.Gate(W_in=l_c_enc_back.W_in_to_cell,
+                                             W_hid=l_c_enc_back.W_hid_to_cell,
+                                             W_cell=None,
+                                             b=l_c_enc_back.b_cell,
+                                             nonlinearity=L.nonlinearities.tanh))
     
 
     l_c_enc = LL.concat([l_c_enc_forw, l_c_enc_back], axis=2) # batch_size x context_len x 2*rec_size
