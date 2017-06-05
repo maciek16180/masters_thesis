@@ -12,22 +12,36 @@ idx_to_w, w_to_idx, voc_size, _ = get_mt_voc(path=mt_path, train_len=0)
 
 pad_value = -1
 
+def softmax(x):
+    assert len(x.shape) == 2
+    x = np.exp(x)
+    return x / x.sum(axis=1)[:, np.newaxis]
+
 def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.array([[1]]), rank_penalty=0,
-                        group_diversity_penalty=1, seq_diversity_penalty=1, verbose_log=False, unk_penalty=100):
+                        group_diversity_penalty=1, seq_diversity_penalty=1, verbose_log=False, unk_penalty=100,
+                        sample=False, sharpen_probs=None):
     assert not beam % gs
     num_groups = beam / gs
     
     seq = np.repeat(init_seq.astype(np.int32), beam, axis=0)
     probs, dec_init = hred_net.get_probs_and_new_dec_init_fn(seq, dec_init)
+    log_probs = np.log(probs)
 
     if unk_penalty is not None:
-        probs[:, w_to_idx['<unk>']] -= unk_penalty
-        probs[:, w_to_idx['<number>']] -= unk_penalty
-        probs[:, w_to_idx['<person>']] -= unk_penalty
+        log_probs[:, w_to_idx['<unk>']] -= unk_penalty
+        log_probs[:, w_to_idx['<number>']] -= unk_penalty
+        log_probs[:, w_to_idx['<person>']] -= unk_penalty
     
-    words = probs[0].argpartition(-beam)[-beam:].astype(np.int32)
+    if not sample:
+        words = log_probs[0].argpartition(-beam)[-beam:].astype(np.int32)
+    else:
+        lp = log_probs[0][np.newaxis]
+        if sharpen_probs is not None:
+            lp = -(-lp)**sharpen_probs
+        words = np.random.choice(voc_size, size=beam, p=softmax(lp)[0], replace=False).astype(np.int32)
+        
     words[words == voc_size-1] = pad_value
-    scores = np.log(probs[0][words])
+    scores = log_probs[0][words]
     seq = np.hstack([seq, words[:, np.newaxis]])
     
     finished = []
@@ -51,14 +65,21 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
             dec_init = all_dec_init[g_idx]
             
             # here we add the dissimilarity as described in https://arxiv.org/pdf/1610.02424.pdf            
-            # simple Hamming diversity            
+            # simple Hamming diversity
             log_probs[:, new_seq[:, -1]] -= group_diversity_penalty
             
             # penalize repeating words in the same sequence
             log_probs[np.indices((gs, seq.shape[1]))[0], seq[g_idx]] -= seq_diversity_penalty
             
-            words = log_probs.argpartition(-gs, axis=1)[:, -gs:].astype(np.int32)
-            
+            if not sample:
+                words = log_probs.argpartition(-gs, axis=1)[:, -gs:].astype(np.int32)
+            else:
+                words = []
+                probs = softmax(log_probs if sharpen_probs is None else -(-log_probs)**sharpen_probs)
+                for r in xrange(gs):
+                    words.append(np.random.choice(voc_size, size=gs, p=probs[r], replace=False))
+                words = np.vstack(words).astype(np.int32)
+                
             next_word_scores = log_probs[np.indices((gs, gs))[0], words]
 
             new_scores = next_word_scores + scores[g_idx, np.newaxis]
@@ -69,12 +90,18 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
             new_scores = new_scores.ravel()
             order = (-new_scores).argsort().astype(np.int32)
 
+            #print "###############"
+            #print new_seq.shape, order.size, new_scores.shape, next_word_scores.shape, scores.shape
+            
             for idx in order:
                 if new_seq.shape[0] == (g + 1) * gs:
                     break
 
                 i,j = divmod(idx, gs)
 
+                #print seq.shape, gs * g + i, i, j
+                #print words
+                
                 extended_seq = np.concatenate([seq[gs * g + i], np.array([words[i,j]])])
                 if extended_seq[-1] == w_to_idx['</s>']:
                     finished.append((extended_seq, new_scores[idx]))
@@ -82,6 +109,12 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
                     new_seq = np.vstack([new_seq, extended_seq])
                     new_dec_inits.append(dec_init[i])
                     next_scores.append(new_scores[idx])
+                    
+            if new_seq.shape[0] < (g + 1) * gs:
+                pad_len = (g + 1) * gs - new_seq.shape[0]
+                new_seq = np.vstack([new_seq, np.ones((pad_len, new_seq.shape[1]))]).astype(np.int32)
+                new_dec_inits.append(np.zeros((pad_len, dec_init.shape[1]), dtype=np.float32))
+                next_scores += [-np.inf] * pad_len
 
         if not new_seq.size:
             print 'Ending...'
@@ -89,7 +122,7 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
                 
         seq = new_seq
         scores = np.array(next_scores)
-        dec_init = np.array(new_dec_inits)
+        dec_init = np.vstack(new_dec_inits)
     
         if verbose_log:
             print 'Length ', seq.shape[1], '\n'

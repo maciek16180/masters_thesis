@@ -34,7 +34,8 @@ def context_summary(context, lookup=True):
         con_init = hred_net.get_new_con_init_fn(utt_to_array(utt) if lookup else utt, con_init)
     return con_init
 
-def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1):
+def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1,
+         short_context=False, bs_sample=False, sharpen_probs=None):
     
     user_input = sys.stdin.readline()
     
@@ -54,7 +55,8 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
         beamsearch = diverse_beam_search(beam_size, group_size, dec_init, voc_size, hred_net,
                                          init_seq=utt_to_array('<s> '.split()), rank_penalty=rank_penalty, 
                                          group_diversity_penalty=group_diversity_penalty, 
-                                         seq_diversity_penalty=seq_diversity_penalty, verbose_log=False)
+                                         seq_diversity_penalty=seq_diversity_penalty, verbose_log=False,
+                                         sample=bs_sample, sharpen_probs=sharpen_probs)
 
         score_order = sorted(beamsearch, key=lambda (x,y): fn_score(x, y), reverse=True)
     #     alphabetic_order = sorted(beamsearch, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
@@ -67,11 +69,15 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
         print '######################'        
 
         print ' '.join(bot_response.split()[1:-1])
-
-        con_init = hred_net.get_new_con_init_fn(utt_to_array(bot_response), con_init)
-
+        
         user_input = sys.stdin.readline()
         user_input = ('<s> ' + user_input + ' </s>').split()
-
-        con_init = hred_net.get_new_con_init_fn(utt_to_array(user_input), con_init)
-        dec_init = np.repeat(con_init.dot(W) + b, beam_size, axis=0)    
+        
+        if not short_context:
+            con_init = hred_net.get_new_con_init_fn(utt_to_array(bot_response), con_init)
+            con_init = hred_net.get_new_con_init_fn(utt_to_array(user_input), con_init)
+        else:
+            context = [bot_response.split(), user_input]
+            con_init = context_summary(context, lookup=True)
+            
+        dec_init = np.repeat(np.tanh(con_init.dot(W) + b), beam_size, axis=0)    
