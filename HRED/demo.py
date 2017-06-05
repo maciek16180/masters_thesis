@@ -42,7 +42,7 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
     con_init = context_summary(context, lookup=True)
     W = L.layers.get_all_param_values(hred_net.train_net)[31]
     b = L.layers.get_all_param_values(hred_net.train_net)[32]
-    dec_init = np.repeat(con_init.dot(W) + b, beam_size, axis=0)
+    dec_init = np.repeat(np.tanh(con_init.dot(W) + b), beam_size, axis=0)
 
     len_bonus = lambda size: 0 #np.log(size)**2
 

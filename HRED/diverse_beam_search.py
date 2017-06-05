@@ -22,6 +22,8 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
 
     if unk_penalty is not None:
         probs[:, w_to_idx['<unk>']] -= unk_penalty
+        probs[:, w_to_idx['<number>']] -= unk_penalty
+        probs[:, w_to_idx['<person>']] -= unk_penalty
     
     words = probs[0].argpartition(-beam)[-beam:].astype(np.int32)
     words[words == voc_size-1] = pad_value
@@ -43,6 +45,8 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
             
             if unk_penalty is not None:
                 log_probs[:, w_to_idx['<unk>']] -= unk_penalty
+                log_probs[:, w_to_idx['<number>']] -= unk_penalty
+                log_probs[:, w_to_idx['<person>']] -= unk_penalty
                 
             dec_init = all_dec_init[g_idx]
             
