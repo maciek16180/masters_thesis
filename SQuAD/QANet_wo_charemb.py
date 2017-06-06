@@ -9,8 +9,9 @@ import lasagne as L
 import lasagne.layers as LL
 
 import sys
-sys.path.insert(0, '../SimpleRNNLM/')
-sys.path.insert(0, '../HRED/')
+sys.path.append('../SimpleRNNLM/')
+sys.path.append('../HRED/')
+sys.path.append('layers/')
 
 from SimpleRNNLM import SimpleRNNLM
 
@@ -185,7 +186,7 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
     l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
         
     l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
-    l_q_emb = LL.pad(l_q_emb, width=[(2, 0)], val=1, batch_ndim=2) # for the question we fix the features to 1
+    l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=1, batch_ndim=2) # for the question we fix the features to 1
 
     # context and question encoding using the same BiGRU for both
     

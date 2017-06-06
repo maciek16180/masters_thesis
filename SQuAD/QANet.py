@@ -9,8 +9,9 @@ import lasagne as L
 import lasagne.layers as LL
 
 import sys
-sys.path.insert(0, '../SimpleRNNLM/')
-sys.path.insert(0, '../HRED/')
+sys.path.append('../SimpleRNNLM/')
+sys.path.append('../HRED/')
+sys.path.append('layers/')
 
 from SimpleRNNLM import SimpleRNNLM
 
@@ -70,17 +71,18 @@ class QANet(SimpleRNNLM):
 
         train_loss = -T.log(span_probs).mean()
 
-        # MAKE THEANO FUNCTIONS
-        print 'Compiling theano functions:'
-
         params = LL.get_all_params(self.train_net, trainable=True)
 
         if kwargs.has_key('update_fn'):
+            print 'Using custom update_fn.'
             update_fn = kwargs['update_fn']
         else:
             update_fn = lambda l, p: L.updates.adagrad(l, p, learning_rate=.01)
 
         updates = update_fn(train_loss, params)
+        
+        # MAKE THEANO FUNCTIONS
+        print 'Compiling theano functions:'
         
         # to train only part of the embeddings I can modify updates by hand here?
         # I will need additional __init__ argument: indices of words that are fixed
@@ -325,7 +327,7 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
     l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
         
     l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
-    l_q_emb = LL.pad(l_q_emb, width=[(2, 0)], val=1, batch_ndim=2) # for the question we fix the features to 1
+    l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=1, batch_ndim=2) # for the question we fix the features to 1
 
     ''' Context and question encoding using the same BiLSTM for both '''
     

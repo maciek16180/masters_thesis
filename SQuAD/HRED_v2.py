@@ -9,8 +9,9 @@ import lasagne as L
 import lasagne.layers as LL
 
 import sys
-sys.path.insert(0, '../SimpleRNNLM/')
-sys.path.insert(0, '../HRED/')
+sys.path.append('../SimpleRNNLM/')
+sys.path.append('../HRED/')
+sys.path.append('layers/')
 
 from SimpleRNNLM import SimpleRNNLM
 from SampledSoftmaxLayer import SampledSoftmaxDenseLayer

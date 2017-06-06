@@ -4,7 +4,7 @@ import sys
 sys.path.append('../rnn_ex/')
 
 from HRED import HRED
-from diverse_beam_search import diverse_beam_search
+from diverse_beam_search import diverse_beam_search, softmax
 from mt_load import load_mt, get_mt_voc, get_w2v_embs
 
 
@@ -35,7 +35,7 @@ def context_summary(context, lookup=True):
     return con_init
 
 def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1,
-         short_context=False, bs_sample=False, sharpen_probs=None):
+         short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None):
     
     user_input = sys.stdin.readline()
     
@@ -56,12 +56,17 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
                                          init_seq=utt_to_array('<s> '.split()), rank_penalty=rank_penalty, 
                                          group_diversity_penalty=group_diversity_penalty, 
                                          seq_diversity_penalty=seq_diversity_penalty, verbose_log=False,
-                                         sample=bs_sample, sharpen_probs=sharpen_probs)
+                                         sample=bs_random, sharpen_probs=sharpen_bs_probs)
 
         score_order = sorted(beamsearch, key=lambda (x,y): fn_score(x, y), reverse=True)
     #     alphabetic_order = sorted(beamsearch, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
-
-        bot_response = print_utt(score_order[0][0])
+   
+        if not random:
+            bot_response = print_utt(score_order[0][0])
+        else:
+            scr = np.array([[fn_score(x, y) for x, y in score_order]])
+            p = softmax(scr if sharpen_probs is None else -(-scr)**sharpen_probs)[0]
+            bot_response = print_utt(score_order[np.random.choice(len(score_order), p=p)][0])
         
         print '######################'
         for x, y in score_order[:10]:

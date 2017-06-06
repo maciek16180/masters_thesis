@@ -31,6 +31,7 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
         log_probs[:, w_to_idx['<unk>']] -= unk_penalty
         log_probs[:, w_to_idx['<number>']] -= unk_penalty
         log_probs[:, w_to_idx['<person>']] -= unk_penalty
+        log_probs[:, w_to_idx['<continued_utterance>']] -= unk_penalty
     
     if not sample:
         words = log_probs[0].argpartition(-beam)[-beam:].astype(np.int32)
@@ -61,6 +62,7 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
                 log_probs[:, w_to_idx['<unk>']] -= unk_penalty
                 log_probs[:, w_to_idx['<number>']] -= unk_penalty
                 log_probs[:, w_to_idx['<person>']] -= unk_penalty
+                log_probs[:, w_to_idx['<continued_utterance>']] -= unk_penalty
                 
             dec_init = all_dec_init[g_idx]
             
