@@ -17,7 +17,8 @@ from L2PoolingLayer import L2PoolingLayer
 
 class HRED(SimpleRNNLM):
     
-    def __init__(self, voc_size, emb_size, lv1_rec_size, lv2_rec_size, out_emb_size, mode='ssoft', pad_value=-1, **kwargs):
+    def __init__(self, voc_size, emb_size, lv1_rec_size, lv2_rec_size, out_emb_size, mode='ssoft', n=3, 
+                 pad_value=-1, **kwargs):
         self.pad_value = pad_value
         self.voc_size = voc_size
         self.emb_size = emb_size
@@ -39,7 +40,7 @@ class HRED(SimpleRNNLM):
         assert mode in ['ssoft']
 
         self.train_net = _build_hred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size,
-                                     out_emb_size, target_var=target_var, **kwargs)
+                                     out_emb_size, target_var=target_var, n=n, **kwargs)
 
         # CALCULATE THE LOSS
 
@@ -102,14 +103,29 @@ MODEL PARAMETERS (as in L.layers.get_params(train_net))
  decoder_net: emb, GRU dec (no hid_init), H0, E0, softmax (full, no p from ssoft)
 '''
             
+# "n" argument below is the maximum number of utterances in the sequence (so n=3 for Movie Triples).
+# It doesn't affect number or shape of net parameters, so we can, for example, pretrain the net on short contexts
+# and then feed it with longer ones. We have to rebuild the net with different n for that though.
+# Because i use 2D input, batch_size has to be divisible by n.
+
+# TODO: make it so we don't have to rebuild the net to feed in context with different n.
+#       the input shape will be (batch_size x n x sequence_len)
 
 def _build_hred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size, out_emb_size,
-                num_sampled, ssoft_probs=None, emb_init=None, train_emb=True, target_var=None, **kwargs):
+                num_sampled, ssoft_probs=None, emb_init=None, train_emb=True, target_var=None, n=3, **kwargs):
+    
+    batch_size = input_var.shape[0]
+    sequence_len = input_var.shape[1]
+    
+    ''' Inputs '''
+    
     l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
     
     l_mask = None
     if mask_input_var is not None:
         l_mask = L.layers.InputLayer(shape=(None, None), input_var=mask_input_var)
+        
+    ''' Word embeddings '''
     
     if emb_init is None:
         l_emb = L.layers.EmbeddingLayer(l_in,
@@ -122,17 +138,17 @@ def _build_hred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv2
                                         W=emb_init)
     if not train_emb:
         l_emb.params[l_emb.W].remove('trainable')
+        
+    ''' Level 1 (sentence) BiGRU encoding with L2-pooling '''
             
     l_lv1_enc_forw = L.layers.GRULayer(l_emb, # we process all utts in parallel, out_shape is batch_size x lv1_rec_size
                                        num_units=lv1_rec_size,
                                        grad_clipping=100,
-                                       # only_return_final=True,
                                        mask_input=l_mask)
     
     l_lv1_enc_back = L.layers.GRULayer(l_emb, # backward pass of encoder rnn, out_shape is batch_size x lv1_rec_size
                                        num_units=lv1_rec_size,
                                        grad_clipping=100,
-                                       # only_return_final=True,
                                        mask_input=l_mask,
                                        backwards=True)
     
@@ -141,33 +157,37 @@ def _build_hred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv2
 
     l_lv1_enc = L.layers.ConcatLayer([l2_pooled_forw, l2_pooled_back], axis=1) # concatenation of L2-pooled states
     
-    l_resh = L.layers.ReshapeLayer(l_lv1_enc, shape=(-1, 3, 2*lv1_rec_size)) # 3 is because movie *triples*
+    ''' Level 2 (context) encoding '''
     
-    l_lv2_enc = L.layers.GRULayer(l_resh, # out_shape is batch_size/3 x 3 x lv2_rec_size
+    l_resh = L.layers.ReshapeLayer(l_lv1_enc, shape=(batch_size / n, n, 2 * lv1_rec_size))
+    
+    l_lv2_enc = L.layers.GRULayer(l_resh, # out_shape is batch_size/n x n x lv2_rec_size
                                   num_units=lv2_rec_size,
                                   grad_clipping=100)
     
-    l_shift = ShiftLayer(l_lv2_enc)
+    ''' Decoder '''
+    
+    l_shift = ShiftLayer(l_lv2_enc) # we want to use i-th utterance summary as an init for decoding (i+1)-th
 
-    l_resh2 = L.layers.ReshapeLayer(l_shift, shape=(-1, lv2_rec_size))
+    l_resh2 = L.layers.ReshapeLayer(l_shift, shape=(batch_size, lv2_rec_size))
     
     l_dec_inits = L.layers.DenseLayer(l_resh2, # out_shape is batch_size x lv1_rec_size
                                       num_units=lv1_rec_size,
                                       nonlinearity=L.nonlinearities.tanh)
     
-    l_dec = L.layers.GRULayer(l_emb, # out_shape is batch_size x seq_len x lv1_rec_size
+    l_dec = L.layers.GRULayer(l_emb, # out_shape is batch_size x sequence_len x lv1_rec_size
                               num_units=lv1_rec_size,
                               grad_clipping=100,
                               mask_input=l_mask,
                               hid_init=l_dec_inits)
     
-    l_resh3 = L.layers.ReshapeLayer(l_dec, shape=(-1, lv1_rec_size))
+    l_resh3 = L.layers.ReshapeLayer(l_dec, shape=(batch_size * sequence_len, lv1_rec_size))
     
     l_H0 = L.layers.DenseLayer(l_resh3,
                                num_units=out_emb_size,
                                nonlinearity=None)
     
-    l_resh4 = L.layers.ReshapeLayer(l_emb, shape=(-1, emb_size))
+    l_resh4 = L.layers.ReshapeLayer(l_emb, shape=(batch_size * sequence_len, emb_size))
     
     l_E0 = L.layers.DenseLayer(l_resh4,
                                num_units=out_emb_size,
@@ -185,9 +205,9 @@ def _build_hred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv2
                                        sample_unique=False)
 
     if target_var is not None:
-        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(input_var.shape[0], input_var.shape[1]))
+        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(batch_size, sequence_len))
     else:
-        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
+        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(batch_size, sequence_len, voc_size))
 
     return l_out
 
@@ -207,7 +227,6 @@ def _build_context_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, 
     l_lv1_enc_forw = L.layers.GRULayer(l_emb,
                                        num_units=lv1_rec_size,
                                        grad_clipping=100,
-                                       # only_return_final=True,
                                        resetgate=L.layers.Gate(W_in=lv1f['W_in_to_resetgate'],
                                                                W_hid=lv1f['W_hid_to_resetgate'],
                                                                W_cell=None,
@@ -226,7 +245,6 @@ def _build_context_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, 
     l_lv1_enc_back = L.layers.GRULayer(l_emb, # backward pass of encoder rnn
                                        num_units=lv1_rec_size,
                                        grad_clipping=100,
-                                       # only_return_final=True,
                                        backwards=True,
                                        resetgate=L.layers.Gate(W_in=lv1b['W_in_to_resetgate'],
                                                                W_hid=lv1b['W_hid_to_resetgate'],

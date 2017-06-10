@@ -16,8 +16,10 @@ hred_net = HRED(voc_size=voc_size,
                 lv1_rec_size=300, 
                 lv2_rec_size=300, 
                 out_emb_size=300, 
-                num_sampled=200)
+                num_sampled=200,
+                n=1)
 
+#hred_net.load_params('trained_models/pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
 hred_net.load_params('trained_models/subtleFixed_300_300_300_300_ssoft200unigr_bs30_cut200_early5.npz')
 
 def print_utt(utt):

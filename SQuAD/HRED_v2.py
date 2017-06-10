@@ -1,4 +1,5 @@
 # HRED architecture modified for SQuAD task
+# didn't work at all, but maybe it will  be useful for something
 
 import numpy as np
 import theano

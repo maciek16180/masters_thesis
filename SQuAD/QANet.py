@@ -22,6 +22,7 @@ from StartFeaturesLayer import StartFeaturesLayer
 from EndFeaturesLayer import EndFeaturesLayer
 from HighwayLayer import HighwayLayer
 from ForgetSizeLayer import ForgetSizeLayer
+from TrainPartOfEmbsLayer import TrainPartOfEmbsLayer
 
 from itertools import chain
 
@@ -29,7 +30,7 @@ from itertools import chain
 class QANet(SimpleRNNLM):
     
     def __init__(self, voc_size, alphabet_size, emb_size, emb_char_size, num_emb_char_filters, rec_size, 
-                 pad_value=-1, **kwargs):
+                 train_inds, emb_init, pad_value=-1, **kwargs):
         
         self.pad_value = pad_value
         self.voc_size = voc_size
@@ -58,7 +59,7 @@ class QANet(SimpleRNNLM):
         self.train_net = _build_net(context_var, question_var, context_char_var, question_char_var, bin_feat_var,
                                     mask_context_var, mask_question_var, mask_context_char_var, mask_question_char_var,
                                     answer_starts_var, voc_size, alphabet_size, emb_size, emb_char_size, 
-                                    num_emb_char_filters, rec_size, **kwargs)
+                                    num_emb_char_filters, rec_size, train_inds, emb_init, **kwargs)
 
         # CALCULATE THE LOSS
 
@@ -175,6 +176,16 @@ class QANet(SimpleRNNLM):
 
         return  train_err / train_batches
     
+    
+    def save_params(self, fname): # without the fixed word embeddings matrix
+        np.savez(fname, *L.layers.get_all_param_values(self.train_net)[1:])
+        
+
+    def load_params(self, fname, E): # E is the fixed word embeddings matrix
+        with np.load(fname) as f:
+            param_values = [E] + [f['arr_%d' % i] for i in range(len(f.files))]
+            L.layers.set_all_param_values(self.train_net, param_values) 
+    
             
 '''          
 MODEL PARAMETERS (as in LL.get_params(train_net))
@@ -185,9 +196,8 @@ MODEL PARAMETERS (as in LL.get_params(train_net))
 
 def _build_net(context_var, question_var, context_char_var, question_char_var, bin_feat_var, mask_context_var,
                mask_question_var, mask_context_char_var, mask_question_char_var, answer_starts_var, voc_size, alphabet_size,
-               emb_size, emb_char_size, num_emb_char_filters, rec_size, 
-               emb_char_filter_size=5, emb_init=None, train_emb=True, emb_char_init=None, train_emb_char=True, 
-               **kwargs):
+               emb_size, emb_char_size, num_emb_char_filters, rec_size, train_inds, emb_init, 
+               emb_char_filter_size=5, emb_char_init=None, train_emb_char=True, emb_dropout=False, **kwargs):
     
     batch_size = question_var.shape[0]
     context_len = context_var.shape[1]
@@ -216,24 +226,19 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
     
     ''' Word embeddings '''
     
-    # voc_size should be 1 larger, to make the pad_value of -1 have its own vector at the end, just to be sure
-    if emb_init is None:
-        l_c_emb = LL.EmbeddingLayer(l_context,
-                                    input_size=voc_size,
-                                    output_size=emb_size)
-    else:
-        l_c_emb = LL.EmbeddingLayer(l_context,
-                                    input_size=voc_size,
-                                    output_size=emb_size,
-                                    W=emb_init)
+    l_c_emb = TrainPartOfEmbsLayer(l_context,
+                                   output_size=emb_size,
+                                   input_size=voc_size,
+                                   W=emb_init[train_inds],
+                                   E=emb_init,
+                                   train_inds=train_inds)
         
-    l_q_emb = LL.EmbeddingLayer(l_question,
-                                input_size=voc_size,
-                                output_size=emb_size,
-                                W=l_c_emb.W)
-    if not train_emb:
-        l_c_emb.params[l_c_emb.W].remove('trainable')
-        l_q_emb.params[l_q_emb.W].remove('trainable')
+    l_q_emb = TrainPartOfEmbsLayer(l_question,
+                                   output_size=emb_size,
+                                   input_size=voc_size,
+                                   W=l_c_emb.W,
+                                   E=l_c_emb.E,
+                                   train_inds=train_inds)
         
     ''' Char-embeddings '''
         
@@ -294,6 +299,13 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
     l_q_char_emb = LL.ExpressionLayer(l_q_char_conv, lambda X: X.max(2), output_shape='auto')    
     l_q_char_emb = LL.reshape(l_q_char_emb, (batch_size, question_len, num_emb_char_filters))    
     l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)
+    
+    ''' Dropout at the embeddings '''
+    
+    if emb_dropout:
+        print 'Using dropout.'
+        l_c_emb = LL.dropout(l_c_emb)
+        l_q_emb = LL.dropout(l_q_emb)
     
     ''' Highway layer allowing for interaction between embeddings '''
     

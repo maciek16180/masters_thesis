@@ -20,13 +20,14 @@ from BatchedDotLayer import BatchedDotLayer
 from MaskedSoftmaxLayer import MaskedSoftmaxLayer
 from StartFeaturesLayer import StartFeaturesLayer
 from EndFeaturesLayer import EndFeaturesLayer
+from TrainPartOfEmbsLayer import TrainPartOfEmbsLayer
 
 from itertools import chain
 
 
 class QANet(SimpleRNNLM):
     
-    def __init__(self, voc_size, emb_size, rec_size, pad_value=-1, **kwargs):
+    def __init__(self, voc_size, emb_size, rec_size, train_inds, emb_init, pad_value=-1, **kwargs):
         
         self.pad_value = pad_value
         self.voc_size = voc_size
@@ -47,7 +48,7 @@ class QANet(SimpleRNNLM):
         print 'Building the model...'
         
         self.train_net = _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_question_var, 
-                                    answer_starts_var, voc_size, emb_size, rec_size, **kwargs)
+                                    answer_starts_var, voc_size, emb_size, rec_size, train_inds, emb_init, **kwargs)
 
         # CALCULATE THE LOSS
 
@@ -60,13 +61,11 @@ class QANet(SimpleRNNLM):
 
         train_loss = -T.log(span_probs).mean()
 
-        # MAKE THEANO FUNCTIONS
-        print 'Compiling theano functions...'
-
         params = LL.get_all_params(self.train_net, trainable=True)
 
         if kwargs.has_key('update_fn'):
             update_fn = kwargs['update_fn']
+            print 'Using custom update_fn.'
         else:
             update_fn = lambda l, p: L.updates.adagrad(l, p, learning_rate=.01)
 
@@ -74,6 +73,9 @@ class QANet(SimpleRNNLM):
         
         # to train only part of the embeddings I can modify updates by hand here?
         # I will need additional __init__ argument: indices of words that are fixed
+        
+        # MAKE THEANO FUNCTIONS
+        print 'Compiling theano functions...'
         
         self.train_fn = theano.function([context_var, question_var, bin_feat_var, mask_context_var, mask_question_var, 
                                          answer_starts_var, answer_ends_var], train_loss, updates=updates)
@@ -133,6 +135,16 @@ class QANet(SimpleRNNLM):
 
         return  train_err / train_batches
     
+    
+    def save_params(self, fname): # without the fixed word embeddings matrix
+        np.savez(fname, *L.layers.get_all_param_values(self.train_net)[1:])
+        
+
+    def load_params(self, fname, E): # E is the fixed word embeddings matrix
+        with np.load(fname) as f:
+            param_values = [E] + [f['arr_%d' % i] for i in range(len(f.files))]
+            L.layers.set_all_param_values(self.train_net, param_values)
+    
             
 '''          
 MODEL PARAMETERS (as in LL.get_params(train_net))
@@ -142,7 +154,9 @@ MODEL PARAMETERS (as in LL.get_params(train_net))
             
 
 def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_question_var, answer_starts_var,
-               voc_size, emb_size, rec_size, emb_init=None, train_emb=True, **kwargs):
+               voc_size, emb_size, rec_size, train_inds, emb_init, emb_dropout=False, **kwargs):
+    
+    ''' Inputs '''
     
     l_context = LL.InputLayer(shape=(None, None), input_var=context_var)
     l_question = LL.InputLayer(shape=(None, None), input_var=question_var)
@@ -153,31 +167,31 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
 
     l_q_mask = None
     if mask_question_var is not None:
-        l_q_mask = LL.InputLayer(shape=(None, None), input_var=mask_question_var)        
+        l_q_mask = LL.InputLayer(shape=(None, None), input_var=mask_question_var) 
+        
+    ''' Word embeddings '''
     
-    if emb_init is None:
-        l_c_emb = LL.EmbeddingLayer(l_context,
-                                    input_size=voc_size,  # not voc_size+1, because pad_value = <utt_end>
-                                    output_size=emb_size)
-    else:
-        l_c_emb = LL.EmbeddingLayer(l_context,
-                                    input_size=voc_size,
-                                    output_size=emb_size,
-                                    W=emb_init)
+    l_c_emb = TrainPartOfEmbsLayer(l_context,
+                                   output_size=emb_size,
+                                   input_size=voc_size,
+                                   W=emb_init[train_inds],
+                                   E=emb_init,
+                                   train_inds=train_inds)
         
-    l_q_emb = LL.EmbeddingLayer(l_question,
-                                input_size=voc_size,
-                                output_size=emb_size,
-                                W=l_c_emb.W)
-    if not train_emb:
-        l_c_emb.params[l_c_emb.W].remove('trainable')
-        l_q_emb.params[l_q_emb.W].remove('trainable')
+    l_q_emb = TrainPartOfEmbsLayer(l_question,
+                                   output_size=emb_size,
+                                   input_size=voc_size,
+                                   W=l_c_emb.W,
+                                   E=l_c_emb.E,
+                                   train_inds=train_inds) 
+        
+    ''' Dropout at the embeddings '''
+    
+    if emb_dropout:
+        l_c_emb = LL.dropout(l_c_emb)
+        l_q_emb = LL.dropout(l_q_emb)
        
-    ###
-    # I skip the highway layer, it should be here
-    ###
-        
-    # here we calculate wiq features from https://arxiv.org/abs/1703.04816
+    ''' Here we calculate wiq features from https://arxiv.org/abs/1703.04816 '''
     
     l_feat = WeightedFeatureLayer([l_c_emb, l_q_emb, l_c_mask])    
     l_weighted_feat = LL.dimshuffle(l_feat, (0, 1, 'x'))
@@ -187,9 +201,9 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
         
     l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
     l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=1, batch_ndim=2) # for the question we fix the features to 1
-
-    # context and question encoding using the same BiGRU for both
     
+    ''' Context and question encoding using the same BiLSTM for both '''
+
     l_c_enc_forw = LL.LSTMLayer(l_c_emb, # output shape is (batch_size x context_len x rec_size)
                                 num_units=rec_size,
                                 grad_clipping=100,
@@ -264,7 +278,7 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
                              b=None,
                              nonlinearity=L.nonlinearities.tanh)
         
-    # additional, weighted question encoding
+    ''' Additional, weighted question encoding (alphas from https://arxiv.org/abs/1703.04816) '''
     
     batch_size = question_var.shape[0]
     context_len = context_var.shape[1]
@@ -278,9 +292,7 @@ def _build_net(context_var, question_var, bin_feat_var, mask_context_var, mask_q
     
     l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, -1, rec_size)), l_alpha]) # batch_size x rec_size
     
-    # # # # # # # # # # # # #
-    # answer span predction #
-    # # # # # # # # # # # # #
+    ''' Answer span prediction '''
     
     # span start
     

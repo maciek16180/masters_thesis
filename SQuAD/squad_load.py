@@ -1,9 +1,11 @@
+# this is deprecated, now i use full glove vocabulary and ascii chars
+
 import numpy as np
 import io
 import lasagne as L
 
 
-def load_squad_train(path, with_chars=False):
+def load_squad_train(path, with_chars=False): # do poprawy
     return np.load(path + 'train.pkl'), np.load(path + 'train_char.pkl')
 
 def get_squad_train_voc(path, pad_value=-1):

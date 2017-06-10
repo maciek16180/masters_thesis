@@ -19,7 +19,7 @@ def softmax(x):
 
 def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.array([[1]]), rank_penalty=0,
                         group_diversity_penalty=1, seq_diversity_penalty=1, verbose_log=False, unk_penalty=100,
-                        sample=False, sharpen_probs=None):
+                        sample=False, sharpen_probs=None, only_last_groups=False):
     assert not beam % gs
     num_groups = beam / gs
     
@@ -106,7 +106,8 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
                 
                 extended_seq = np.concatenate([seq[gs * g + i], np.array([words[i,j]])])
                 if extended_seq[-1] == w_to_idx['</s>']:
-                    finished.append((extended_seq, new_scores[idx]))
+                    if not only_last_groups or g >= (beam / gs) / 2:
+                        finished.append((extended_seq, new_scores[idx]))
                 else:
                     new_seq = np.vstack([new_seq, extended_seq])
                     new_dec_inits.append(dec_init[i])
