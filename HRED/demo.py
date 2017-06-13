@@ -16,8 +16,7 @@ hred_net = HRED(voc_size=voc_size,
                 lv1_rec_size=300, 
                 lv2_rec_size=300, 
                 out_emb_size=300, 
-                num_sampled=200,
-                n=1)
+                num_sampled=200)
 
 #hred_net.load_params('trained_models/pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
 hred_net.load_params('trained_models/subtleFixed_300_300_300_300_ssoft200unigr_bs30_cut200_early5.npz')
@@ -37,7 +36,8 @@ def context_summary(context, lookup=True):
     return con_init
 
 def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1,
-         short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None):
+         short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None,
+         only_last_groups=False):
     
     user_input = sys.stdin.readline()
     
@@ -58,7 +58,7 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
                                          init_seq=utt_to_array('<s> '.split()), rank_penalty=rank_penalty, 
                                          group_diversity_penalty=group_diversity_penalty, 
                                          seq_diversity_penalty=seq_diversity_penalty, verbose_log=False,
-                                         sample=bs_random, sharpen_probs=sharpen_bs_probs)
+                                         sample=bs_random, sharpen_probs=sharpen_bs_probs, only_last_groups=only_last_groups)
 
         score_order = sorted(beamsearch, key=lambda (x,y): fn_score(x, y), reverse=True)
     #     alphabetic_order = sorted(beamsearch, key=lambda x: ' '.join(print_utt(x[0][1:-1])))

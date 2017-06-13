@@ -6,9 +6,10 @@ import time
 import lasagne as L
 
 import sys
-sys.path.insert(0, '../SimpleRNNLM/')
+sys.path.append('../SimpleRNNLM/')
+sys.path.append('../../SimpleRNNLM/')
 
-from SimpleRNNLM import iterate_minibatches, SimpleRNNLM
+from SimpleRNNLM import SimpleRNNLM
 from SampledSoftmaxLayer import SampledSoftmaxDenseLayer
 
 from ShiftLayer import ShiftLayer

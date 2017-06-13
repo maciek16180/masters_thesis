@@ -24,26 +24,8 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
     num_groups = beam / gs
     
     seq = np.repeat(init_seq.astype(np.int32), beam, axis=0)
-    probs, dec_init = hred_net.get_probs_and_new_dec_init_fn(seq, dec_init)
-    log_probs = np.log(probs)
-
-    if unk_penalty is not None:
-        log_probs[:, w_to_idx['<unk>']] -= unk_penalty
-        log_probs[:, w_to_idx['<number>']] -= unk_penalty
-        log_probs[:, w_to_idx['<person>']] -= unk_penalty
-        log_probs[:, w_to_idx['<continued_utterance>']] -= unk_penalty
-    
-    if not sample:
-        words = log_probs[0].argpartition(-beam)[-beam:].astype(np.int32)
-    else:
-        lp = log_probs[0][np.newaxis]
-        if sharpen_probs is not None:
-            lp = -(-lp)**sharpen_probs
-        words = np.random.choice(voc_size, size=beam, p=softmax(lp)[0], replace=False).astype(np.int32)
         
-    words[words == voc_size-1] = pad_value
-    scores = log_probs[0][words]
-    seq = np.hstack([seq, words[:, np.newaxis]])
+    scores = np.zeros(beam)
     
     finished = []
     
@@ -73,24 +55,27 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
             # penalize repeating words in the same sequence
             log_probs[np.indices((gs, seq.shape[1]))[0], seq[g_idx]] -= seq_diversity_penalty
             
-            if not sample:
-                words = log_probs.argpartition(-gs, axis=1)[:, -gs:].astype(np.int32)
-            else:
-                words = []
-                probs = softmax(log_probs if sharpen_probs is None else -(-log_probs)**sharpen_probs)
-                for r in xrange(gs):
-                    words.append(np.random.choice(voc_size, size=gs, p=probs[r], replace=False))
-                words = np.vstack(words).astype(np.int32)
+            words = np.arange(voc_size)[np.newaxis].repeat(gs, axis=0).astype(np.int32)
                 
-            next_word_scores = log_probs[np.indices((gs, gs))[0], words]
+            next_word_scores = log_probs[np.indices((gs, voc_size))[0], words]
 
             new_scores = next_word_scores + scores[g_idx, np.newaxis]
             
             # this line is for implementing rank penalty: https://arxiv.org/abs/1611.08562
+            # it doesn't work correctly at the moment
             new_scores = (new_scores - (new_scores.argsort(axis=1) + 1) * rank_penalty).ravel()
     
             new_scores = new_scores.ravel()
-            order = (-new_scores).argsort().astype(np.int32)
+        
+            if not sample:
+                if seq.shape[1] == 1:
+                    order = np.array(-new_scores[:voc_size]).argsort().astype(np.int32)
+                else:
+                    order = (-new_scores).argsort().astype(np.int32)
+            else:
+                count = new_scores.size
+                scr = new_scores if sharpen_probs is None else -(-new_scores**sharpen_probs)
+                order = np.random.choice(count, size=2*gs**2, replace=False, p=softmax(scr[np.newaxis])[0])
 
             #print "###############"
             #print new_seq.shape, order.size, new_scores.shape, next_word_scores.shape, scores.shape
@@ -99,14 +84,14 @@ def diverse_beam_search(beam, gs, dec_init, voc_size, hred_net, init_seq=np.arra
                 if new_seq.shape[0] == (g + 1) * gs:
                     break
 
-                i,j = divmod(idx, gs)
+                i,j = divmod(idx, voc_size)
 
                 #print seq.shape, gs * g + i, i, j
                 #print words
                 
                 extended_seq = np.concatenate([seq[gs * g + i], np.array([words[i,j]])])
                 if extended_seq[-1] == w_to_idx['</s>']:
-                    if not only_last_groups or g >= (beam / gs) / 2:
+                    if not only_last_groups or g >= num_groups / 2:
                         finished.append((extended_seq, new_scores[idx]))
                 else:
                     new_seq = np.vstack([new_seq, extended_seq])

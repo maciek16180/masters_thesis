@@ -1,0 +1,100 @@
+Building the model...
+Compiling theano functions...
+Building a network for generating...
+Done
+
+
+Starting epoch 1...
+
+Done 500 batches in 25.67s	training loss:	3.159542
+Done 1000 batches in 50.78s	training loss:	3.082394
+Done 1500 batches in 76.91s	training loss:	3.063267
+Done 2000 batches in 102.57s	training loss:	3.042121
+Done 100 batches in 4.39s
+
+Training loss:   3.03599862086
+Validation loss: 3.75171930344
+
+Saving model...
+Done saving.
+
+
+Starting epoch 2...
+
+Done 500 batches in 25.62s	training loss:	2.759976
+Done 1000 batches in 50.85s	training loss:	2.764867
+Done 1500 batches in 76.91s	training loss:	2.782506
+Done 2000 batches in 102.75s	training loss:	2.786459
+Done 100 batches in 4.38s
+
+Training loss:   2.80071859865
+Validation loss: 3.74507810234
+
+Saving model...
+Done saving.
+
+
+Starting epoch 3...
+
+Done 500 batches in 25.58s	training loss:	2.676759
+Done 1000 batches in 50.77s	training loss:	2.681212
+Done 1500 batches in 76.75s	training loss:	2.695880
+Done 2000 batches in 103.19s	training loss:	2.699096
+Done 100 batches in 4.34s
+
+Training loss:   2.71330455397
+Validation loss: 3.75578073409
+
+
+Starting epoch 4...
+
+Done 500 batches in 25.62s	training loss:	2.626112
+Done 1000 batches in 50.89s	training loss:	2.628871
+Done 1500 batches in 76.92s	training loss:	2.640012
+Done 2000 batches in 102.57s	training loss:	2.640586
+Done 100 batches in 4.41s
+
+Training loss:   2.65412606407
+Validation loss: 3.76734093885
+
+
+Starting epoch 5...
+
+Done 500 batches in 25.66s	training loss:	2.586429
+Done 1000 batches in 50.98s	training loss:	2.587618
+Done 1500 batches in 76.97s	training loss:	2.595297
+Done 2000 batches in 102.69s	training loss:	2.594883
+Done 100 batches in 4.35s
+
+Training loss:   2.60763037261
+Validation loss: 3.78344858998
+
+
+Starting epoch 6...
+
+Done 500 batches in 25.67s	training loss:	2.550003
+Done 1000 batches in 50.92s	training loss:	2.552685
+Done 1500 batches in 77.04s	training loss:	2.558287
+Done 2000 batches in 102.74s	training loss:	2.556737
+Done 100 batches in 4.37s
+
+Training loss:   2.56879965702
+Validation loss: 3.79823557253
+
+
+Starting epoch 7...
+
+Done 500 batches in 25.38s	training loss:	2.520911
+Done 1000 batches in 50.73s	training loss:	2.524282
+Done 1500 batches in 76.59s	training loss:	2.526875
+Done 2000 batches in 102.45s	training loss:	2.523361
+Done 100 batches in 4.47s
+
+Training loss:   2.53510037088
+Validation loss: 3.81205476898
+
+
+Total training time: 932.09s
+Best model after 2 epochs with loss 3.74507810234
+Validation set perplexity: 42.3123117803
+Model saved as reddit_pairs_singlesInit_bs60_early5.npz

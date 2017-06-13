@@ -9,11 +9,7 @@ import lasagne as L
 import lasagne.layers as LL
 
 import sys
-sys.path.append('../SimpleRNNLM/')
-sys.path.append('../HRED/')
 sys.path.append('layers/')
-
-from SimpleRNNLM import SimpleRNNLM
 
 from WeightedFeatureLayer import WeightedFeatureLayer
 from BatchedDotLayer import BatchedDotLayer
@@ -24,10 +20,8 @@ from HighwayLayer import HighwayLayer
 from ForgetSizeLayer import ForgetSizeLayer
 from TrainPartOfEmbsLayer import TrainPartOfEmbsLayer
 
-from itertools import chain
 
-
-class QANet(SimpleRNNLM):
+class QANet:
     
     def __init__(self, voc_size, alphabet_size, emb_size, emb_char_size, num_emb_char_filters, rec_size, 
                  train_inds, emb_init, pad_value=-1, **kwargs):
@@ -88,14 +82,17 @@ class QANet(SimpleRNNLM):
         # to train only part of the embeddings I can modify updates by hand here?
         # I will need additional __init__ argument: indices of words that are fixed
         
-        print '    train_fn...'
+        compile_train_fn = not kwargs.get('skip_train_fn', False)        
+        if compile_train_fn:
+
+            print '    train_fn...'
+
+            self.train_fn = theano.function([context_var, question_var, context_char_var, question_char_var, bin_feat_var,
+                                             mask_context_var, mask_question_var, mask_context_char_var,
+                                             mask_question_char_var, answer_starts_var, answer_ends_var], 
+                                            train_loss, updates=updates)
         
-        self.train_fn = theano.function([context_var, question_var, context_char_var, question_char_var, bin_feat_var,
-                                         mask_context_var, mask_question_var, mask_context_char_var, mask_question_char_var,
-                                         answer_starts_var, answer_ends_var], train_loss, updates=updates)
-        
-        compile_pred_fns = not kwargs.get('skip_pred_fns', False)
-        
+        compile_pred_fns = not kwargs.get('skip_pred_fns', False)        
         if compile_pred_fns:
             
             print '    get_start_probs_fn...'
@@ -123,9 +120,10 @@ class QANet(SimpleRNNLM):
         self.get_end_probs_fn = theano.function(variables, out)
         
        
-    def get_start_probs(self, data, batch_size):
+    def get_start_probs(self, data, batch_size, premade_bin_feats=False):
         result = []
-        for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False):
+        for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False,
+                                         premade_bin_feats=premade_bin_feats):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
             out = self.get_start_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats, 
@@ -141,10 +139,11 @@ class QANet(SimpleRNNLM):
     
     # current implementation only allows for generating ends for one start index per example
     # to get end probs for k candidates for the start index, get_end_probs needs to be run k times
-    def get_end_probs(self, data, answer_start_inds, batch_size):
+    def get_end_probs(self, data, answer_start_inds, batch_size, premade_bin_feats=False):
         result = []
         idx = 0
-        for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False):
+        for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False, 
+                                         premade_bin_feats=premade_bin_feats):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
             start_inds = answer_start_inds[idx:idx + batch_size]
@@ -467,15 +466,21 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
     return l_start_soft, l_end_soft
 
 
-def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False):
+def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False, premade_bin_feats=False):
+    
+    assert not premade_bin_feats or len(inputs) == 3
   
-    inputs, inputs_char = inputs
+    if not premade_bin_feats:
+        inputs, inputs_char = inputs
+    else:
+        inputs, inputs_char, all_bin_feats = inputs        
     
     if shuffle:
         indices = np.arange(len(inputs))
         np.random.shuffle(indices)
         inputs = np.array(inputs)
         inputs_char = np.array(inputs_char)
+        all_bin_feats = np.array(all_bin_feats)
     
     for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
         if shuffle:
@@ -493,14 +498,22 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuff
         contexts = []
         bin_feats = []
         
+        if premade_bin_feats:
+            bin_feats_premade = all_bin_feats[excerpt]
+        
         if with_answer_inds:
             answer_inds = []
         
-        for ans, q, c in examples:
+        for l, (ans, q, c) in enumerate(examples):
             q_words = set(q)
             q = q + [pad] * (question_len - len(q))
             
-            bin_feat = [w in q_words for w in c] + [pad] * (context_len - len(c))
+            if not premade_bin_feats:
+                bin_feat = [w in q_words for w in c]
+            else:
+                bin_feat = bin_feats_premade[l]
+                
+            bin_feat += [pad] * (context_len - len(c))
             c = c + [pad] * (context_len - len(c))
             
             if with_answer_inds:

@@ -6,7 +6,8 @@ import time
 import lasagne as L
 
 import sys
-sys.path.insert(0, '../HSoftmaxLayerLasagne/')
+sys.path.append('../HSoftmaxLayerLasagne/')
+sys.path.append('../../HSoftmaxLayerLasagne/')
 
 from HSoftmaxLayer import HierarchicalSoftmaxDenseLayer
 from SampledSoftmaxLayer import SampledSoftmaxDenseLayer
@@ -375,12 +376,11 @@ def iterate_minibatches(inputs, batch_size, pad=-1):
         excerpt = slice(start_idx, start_idx + batch_size)
         inp = inputs[excerpt]
 
-        inp_max_len = len(max(inp, key=len))
+        inp_max_len = max(map(len, inp))
         inp = map(lambda l: l + [pad] * (inp_max_len - len(l)), inp)
         inp = np.asarray(inp, dtype=np.int32)
         tar = np.hstack([inp[:, 1:], np.zeros((batch_size, 1), dtype=np.int32) + pad])
-
-        v_not_pad = np.vectorize(lambda x: x != pad, otypes=[np.float32])
-        mask = v_not_pad(inp)  # there is no separate value for the end of an utterance, just pad
+        
+        mask = (inp != pad).astype(np.float32)  # there is no separate value for the end of an utterance, just pad
 
         yield inp, tar, mask
