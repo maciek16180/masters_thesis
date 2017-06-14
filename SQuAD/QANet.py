@@ -513,7 +513,7 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuff
             else:
                 bin_feat = bin_feats_premade[l]
                 
-            bin_feat += [pad] * (context_len - len(c))
+            bin_feat = bin_feat + [pad] * (context_len - len(bin_feat))
             c = c + [pad] * (context_len - len(c))
             
             if with_answer_inds:
