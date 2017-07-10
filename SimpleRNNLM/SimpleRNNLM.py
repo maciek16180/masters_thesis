@@ -67,7 +67,8 @@ class SimpleRNNLM(object):
         if kwargs.has_key('update_fn'):
             update_fn = kwargs['update_fn']
         else:
-            update_fn = lambda l, p: L.updates.adagrad(l, p, learning_rate=.01)
+            #update_fn = lambda l, p: L.updates.adagrad(l, p, learning_rate=.01)
+            update_fn = lambda l, p: L.updates.adam(l, p)
 
         updates = update_fn(train_loss, params)
 
@@ -183,13 +184,7 @@ def __build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size
                                  grad_clipping=100,
                                  mask_input=l_mask)
 
-    l_lstm2 = L.layers.LSTMLayer(l_lstm1,
-                                 num_units=rec_size,
-                                 nonlinearity=L.nonlinearities.tanh,
-                                 grad_clipping=100,
-                                 mask_input=l_mask)
-
-    l_resh = L.layers.ReshapeLayer(l_lstm2, shape=(-1, rec_size))
+    l_resh = L.layers.ReshapeLayer(l_lstm1, shape=(-1, rec_size))
 
     return l_resh
 
@@ -273,9 +268,9 @@ def _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_siz
 
 
 def __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params):
-    assert len(params) == 35
-    params = [params[:1], params[1:18], params[18:35]]
-    em, r1, r2 = map(lambda p: {x.name: x for x in p}, params)
+    assert len(params) == 18
+    params = [params[:1], params[1:18]]
+    em, r1 = map(lambda p: {x.name: x for x in p}, params)
 
     l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
 
@@ -308,38 +303,14 @@ def __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, pa
                                  cell_init=r1['cell_init'],
                                  hid_init=r1['hid_init'])
 
-    l_lstm2 = L.layers.LSTMLayer(l_lstm1,
-                                 num_units=rec_size,
-                                 grad_clipping=100,
-                                 mask_input=None,
-                                 ingate=L.layers.Gate(W_in=r2['W_in_to_ingate'],
-                                                      W_hid=r2['W_hid_to_ingate'],
-                                                      W_cell=r2['W_cell_to_ingate'],
-                                                      b=r2['b_ingate']),
-                                 forgetgate=L.layers.Gate(W_in=r2['W_in_to_forgetgate'],
-                                                          W_hid=r2['W_hid_to_forgetgate'],
-                                                          W_cell=r2['W_cell_to_forgetgate'],
-                                                          b=r2['b_forgetgate']),
-                                 cell=L.layers.Gate(W_in=r2['W_in_to_cell'],
-                                                    W_hid=r2['W_hid_to_cell'],
-                                                    W_cell=None,
-                                                    b=r2['b_cell'],
-                                                    nonlinearity=L.nonlinearities.tanh),
-                                 outgate=L.layers.Gate(W_in=r2['W_in_to_outgate'],
-                                                       W_hid=r2['W_hid_to_outgate'],
-                                                       W_cell=r2['W_cell_to_outgate'],
-                                                       b=r2['b_outgate']),
-                                 cell_init=r2['cell_init'],
-                                 hid_init=r2['hid_init'])
-
-    l_resh = L.layers.ReshapeLayer(l_lstm2, shape=(-1, rec_size))
+    l_resh = L.layers.ReshapeLayer(l_lstm1, shape=(-1, rec_size))
 
     return l_resh
 
 
 def _build_full_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, params):
-    assert len(params) == 37
-    sm = {x.name : x for x in params[-3:]}
+    assert len(params) == 20
+    sm = {x.name : x for x in params[-2:]}
     l_resh = __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params[:-2])
 
     l_soft = L.layers.DenseLayer(l_resh,
@@ -354,7 +325,7 @@ def _build_full_softmax_net_with_params(input_var, voc_size, emb_size, rec_size,
 
 
 def _build_hierarchical_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, params):
-    assert len(params) == 39
+    assert len(params) == 22
     sm = {x.name: x for x in params[-4:]}
     l_resh = __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params[:-4])
 

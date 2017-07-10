@@ -33,7 +33,7 @@ net.load_params('trained_models/pretrained_subtle_GaussInit_300_300_300_300_ssof
 
 last_scores = [np.inf]
 max_epochs_wo_improvement = 5
-tol = 0.001
+tol = 0.0001
 epoch = 1
 best_epoch = None
 

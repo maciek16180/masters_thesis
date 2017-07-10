@@ -13,29 +13,31 @@ idx_to_w, w_to_idx, voc_size, freqs = get_mt_voc(path=mt_path, train_len=len(tra
 word2vec_embs, word2vec_embs_mask = get_w2v_embs(mt_path)
 
 
-def update_fn(l, p):
-    return L.updates.adagrad(l, p, learning_rate=.1)
+#def update_fn(l, p):
+#    return L.updates.adagrad(l, p, learning_rate=.1)
+# using ADAM by default
 
 net = SimpleRNNLM(voc_size=voc_size,
                   emb_size=300,
                   rec_size=300,
-                  mode='ssoft',
-                  num_sampled=200,
-                  #emb_init=word2vec_embs,
-                  update_fn=update_fn,
-                  train_emb=False,
-                  ssoft_probs=freqs)
+                  mode='full',
+                  #num_sampled=200,
+                  emb_init=word2vec_embs,
+                  #update_fn=update_fn,
+                  #ssoft_probs=freqs,
+                  train_emb=True
+                 )
 
-net.load_params('trained_models/pretrained_subtle_GaussInit_300_300_ssoft200unigr_bs50_cut200_nosplit.npz')
+#net.load_params('trained_models/pretrained_subtle_GaussInit_300_300_ssoft200unigr_bs50_cut200_nosplit.npz')
 
 
 last_scores = [np.inf]
 max_epochs_wo_improvement = 5
-tol = 0.001
+tol = 0.0001
 epoch = 1
 best_epoch = None
 
-model_filename = 'temp/fixedSubtle_300_300_ssoft200unigr_lr.1_bs50_cut200_nosplit_early5.npz'
+model_filename = 'trained_models/w2vInit_300_300_full_bs50_cut200_nosplit_early5.npz'
 
 t0 = time.time()
 while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last_scores) + tol:
@@ -53,7 +55,7 @@ while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last
 
     last_scores.append(val_error)
 
-    if len(last_scores) > max_epochs_wo_improvement+1:
+    if len(last_scores) > max_epochs_wo_improvement + 1:
         del last_scores[0]
 
     epoch += 1
