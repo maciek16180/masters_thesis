@@ -18,7 +18,7 @@ class MultNormKLDivLayer(MergeLayer):
         
         mu0, sig0, mu1, sig1 = inputs
         
-        res = (sig0 / sig1).sum(axis=1) + ((mu1 - mu0) / sig1 * (mu1 - mu0)).sum(axis=1) - 
+        res = (sig0 / sig1).sum(axis=1) + ((mu1 - mu0) / sig1 * (mu1 - mu0)).sum(axis=1) - \
               mu0.shape[0] + (sig1.prod(axis=1) / sig0.prod(axis=1)).log()
         return .5 * res
         
