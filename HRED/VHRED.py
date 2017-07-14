@@ -1,9 +1,12 @@
+# <unk> token is assumed to be at index 0!
+
 import numpy as np
 import theano
 import theano.tensor as T
 import time
 
 import lasagne as L
+import lasagne.layers as LL
 
 import sys
 sys.path.append('../SimpleRNNLM/')
@@ -16,6 +19,7 @@ from ShiftLayer import ShiftLayer
 from L2PoolingLayer import L2PoolingLayer
 from MultNormKLDivLayer import MultNormKLDivLayer
 from GaussianSampleLayer import GaussianSampleLayer
+from WordDropoutLayer import WordDropoutLayer
 
 
 class VHRED(SimpleRNNLM):
@@ -42,14 +46,17 @@ class VHRED(SimpleRNNLM):
         print 'Building the model...'
 
         assert mode in ['ssoft']
+        
+        self.kl_annealing = kwargs.get('kl_annealing', True)
+        self.kl_annealing_max_examples = kwargs.get('kl_annealing_max_examples', 500000)
 
         self.train_net = _build_vhred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size,
                                       out_emb_size, latent_size, target_var=target_var, n=n, **kwargs)
 
         # CALCULATE THE LOSS
 
-        train_out, train_kl = L.layers.get_output(self.train_net)
-        test_out, test_kl = L.layers.get_output(self.train_net, deterministic=True)
+        train_out, train_kl = LL.get_output(self.train_net)
+        test_out, test_kl = LL.get_output(self.train_net, deterministic=True)
         
         train_loss = (-T.log(train_out[mask_idx]).sum() + train_kl.sum()) / mask_idx[0].size
         test_loss = (-T.log(test_out[mask_idx]).sum() + test_kl.sum()) / mask_idx[0].size
@@ -57,13 +64,9 @@ class VHRED(SimpleRNNLM):
         # MAKE TRAIN AND VALIDATION FUNCTIONS
         print 'Compiling theano functions...'
 
-        params = L.layers.get_all_params(self.train_net, trainable=True)
+        params = LL.get_all_params(self.train_net, trainable=True)
 
-        if kwargs.has_key('update_fn'):
-            update_fn = kwargs['update_fn']
-        else:
-            update_fn = lambda l, p: L.updates.adam(l, p)
-
+        update_fn = kwargs.get('update_fn', lambda l, p: L.updates.adam(l, p, learning_rate=.0001))
         updates = update_fn(train_loss, params)
 
         self.train_fn = theano.function([input_var, target_var, mask_input_var], train_loss, updates=updates)
@@ -72,24 +75,80 @@ class VHRED(SimpleRNNLM):
         # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
         print 'Building a network for generating...'
 
-        all_params = {x.name : x for x in L.layers.get_all_params(self.train_net)}
+        all_params = {x.name : x for x in LL.get_all_params(self.train_net)}
         
         self.context_net = _build_context_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size,
                                                           latent_size, context_init, all_params)
         self.decoder_net = _build_decoder_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size,
                                                           out_emb_size, decoder_init, all_params)
         
-        dec_net_out = L.layers.get_output(self.decoder_net, deterministic=True)
-        new_con_init, z_prior = L.layers.get_output(self.context_net)
+        dec_net_out = LL.get_output(self.decoder_net, deterministic=True)
+        new_con_init, z_prior = LL.get_output(self.context_net)
         
         self.get_probs_and_new_dec_init_fn = theano.function([input_var, decoder_init], dec_net_out)
-        self.get_new_con_init_fn = theano.function([input_var, context_init], new_con_init)
+        self.get_new_con_init_fn = theano.function([input_var, context_init], [new_con_init, z_prior])
         
         print 'Done'
+        
+    def train_one_epoch(self, train_data, batch_size, log_interval=10):
+        train_err = 0.
+        train_batches = 0
+        num_training_words = 0
+        start_time = time.time()
 
+        for batch in iterate_minibatches(train_data, batch_size, self.pad_value):
+            inputs, targets, mask = batch
+
+            num_batch_words = mask.sum()
+            train_err += self.train_fn(inputs, targets, mask) * num_batch_words
+            train_batches += 1
+            num_training_words += num_batch_words
+
+            if not train_batches % log_interval:
+                print "Done {} batches in {:.2f}s\ttraining loss:\t{:.6f}".format(
+                    train_batches, time.time() - start_time, train_err / num_training_words)
+                
+            if self.kl_annealing:
+                kl_annealing_param = [x for x in LL.get_all_params(self.train_net) if x.name == 'kl_annealing.scales'][0]
+                val = np.array(kl_annealing_param.eval())
+                if val < 1:
+                    new_val = np.array(val + 1. / int(self.kl_annealing_max_examples / batch_size), dtype=theano.config.floatX)
+                    new_val = min(new_val, np.array(1, dtype=theano.config.floatX))
+                    kl_annealing_param.set_value(new_val)
+
+        return  train_err / num_training_words
+    
+    def validate(self, val_data, batch_size):
+        val_err = 0.
+        val_batches = 0
+        num_validate_words = 0
+        start_time = time.time()
+
+        for batch in iterate_minibatches(val_data, batch_size, self.pad_value):
+            inputs, targets, mask = batch
+
+            num_batch_words = mask.sum()
+            val_err += self.val_fn(inputs, targets, mask) * num_batch_words
+            val_batches += 1
+            num_validate_words += num_batch_words
+
+            if not val_batches % 100:
+                print "Done {} batches in {:.2f}s".format(val_batches, time.time() - start_time)
+
+        return val_err / num_validate_words
+    
+    def load_params_from_HRED(self, hred_model_path, use_hred_emb=True):
+        with np.load(hred_model_path) as f:
+            param_values = [f['arr_%d' % i] for i in xrange(31)]
+            params = LL.get_all_params(self.train_net)
+            for i in xrange(1, 31):
+                params[i].set_value(param_values[i])
+            if use_hred_emb:
+                params[0].set_value(param_values[0])
+                
             
 '''          
-MODEL PARAMETERS (as in L.layers.get_params(train_net))
+MODEL PARAMETERS (as in LL.get_params(train_net))
 
  index - description
 
@@ -115,6 +174,7 @@ MODEL PARAMETERS (as in L.layers.get_params(train_net))
  61:62 - mu prior
  63:64 - sigma prior
     65 - scale prior
+    66 - kl_annealing
 
  context_net: emb, GRUs lv1, GRU ses (no hid_init), priors
  decoder_net: emb, GRU dec (no hid_init), H0, E0, softmax (full, no p from ssoft)
@@ -129,117 +189,118 @@ MODEL PARAMETERS (as in L.layers.get_params(train_net))
 #       the input shape will be (batch_size x n x sequence_len)
 
 def _build_vhred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size, out_emb_size, latent_size,
-                num_sampled, ssoft_probs=None, emb_init=None, train_emb=True, target_var=None, n=3, **kwargs):
+                num_sampled, ssoft_probs=None, emb_init=None, train_emb=True, target_var=None, n=3, 
+                kl_annealing=True, **kwargs):
     
     batch_size = input_var.shape[0]
     sequence_len = input_var.shape[1]
     
     ''' Inputs '''
     
-    l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
+    l_in = LL.InputLayer(shape=(None, None), input_var=input_var)
     
     l_mask = None
     if mask_input_var is not None:
-        l_mask = L.layers.InputLayer(shape=(None, None), input_var=mask_input_var)
+        l_mask = LL.InputLayer(shape=(None, None), input_var=mask_input_var)
         
     ''' Word embeddings '''
     
     if emb_init is None:
-        l_emb = L.layers.EmbeddingLayer(l_in,
-                                        input_size=voc_size,  # not voc_size+1, because pad_value = <utt_end>
-                                        output_size=emb_size,
-                                        name='emb')
+        l_emb = LL.EmbeddingLayer(l_in,
+                                  input_size=voc_size,
+                                  output_size=emb_size,
+                                  name='emb')
     else:
-        l_emb = L.layers.EmbeddingLayer(l_in,
-                                        input_size=voc_size,
-                                        output_size=emb_size,
-                                        W=emb_init,
-                                        name='emb')
+        l_emb = LL.EmbeddingLayer(l_in,
+                                  input_size=voc_size,
+                                  output_size=emb_size,
+                                  W=emb_init,
+                                  name='emb')
     if not train_emb:
         l_emb.params[l_emb.W].remove('trainable')
         
     ''' Level 1 (sentence) BiGRU encoding with L2-pooling '''
             
-    l_lv1_enc_forw = L.layers.GRULayer(l_emb, # we process all utts in parallel, out_shape is batch_size x lv1_rec_size
-                                       num_units=lv1_rec_size,
-                                       grad_clipping=100,
-                                       mask_input=l_mask,
-                                       name='GRU1forw')
+    l_lv1_enc_forw = LL.GRULayer(l_emb, # we process all utts in parallel, out_shape is batch_size x lv1_rec_size
+                                 num_units=lv1_rec_size,
+                                 grad_clipping=100,
+                                 mask_input=l_mask,
+                                 name='GRU1forw')
     
-    l_lv1_enc_back = L.layers.GRULayer(l_emb, # backward pass of encoder rnn, out_shape is batch_size x lv1_rec_size
-                                       num_units=lv1_rec_size,
-                                       grad_clipping=100,
-                                       mask_input=l_mask,
-                                       backwards=True,
-                                       name='GRU1back')
+    l_lv1_enc_back = LL.GRULayer(l_emb, # backward pass of encoder rnn, out_shape is batch_size x lv1_rec_size
+                                 num_units=lv1_rec_size,
+                                 grad_clipping=100,
+                                 mask_input=l_mask,
+                                 backwards=True,
+                                 name='GRU1back')
     
     l2_pooled_forw = L2PoolingLayer(l_lv1_enc_forw)
     l2_pooled_back = L2PoolingLayer(l_lv1_enc_back)
 
-    l_lv1_enc = L.layers.ConcatLayer([l2_pooled_forw, l2_pooled_back], axis=1) # concatenation of L2-pooled states
+    l_lv1_enc = LL.ConcatLayer([l2_pooled_forw, l2_pooled_back], axis=1) # concatenation of L2-pooled states
     
     ''' Level 2 (context) encoding '''
     
-    l_resh = L.layers.ReshapeLayer(l_lv1_enc, shape=(batch_size / n, n, 2 * lv1_rec_size))
+    l_resh = LL.ReshapeLayer(l_lv1_enc, shape=(batch_size / n, n, 2 * lv1_rec_size))
     
-    l_lv2_enc = L.layers.GRULayer(l_resh, # out_shape is batch_size/n x n x lv2_rec_size
-                                  num_units=lv2_rec_size,
-                                  grad_clipping=100,
-                                  name='GRU2')
+    l_lv2_enc = LL.GRULayer(l_resh, # out_shape is batch_size/n x n x lv2_rec_size
+                            num_units=lv2_rec_size,
+                            grad_clipping=100,
+                            name='GRU2')
     
     ''' Prior and posterior probs calculation '''
     
     l_shift = ShiftLayer(l_lv2_enc) # we want to use i-th utterance summary as an init for decoding (i+1)-th
-    l_resh_shifted = L.layers.ReshapeLayer(l_shift, shape=(batch_size, lv2_rec_size))
+    l_resh_shifted = LL.ReshapeLayer(l_shift, shape=(batch_size, lv2_rec_size))
     
     # prior
     
-    l_dense1prior = L.layers.DenseLayer(l_resh_shifted,
-                                        latent_size,
-                                        nonlinearity=L.nonlinearities.tanh,
-                                        W=L.init.Normal(),
-                                        name='h1pr')
-    l_dense2prior = L.layers.DenseLayer(l_dense1prior,
-                                        latent_size,
-                                        nonlinearity=L.nonlinearities.tanh,
-                                        W=L.init.Normal(),
-                                        name='h2pr')
-    l_mu_prior = L.layers.DenseLayer(l_dense2prior,
-                                     latent_size,
-                                     nonlinearity=None,
-                                     name='mupr')
+    l_dense1prior = LL.DenseLayer(l_resh_shifted,
+                                  latent_size,
+                                  nonlinearity=L.nonlinearities.tanh,
+                                  W=L.init.Normal(),
+                                  name='h1pr')
+    l_dense2prior = LL.DenseLayer(l_dense1prior,
+                                  latent_size,
+                                  nonlinearity=L.nonlinearities.tanh,
+                                  W=L.init.Normal(),
+                                  name='h2pr')
+    l_mu_prior = LL.DenseLayer(l_dense2prior,
+                               latent_size,
+                               nonlinearity=None,
+                               name='mupr')
     # each row of l_sigma_prior is a 1D representation of a diagonal covariance matrix
-    l_sigma_prior = L.layers.DenseLayer(l_dense2prior,
-                                        latent_size,
-                                        nonlinearity=L.nonlinearities.softplus,
-                                        name='sigpr')
-    l_sigma_prior = L.layers.ScaleLayer(l_sigma_prior, L.init.Constant(.1), name='scalepr')
+    l_sigma_prior = LL.DenseLayer(l_dense2prior,
+                                  latent_size,
+                                  nonlinearity=L.nonlinearities.softplus,
+                                  name='sigpr')
+    l_sigma_prior = LL.ScaleLayer(l_sigma_prior, L.init.Constant(.1), name='scalepr')
     l_sigma_prior.params[l_sigma_prior.scales].remove('trainable')
     # mu and sigma shape is batch_size x latent_size
     
     # posterior
     
-    l_h_post = L.layers.ConcatLayer([l_resh_shifted, l_lv1_enc], axis=1)
+    l_h_post = LL.ConcatLayer([l_resh_shifted, l_lv1_enc], axis=1)
     
-    l_dense1post = L.layers.DenseLayer(l_h_post,
-                                       latent_size,
-                                       nonlinearity=L.nonlinearities.tanh,
-                                       W=L.init.Normal(),
-                                       name='h1po')
-    l_dense2post = L.layers.DenseLayer(l_dense1post,
-                                       latent_size,
-                                       nonlinearity=L.nonlinearities.tanh,
-                                       W=L.init.Normal(),
-                                       name='h2po')
-    l_mu_post = L.layers.DenseLayer(l_dense2post,
-                                    latent_size,
-                                    nonlinearity=None,
-                                    name='mupo')
-    l_sigma_post = L.layers.DenseLayer(l_dense2post,
-                                       latent_size,
-                                       nonlinearity=L.nonlinearities.softplus,
-                                       name='sigpo')
-    l_sigma_post = L.layers.ScaleLayer(l_sigma_post, L.init.Constant(.1), name='scalepo')
+    l_dense1post = LL.DenseLayer(l_h_post,
+                                 latent_size,
+                                 nonlinearity=L.nonlinearities.tanh,
+                                 W=L.init.Normal(),
+                                 name='h1po')
+    l_dense2post = LL.DenseLayer(l_dense1post,
+                                 latent_size,
+                                 nonlinearity=L.nonlinearities.tanh,
+                                 W=L.init.Normal(),
+                                 name='h2po')
+    l_mu_post = LL.DenseLayer(l_dense2post,
+                              latent_size,
+                              nonlinearity=None,
+                              name='mupo')
+    l_sigma_post = LL.DenseLayer(l_dense2post,
+                                 latent_size,
+                                 nonlinearity=L.nonlinearities.softplus,
+                                 name='sigpo')
+    l_sigma_post = LL.ScaleLayer(l_sigma_post, L.init.Constant(.1), name='scalepo')
     l_sigma_post.params[l_sigma_post.scales].remove('trainable')
     
     l_z = GaussianSampleLayer(l_mu_post, l_sigma_post)
@@ -247,42 +308,50 @@ def _build_vhred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv
     # l_z size: batch_size x latent_size
     
     l_kl_div = MultNormKLDivLayer([l_mu_post, l_sigma_post, l_mu_prior, l_sigma_prior])
+    # KL annealing, as in https://arxiv.org/pdf/1511.06349.pdf
+    # multiplier is slowly raising until it reaches 1 after specified number of samples    
+    # TODO: this as a custom layer, when deterministic=True no scaling is applied
+    if kl_annealing:
+        l_kl_div = LL.ScaleLayer(l_kl_div, L.init.Constant(0), name='kl_annealing')
+        l_kl_div.params[l_kl_div.scales].remove('trainable')
     
     ''' Decoder '''
     
-    l_dec_init_base = L.layers.ConcatLayer([l_resh_shifted, l_z], axis=1)
+    l_dec_init_base = LL.ConcatLayer([l_resh_shifted, l_z], axis=1)
     
-    l_dec_inits = L.layers.DenseLayer(l_dec_init_base, # out_shape is batch_size x lv1_rec_size
-                                      num_units=lv1_rec_size,
-                                      nonlinearity=L.nonlinearities.tanh,
-                                      name='dec_init')
+    l_dec_inits = LL.DenseLayer(l_dec_init_base, # out_shape is batch_size x lv1_rec_size
+                                num_units=lv1_rec_size,
+                                nonlinearity=L.nonlinearities.tanh,
+                                name='dec_init')
     
-    l_drop = ... # TODO: custom word-dropping layer, as proposed in https://arxiv.org/pdf/1511.06349.pdf
+    # word dropout layer, as proposed in https://arxiv.org/pdf/1511.06349.pdf
     # The layer randomly chooses some fraction of embeddings and replaces them with <unk>
+    l_unk_emb = LL.InputLayer(shape=(emb_size,), input_var=l_emb.W[0]) # <unk> is assumed to be at index 0
+    l_drop = WordDropoutLayer(l_emb, l_unk_emb, drop_rate=.25)  
     
-    l_dec = L.layers.GRULayer(l_drop, # out_shape is batch_size x sequence_len x lv1_rec_size
-                              num_units=lv1_rec_size,
-                              grad_clipping=100,
-                              mask_input=l_mask,
-                              hid_init=l_dec_inits,
-                              name='GRUdec')
+    l_dec = LL.GRULayer(l_drop, # out_shape is batch_size x sequence_len x lv1_rec_size
+                        num_units=lv1_rec_size,
+                        grad_clipping=100,
+                        mask_input=l_mask,
+                        hid_init=l_dec_inits,
+                        name='GRUdec')
     
-    l_resh3 = L.layers.ReshapeLayer(l_dec, shape=(batch_size * sequence_len, lv1_rec_size))
+    l_resh3 = LL.ReshapeLayer(l_dec, shape=(batch_size * sequence_len, lv1_rec_size))
     
-    l_H0 = L.layers.DenseLayer(l_resh3,
-                               num_units=out_emb_size,
-                               nonlinearity=None,
-                               name='h0')
+    l_H0 = LL.DenseLayer(l_resh3,
+                         num_units=out_emb_size,
+                         nonlinearity=None,
+                         name='h0')
     
-    l_resh4 = L.layers.ReshapeLayer(l_emb, shape=(batch_size * sequence_len, emb_size))
+    l_resh4 = LL.ReshapeLayer(l_emb, shape=(batch_size * sequence_len, emb_size))
     
-    l_E0 = L.layers.DenseLayer(l_resh4,
-                               num_units=out_emb_size,
-                               b=None,
-                               nonlinearity=None,
-                               name='e0')
+    l_E0 = LL.DenseLayer(l_resh4,
+                         num_units=out_emb_size,
+                         b=None,
+                         nonlinearity=None,
+                         name='e0')
     
-    l_soft_in = L.layers.ElemwiseSumLayer([l_H0, l_E0])
+    l_soft_in = LL.ElemwiseSumLayer([l_H0, l_E0])
 
     if target_var is not None:
         target_var = target_var.ravel()
@@ -294,9 +363,9 @@ def _build_vhred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv
                                        name='soft')
 
     if target_var is not None:
-        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(batch_size, sequence_len))
+        l_out = LL.ReshapeLayer(l_ssoft, shape=(batch_size, sequence_len))
     else:
-        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(batch_size, sequence_len, voc_size))
+        l_out = LL.ReshapeLayer(l_ssoft, shape=(batch_size, sequence_len, voc_size))
 
     return l_out, l_kl_div
 
@@ -304,97 +373,97 @@ def _build_vhred(input_var, mask_input_var, voc_size, emb_size, lv1_rec_size, lv
 def _build_context_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size, latent_size, 
                                    context_init, params):
     
-    l_in = L.layers.InputLayer(shape=(1,None), input_var=input_var)
+    l_in = LL.InputLayer(shape=(1,None), input_var=input_var)
     
-    l_emb = L.layers.EmbeddingLayer(l_in,
-                                    input_size=voc_size,
-                                    output_size=emb_size,
-                                    W=params['emb.W'])
+    l_emb = LL.EmbeddingLayer(l_in,
+                              input_size=voc_size,
+                              output_size=emb_size,
+                              W=params['emb.W'])
             
-    l_lv1_enc_forw = L.layers.GRULayer(l_emb,
-                                       num_units=lv1_rec_size,
-                                       grad_clipping=100,
-                                       resetgate=L.layers.Gate(W_in=params['GRU1forw.W_in_to_resetgate'],
-                                                               W_hid=params['GRU1forw.W_hid_to_resetgate'],
-                                                               W_cell=None,
-                                                               b=params['GRU1forw.b_resetgate']),
-                                       updategate=L.layers.Gate(W_in=params['GRU1forw.W_in_to_updategate'],
-                                                                W_hid=params['GRU1forw.W_hid_to_updategate'],
-                                                                W_cell=None,
-                                                                b=params['GRU1forw.b_updategate']),
-                                       hidden_update=L.layers.Gate(W_in=params['GRU1forw.W_in_to_hidden_update'],
-                                                                   W_hid=params['GRU1forw.W_hid_to_hidden_update'],
-                                                                   W_cell=None,
-                                                                   b=params['GRU1forw.b_hidden_update'],
-                                                                   nonlinearity=L.nonlinearities.tanh),
-                                       hid_init=params['GRU1forw.hid_init'])
+    l_lv1_enc_forw = LL.GRULayer(l_emb,
+                                 num_units=lv1_rec_size,
+                                 grad_clipping=100,
+                                 resetgate=LL.Gate(W_in=params['GRU1forw.W_in_to_resetgate'],
+                                                   W_hid=params['GRU1forw.W_hid_to_resetgate'],
+                                                   W_cell=None,
+                                                   b=params['GRU1forw.b_resetgate']),
+                                 updategate=LL.Gate(W_in=params['GRU1forw.W_in_to_updategate'],
+                                                    W_hid=params['GRU1forw.W_hid_to_updategate'],
+                                                    W_cell=None,
+                                                    b=params['GRU1forw.b_updategate']),
+                                 hidden_update=LL.Gate(W_in=params['GRU1forw.W_in_to_hidden_update'],
+                                                       W_hid=params['GRU1forw.W_hid_to_hidden_update'],
+                                                       W_cell=None,
+                                                       b=params['GRU1forw.b_hidden_update'],
+                                                       nonlinearity=L.nonlinearities.tanh),
+                                 hid_init=params['GRU1forw.hid_init'])
     
-    l_lv1_enc_back = L.layers.GRULayer(l_emb, # backward pass of encoder rnn
-                                       num_units=lv1_rec_size,
-                                       grad_clipping=100,
-                                       backwards=True,
-                                       resetgate=L.layers.Gate(W_in=params['GRU1back.W_in_to_resetgate'],
-                                                               W_hid=params['GRU1back.W_hid_to_resetgate'],
-                                                               W_cell=None,
-                                                               b=params['GRU1back.b_resetgate']),
-                                       updategate=L.layers.Gate(W_in=params['GRU1back.W_in_to_updategate'],
-                                                                W_hid=params['GRU1back.W_hid_to_updategate'],
-                                                                W_cell=None,
-                                                                b=params['GRU1back.b_updategate']),
-                                       hidden_update=L.layers.Gate(W_in=params['GRU1back.W_in_to_hidden_update'],
-                                                                   W_hid=params['GRU1back.W_hid_to_hidden_update'],
-                                                                   W_cell=None,
-                                                                   b=params['GRU1back.b_hidden_update'],
-                                                                   nonlinearity=L.nonlinearities.tanh),
-                                       hid_init=params['GRU1back.hid_init'])
+    l_lv1_enc_back = LL.GRULayer(l_emb, # backward pass of encoder rnn
+                                 num_units=lv1_rec_size,
+                                 grad_clipping=100,
+                                 backwards=True,
+                                 resetgate=LL.Gate(W_in=params['GRU1back.W_in_to_resetgate'],
+                                                   W_hid=params['GRU1back.W_hid_to_resetgate'],
+                                                   W_cell=None,
+                                                   b=params['GRU1back.b_resetgate']),
+                                 updategate=LL.Gate(W_in=params['GRU1back.W_in_to_updategate'],
+                                                    W_hid=params['GRU1back.W_hid_to_updategate'],
+                                                    W_cell=None,
+                                                    b=params['GRU1back.b_updategate']),
+                                 hidden_update=LL.Gate(W_in=params['GRU1back.W_in_to_hidden_update'],
+                                                       W_hid=params['GRU1back.W_hid_to_hidden_update'],
+                                                       W_cell=None,
+                                                       b=params['GRU1back.b_hidden_update'],
+                                                       nonlinearity=L.nonlinearities.tanh),
+                                 hid_init=params['GRU1back.hid_init'])
     
     l2_pooled_forw = L2PoolingLayer(l_lv1_enc_forw)
     l2_pooled_back = L2PoolingLayer(l_lv1_enc_back)
 
-    l_lv1_enc = L.layers.ConcatLayer([l2_pooled_forw, l2_pooled_back]) # concatenation of L2-pooled states
+    l_lv1_enc = LL.ConcatLayer([l2_pooled_forw, l2_pooled_back]) # concatenation of L2-pooled states
     
-    l_resh = L.layers.ReshapeLayer(l_lv1_enc, shape=(1, 1, 2*lv1_rec_size))
+    l_resh = LL.ReshapeLayer(l_lv1_enc, shape=(1, 1, 2*lv1_rec_size))
     
-    l_lv2_enc = L.layers.GRULayer(l_resh,
-                                  num_units=lv2_rec_size,
-                                  hid_init=context_init,
-                                  grad_clipping=100,
-                                  only_return_final=True,
-                                  resetgate=L.layers.Gate(W_in=params['GRU2.W_in_to_resetgate'],
-                                                          W_hid=params['GRU2.W_hid_to_resetgate'],
-                                                          W_cell=None,
-                                                          b=params['GRU2.b_resetgate']),
-                                  updategate=L.layers.Gate(W_in=params['GRU2.W_in_to_updategate'],
-                                                           W_hid=params['GRU2.W_hid_to_updategate'],
-                                                           W_cell=None,
-                                                           b=params['GRU2.b_updategate']),
-                                  hidden_update=L.layers.Gate(W_in=params['GRU2.W_in_to_hidden_update'],
-                                                              W_hid=params['GRU2.W_hid_to_hidden_update'],
-                                                              W_cell=None,
-                                                              b=params['GRU2.b_hidden_update'],
-                                                              nonlinearity=L.nonlinearities.tanh))
+    l_lv2_enc = LL.GRULayer(l_resh,
+                            num_units=lv2_rec_size,
+                            hid_init=context_init,
+                            grad_clipping=100,
+                            only_return_final=True,
+                            resetgate=LL.Gate(W_in=params['GRU2.W_in_to_resetgate'],
+                                              W_hid=params['GRU2.W_hid_to_resetgate'],
+                                              W_cell=None,
+                                              b=params['GRU2.b_resetgate']),
+                            updategate=LL.Gate(W_in=params['GRU2.W_in_to_updategate'],
+                                               W_hid=params['GRU2.W_hid_to_updategate'],
+                                               W_cell=None,
+                                               b=params['GRU2.b_updategate']),
+                            hidden_update=LL.Gate(W_in=params['GRU2.W_in_to_hidden_update'],
+                                                  W_hid=params['GRU2.W_hid_to_hidden_update'],
+                                                  W_cell=None,
+                                                  b=params['GRU2.b_hidden_update'],
+                                                  nonlinearity=L.nonlinearities.tanh))
 
-    l_dense1prior = L.layers.DenseLayer(l_lv2_enc,
-                                        latent_size,
-                                        nonlinearity=L.nonlinearities.tanh,
-                                        W=params['h1pr.W'],
-                                        b=params['h1pr.b'])
-    l_dense2prior = L.layers.DenseLayer(l_dense1prior,
-                                        latent_size,
-                                        nonlinearity=L.nonlinearities.tanh,
-                                        W=params['h2pr.W'],
-                                        b=params['h2pr.b'])
-    l_mu_prior = L.layers.DenseLayer(l_dense2prior,
-                                     latent_size,
-                                     nonlinearity=None,
-                                     W=params['mupr.W'],
-                                     b=params['mupr.b'])
-    l_sigma_prior = L.layers.DenseLayer(l_dense2prior,
-                                        latent_size,
-                                        nonlinearity=L.nonlinearities.softplus,
-                                        W=params['sigpr.W'],
-                                        b=params['sigpr.b'])
-    l_sigma_prior = L.layers.ScaleLayer(l_sigma_prior, L.init.Constant(.1))
+    l_dense1prior = LL.DenseLayer(l_lv2_enc,
+                                  latent_size,
+                                  nonlinearity=L.nonlinearities.tanh,
+                                  W=params['h1pr.W'],
+                                  b=params['h1pr.b'])
+    l_dense2prior = LL.DenseLayer(l_dense1prior,
+                                  latent_size,
+                                  nonlinearity=L.nonlinearities.tanh,
+                                  W=params['h2pr.W'],
+                                  b=params['h2pr.b'])
+    l_mu_prior = LL.DenseLayer(l_dense2prior,
+                               latent_size,
+                               nonlinearity=None,
+                               W=params['mupr.W'],
+                               b=params['mupr.b'])
+    l_sigma_prior = LL.DenseLayer(l_dense2prior,
+                                  latent_size,
+                                  nonlinearity=L.nonlinearities.softplus,
+                                  W=params['sigpr.W'],
+                                  b=params['sigpr.b'])
+    l_sigma_prior = LL.ScaleLayer(l_sigma_prior, L.init.Constant(.1))
     
     l_z = GaussianSampleLayer(l_mu_prior, l_sigma_prior)
     
@@ -404,56 +473,71 @@ def _build_context_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, 
 def _build_decoder_net_with_params(input_var, voc_size, emb_size, lv1_rec_size, lv2_rec_size, out_emb_size, 
                                    decoder_init, params):
     
-    l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
+    l_in = LL.InputLayer(shape=(None, None), input_var=input_var)
     
-    l_emb = L.layers.EmbeddingLayer(l_in,
-                                    input_size=voc_size,
-                                    output_size=emb_size,
-                                    W=params['emb.W'])
+    l_emb = LL.EmbeddingLayer(l_in,
+                              input_size=voc_size,
+                              output_size=emb_size,
+                              W=params['emb.W'])
     
-    l_dec_init = L.layers.InputLayer(shape=(None, lv1_rec_size), input_var=decoder_init)
+    l_dec_init = LL.InputLayer(shape=(None, lv1_rec_size), input_var=decoder_init)
     
-    l_dec = L.layers.GRULayer(l_emb,
-                              num_units=lv1_rec_size,
-                              grad_clipping=100,
-                              hid_init=l_dec_init,
-                              only_return_final=True,
-                              resetgate=L.layers.Gate(W_in=params['GRUdec.W_in_to_resetgate'],
-                                                      W_hid=params['GRUdec.W_hid_to_resetgate'],
-                                                      W_cell=None,
-                                                      b=params['GRUdec.b_resetgate']),
-                              updategate=L.layers.Gate(W_in=params['GRUdec.W_in_to_updategate'],
-                                                       W_hid=params['GRUdec.W_hid_to_updategate'],
-                                                       W_cell=None,
-                                                       b=params['GRUdec.b_updategate']),
-                              hidden_update=L.layers.Gate(W_in=params['GRUdec.W_in_to_hidden_update'],
-                                                          W_hid=params['GRUdec.W_hid_to_hidden_update'],
-                                                          W_cell=None,
-                                                          b=params['GRUdec.b_hidden_update'],
-                                                          nonlinearity=L.nonlinearities.tanh))
+    l_dec = LL.GRULayer(l_emb,
+                        num_units=lv1_rec_size,
+                        grad_clipping=100,
+                        hid_init=l_dec_init,
+                        only_return_final=True,
+                        resetgate=LL.Gate(W_in=params['GRUdec.W_in_to_resetgate'],
+                                          W_hid=params['GRUdec.W_hid_to_resetgate'],
+                                          W_cell=None,
+                                          b=params['GRUdec.b_resetgate']),
+                        updategate=LL.Gate(W_in=params['GRUdec.W_in_to_updategate'],
+                                           W_hid=params['GRUdec.W_hid_to_updategate'],
+                                           W_cell=None,
+                                           b=params['GRUdec.b_updategate']),
+                        hidden_update=LL.Gate(W_in=params['GRUdec.W_in_to_hidden_update'],
+                                              W_hid=params['GRUdec.W_hid_to_hidden_update'],
+                                              W_cell=None,
+                                              b=params['GRUdec.b_hidden_update'],
+                                              nonlinearity=L.nonlinearities.tanh))
     
-    l_H0 = L.layers.DenseLayer(l_dec,
-                               num_units=out_emb_size,
-                               nonlinearity=None,
-                               W=params['h0.W'],
-                               b=params['h0.b'])
+    l_H0 = LL.DenseLayer(l_dec,
+                         num_units=out_emb_size,
+                         nonlinearity=None,
+                         W=params['h0.W'],
+                         b=params['h0.b'])
     
-    l_slice = L.layers.SliceLayer(l_emb, indices=-1, axis=1)
+    l_slice = LL.SliceLayer(l_emb, indices=-1, axis=1)
     
-    l_E0 = L.layers.DenseLayer(l_slice,
-                               num_units=out_emb_size,
-                               W=params['e0.W'],
-                               b=None,
-                               nonlinearity=None)
+    l_E0 = LL.DenseLayer(l_slice,
+                         num_units=out_emb_size,
+                         W=params['e0.W'],
+                         b=None,
+                         nonlinearity=None)
     
-    l_soft_in = L.layers.ElemwiseSumLayer([l_H0, l_E0])
+    l_soft_in = LL.ElemwiseSumLayer([l_H0, l_E0])
     
-    l_soft = L.layers.DenseLayer(l_soft_in,
-                                 num_units=voc_size,
-                                 nonlinearity=L.nonlinearities.softmax,
-                                 W=params['soft.W'],
-                                 b=params['soft.b'])
+    l_soft = LL.DenseLayer(l_soft_in,
+                           num_units=voc_size,
+                           nonlinearity=L.nonlinearities.softmax,
+                           W=params['soft.W'],
+                           b=params['soft.b'])
     
-    l_out = L.layers.ReshapeLayer(l_soft, shape=(input_var.shape[0], voc_size))
+    l_out = LL.ReshapeLayer(l_soft, shape=(input_var.shape[0], voc_size))
 
     return l_out, l_dec # l_out - probabilities, l_dec - new decoder init
+
+
+def iterate_minibatches(inputs, batch_size, pad=-1):
+    for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
+        excerpt = slice(start_idx, start_idx + batch_size)
+        inp = inputs[excerpt]
+
+        inp_max_len = max(map(len, inp))
+        inp = map(lambda l: l + [pad] * (inp_max_len - len(l)), inp)
+        inp = np.asarray(inp, dtype=np.int32)
+        tar = np.hstack([inp[:, 1:], np.zeros((batch_size, 1), dtype=np.int32) + pad])
+        
+        mask = (inp != pad).astype(np.float32)
+
+        yield inp, tar, mask

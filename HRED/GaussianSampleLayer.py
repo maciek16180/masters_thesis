@@ -1,6 +1,4 @@
 import theano.tensor as T
-import numpy as np
-from lasagne import init
 from lasagne.layers import MergeLayer
 
 from lasagne.random import get_rng
