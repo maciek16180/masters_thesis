@@ -6,16 +6,15 @@ import time
 import lasagne as L
 
 import sys
-sys.path.append('../HSoftmaxLayerLasagne/')
-sys.path.append('../../HSoftmaxLayerLasagne/')
+sys.path.append('../')
 
-from HSoftmaxLayer import HierarchicalSoftmaxDenseLayer
-from SampledSoftmaxLayer import SampledSoftmaxDenseLayer
-from NCELayer import NCEDenseLayer
+from layers import HierarchicalSoftmaxDenseLayer
+from layers import SampledSoftmaxDenseLayer
+from layers import NCEDenseLayer
 
 
 class SimpleRNNLM(object):
-    
+
     def __init__(self, voc_size, emb_size, rec_size, mode='ssoft', pad_value=-1, **kwargs):
         self.pad_value = pad_value
         self.voc_size = voc_size
@@ -68,7 +67,7 @@ class SimpleRNNLM(object):
             update_fn = kwargs['update_fn']
         else:
             #update_fn = lambda l, p: L.updates.adagrad(l, p, learning_rate=.01)
-            update_fn = lambda l, p: L.updates.adam(l, p)
+            update_fn = lambda l, p: L.updates.adam(l, p, learning_rate=.0001)
 
         updates = update_fn(train_loss, params)
 
@@ -78,18 +77,16 @@ class SimpleRNNLM(object):
         # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
         print 'Building a network for generating...'
 
+        all_params = {x.name : x for x in L.layers.get_all_params(self.train_net)}
+
         if mode in ['full', 'ssoft', 'nce']:
-            pars = L.layers.get_all_params(self.train_net)
-            if mode in ['ssoft', 'nce']:
-                del pars[-1] # remove ssoft/noise probs, not needed for generation
-            self.gen_net = _build_full_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, pars)
+            self.gen_net = _build_full_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, all_params)
         elif mode == 'hsoft':
-            self.gen_net = _build_hierarchical_softmax_net_with_params(input_var, voc_size, emb_size, rec_size,
-                                                                       L.layers.get_all_params(self.train_net))
+            self.gen_net = _build_hierarchical_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, all_params)
 
         probs = L.layers.get_output(self.gen_net)[:, -1, :]
         self.get_probs_fn = theano.function([input_var], probs)
-        
+
         print 'Done'
 
     def train_one_epoch(self, train_data, batch_size, log_interval=10):
@@ -168,13 +165,15 @@ def __build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size
 
     if emb_init is None:
         l_emb = L.layers.EmbeddingLayer(l_in,
-                                        input_size=voc_size,  # not voc_size+1, because pad_value = <utt_end>
-                                        output_size=emb_size)
+                                        input_size=voc_size,
+                                        output_size=emb_size,
+                                        name='emb')
     else:
         l_emb = L.layers.EmbeddingLayer(l_in,
                                         input_size=voc_size,
                                         output_size=emb_size,
-                                        W=emb_init)
+                                        W=emb_init,
+                                        name='emb')
         if not train_emb:
             l_emb.params[l_emb.W].remove('trainable')
 
@@ -182,7 +181,8 @@ def __build_architecture(input_var, mask_input_var, voc_size, emb_size, rec_size
                                  num_units=rec_size,
                                  nonlinearity=L.nonlinearities.tanh,
                                  grad_clipping=100,
-                                 mask_input=l_mask)
+                                 mask_input=l_mask,
+                                 name='LSTM1')
 
     l_resh = L.layers.ReshapeLayer(l_lstm1, shape=(-1, rec_size))
 
@@ -196,7 +196,8 @@ def _build_full_softmax_net(input_var, mask_input_var, voc_size, emb_size, rec_s
 
     l_soft = L.layers.DenseLayer(l_resh,
                                  num_units=voc_size,
-                                 nonlinearity=L.nonlinearities.softmax)
+                                 nonlinearity=L.nonlinearities.softmax,
+                                 name='soft')
 
     l_out = L.layers.ReshapeLayer(l_soft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
 
@@ -215,7 +216,8 @@ def _build_sampled_softmax_net(input_var, mask_input_var, voc_size, emb_size, re
     l_ssoft = SampledSoftmaxDenseLayer(l_resh, num_sampled, voc_size,
                                        targets=target_var,
                                        probs=ssoft_probs,
-                                       sample_unique=sample_unique)
+                                       sample_unique=sample_unique,
+                                       name='soft')
 
     if target_var is not None:
         l_out = L.layers.ReshapeLayer(l_ssoft, shape=(input_var.shape[0], input_var.shape[1]))
@@ -237,7 +239,8 @@ def _build_nce_net(input_var, mask_input_var, voc_size, emb_size, rec_size, num_
     l_ssoft = NCEDenseLayer(l_resh, num_sampled, voc_size,
                             targets=target_var,
                             probs=noise_probs,
-                            sample_unique=sample_unique)
+                            sample_unique=sample_unique,
+                            name='soft')
 
     if target_var is not None:
         l_out = L.layers.ReshapeLayer(l_ssoft, shape=(input_var.shape[0], input_var.shape[1]))
@@ -257,7 +260,8 @@ def _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_siz
 
     l_hsoft = HierarchicalSoftmaxDenseLayer(l_resh,
                                             num_units=voc_size,
-                                            target=target_var)
+                                            target=target_var,
+                                            name='soft')
 
     if target_var is not None:
         l_out = L.layers.ReshapeLayer(l_hsoft, shape=(input_var.shape[0], input_var.shape[1]))
@@ -268,40 +272,37 @@ def _build_hierarchical_softmax_net(input_var, mask_input_var, voc_size, emb_siz
 
 
 def __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params):
-    assert len(params) == 18
-    params = [params[:1], params[1:18]]
-    em, r1 = map(lambda p: {x.name: x for x in p}, params)
 
     l_in = L.layers.InputLayer(shape=(None, None), input_var=input_var)
 
     l_emb = L.layers.EmbeddingLayer(l_in,
                                     input_size=voc_size,
                                     output_size=emb_size,
-                                    W=em['W'])
+                                    W=params['emb.W'])
 
     l_lstm1 = L.layers.LSTMLayer(l_emb,
                                  num_units=rec_size,
                                  grad_clipping=100,
                                  mask_input=None,
-                                 ingate=L.layers.Gate(W_in=r1['W_in_to_ingate'],
-                                                      W_hid=r1['W_hid_to_ingate'],
-                                                      W_cell=r1['W_cell_to_ingate'],
-                                                      b=r1['b_ingate']),
-                                 forgetgate=L.layers.Gate(W_in=r1['W_in_to_forgetgate'],
-                                                          W_hid=r1['W_hid_to_forgetgate'],
-                                                          W_cell=r1['W_cell_to_forgetgate'],
-                                                          b=r1['b_forgetgate']),
-                                 cell=L.layers.Gate(W_in=r1['W_in_to_cell'],
-                                                    W_hid=r1['W_hid_to_cell'],
+                                 ingate=L.layers.Gate(W_in=params['LSTM1.W_in_to_ingate'],
+                                                      W_hid=params['LSTM1.W_hid_to_ingate'],
+                                                      W_cell=params['LSTM1.W_cell_to_ingate'],
+                                                      b=params['LSTM1.b_ingate']),
+                                 forgetgate=L.layers.Gate(W_in=params['LSTM1.W_in_to_forgetgate'],
+                                                          W_hid=params['LSTM1.W_hid_to_forgetgate'],
+                                                          W_cell=params['LSTM1.W_cell_to_forgetgate'],
+                                                          b=params['LSTM1.b_forgetgate']),
+                                 cell=L.layers.Gate(W_in=params['LSTM1.W_in_to_cell'],
+                                                    W_hid=params['LSTM1.W_hid_to_cell'],
                                                     W_cell=None,
-                                                    b=r1['b_cell'],
+                                                    b=params['LSTM1.b_cell'],
                                                     nonlinearity=L.nonlinearities.tanh),
-                                 outgate=L.layers.Gate(W_in=r1['W_in_to_outgate'],
-                                                       W_hid=r1['W_hid_to_outgate'],
-                                                       W_cell=r1['W_cell_to_outgate'],
-                                                       b=r1['b_outgate']),
-                                 cell_init=r1['cell_init'],
-                                 hid_init=r1['hid_init'])
+                                 outgate=L.layers.Gate(W_in=params['LSTM1.W_in_to_outgate'],
+                                                       W_hid=params['LSTM1.W_hid_to_outgate'],
+                                                       W_cell=params['LSTM1.W_cell_to_outgate'],
+                                                       b=params['LSTM1.b_outgate']),
+                                 cell_init=params['LSTM1.cell_init'],
+                                 hid_init=params['LSTM1.hid_init'])
 
     l_resh = L.layers.ReshapeLayer(l_lstm1, shape=(-1, rec_size))
 
@@ -309,15 +310,14 @@ def __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, pa
 
 
 def _build_full_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, params):
-    assert len(params) == 20
-    sm = {x.name : x for x in params[-2:]}
-    l_resh = __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params[:-2])
+
+    l_resh = __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params)
 
     l_soft = L.layers.DenseLayer(l_resh,
                                  num_units=voc_size,
                                  nonlinearity=L.nonlinearities.softmax,
-                                 W=sm['W'],
-                                 b=sm['b'])
+                                 W=params['soft.W'],
+                                 b=params['soft.b'])
 
     l_out = L.layers.ReshapeLayer(l_soft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
 
@@ -325,17 +325,16 @@ def _build_full_softmax_net_with_params(input_var, voc_size, emb_size, rec_size,
 
 
 def _build_hierarchical_softmax_net_with_params(input_var, voc_size, emb_size, rec_size, params):
-    assert len(params) == 22
-    sm = {x.name: x for x in params[-4:]}
-    l_resh = __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params[:-4])
+
+    l_resh = __build_architecture_with_params(input_var, voc_size, emb_size, rec_size, params)
 
     l_hsoft = HierarchicalSoftmaxDenseLayer(l_resh,
                                             num_units=voc_size,
                                             target=None,
-                                            W1=sm['W1'],
-                                            b1=sm['b1'],
-                                            W2=sm['W2'],
-                                            b2=sm['b2'])
+                                            W1=params['soft.W1'],
+                                            b1=params['soft.b1'],
+                                            W2=params['soft.W2'],
+                                            b2=params['soft.b2'])
 
     l_out = L.layers.ReshapeLayer(l_hsoft, shape=(input_var.shape[0], input_var.shape[1], voc_size))
 
@@ -351,7 +350,7 @@ def iterate_minibatches(inputs, batch_size, pad=-1):
         inp = map(lambda l: l + [pad] * (inp_max_len - len(l)), inp)
         inp = np.asarray(inp, dtype=np.int32)
         tar = np.hstack([inp[:, 1:], np.zeros((batch_size, 1), dtype=np.int32) + pad])
-        
-        mask = (inp != pad).astype(np.float32)  # there is no separate value for the end of an utterance, just pad
+
+        mask = (inp != pad).astype(np.float32)
 
         yield inp, tar, mask

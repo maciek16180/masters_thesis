@@ -1,0 +1,694 @@
+Building the model...
+Using dropout.
+Compiling theano functions:
+    train_fn...
+    get_start_probs_fn...
+    get_end_probs_fn...
+Done
+
+
+Starting epoch 1...
+
+Done 200 batches in 167.93s	training loss:	6.557145
+Done 400 batches in 333.51s	training loss:	6.168258
+Done 600 batches in 502.51s	training loss:	5.859556
+Done 800 batches in 669.16s	training loss:	5.568902
+Done 1000 batches in 838.58s	training loss:	5.342627
+Done 1200 batches in 1006.72s	training loss:	5.149985
+Done 1400 batches in 1175.43s	training loss:	4.983766
+Done 1600 batches in 1344.05s	training loss:	4.847602
+Done 1800 batches in 1510.81s	training loss:	4.717654
+Done 2000 batches in 1681.31s	training loss:	4.610801
+Done 2200 batches in 1850.43s	training loss:	4.510326
+Done 2400 batches in 2015.58s	training loss:	4.427842
+Done 2600 batches in 2183.26s	training loss:	4.351952
+Done 2800 batches in 2350.89s	training loss:	4.283730
+Done 3000 batches in 2522.56s	training loss:	4.220103
+Done 3200 batches in 2689.83s	training loss:	4.165955
+Done 3400 batches in 2856.62s	training loss:	4.116419
+Done 3600 batches in 3026.73s	training loss:	4.066017
+Done 3800 batches in 3195.99s	training loss:	4.021524
+Done 4000 batches in 3366.92s	training loss:	3.980641
+Done 4200 batches in 3533.16s	training loss:	3.945312
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 57.01324725716417, 'exact_match': 46.46168401135289}
+F1:  57.0132472572
+Done 4400 batches in 3966.84s	training loss:	3.910227
+Done 4600 batches in 4137.49s	training loss:	3.876968
+Done 4800 batches in 4309.66s	training loss:	3.846937
+Done 5000 batches in 4479.68s	training loss:	3.817585
+Done 5200 batches in 4651.02s	training loss:	3.786203
+Done 5400 batches in 4818.71s	training loss:	3.760999
+Done 5600 batches in 4984.41s	training loss:	3.735280
+
+Training loss:   3.71843854828
+
+
+Starting epoch 2...
+
+Done 200 batches in 168.94s	training loss:	2.940191
+Done 400 batches in 339.83s	training loss:	2.978281
+Done 600 batches in 507.69s	training loss:	2.977613
+Done 800 batches in 678.31s	training loss:	2.980621
+Done 1000 batches in 849.60s	training loss:	2.972718
+Done 1200 batches in 1018.78s	training loss:	2.982831
+Done 1400 batches in 1190.74s	training loss:	2.973297
+Done 1600 batches in 1359.39s	training loss:	2.960322
+Done 1800 batches in 1527.26s	training loss:	2.951000
+Done 2000 batches in 1697.79s	training loss:	2.944299
+Done 2200 batches in 1867.54s	training loss:	2.947154
+Done 2400 batches in 2036.87s	training loss:	2.939373
+Done 2600 batches in 2203.11s	training loss:	2.936407
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 59.92552129022694, 'exact_match': 50.10406811731315}
+F1:  59.9255212902
+Done 2800 batches in 2631.14s	training loss:	2.931061
+Done 3000 batches in 2797.80s	training loss:	2.927167
+Done 3200 batches in 2966.49s	training loss:	2.921122
+Done 3400 batches in 3133.54s	training loss:	2.917161
+Done 3600 batches in 3301.66s	training loss:	2.917129
+Done 3800 batches in 3473.25s	training loss:	2.914548
+Done 4000 batches in 3643.44s	training loss:	2.912640
+Done 4200 batches in 3811.17s	training loss:	2.914838
+Done 4400 batches in 3980.46s	training loss:	2.910924
+Done 4600 batches in 4151.40s	training loss:	2.908211
+Done 4800 batches in 4321.35s	training loss:	2.906865
+Done 5000 batches in 4490.74s	training loss:	2.904125
+Done 5200 batches in 4662.21s	training loss:	2.902506
+Done 5400 batches in 4829.64s	training loss:	2.896461
+Done 5600 batches in 4999.13s	training loss:	2.894183
+
+Training loss:   2.8931016464
+
+
+Starting epoch 3...
+
+Done 200 batches in 171.52s	training loss:	2.737771
+Done 400 batches in 341.17s	training loss:	2.739014
+Done 600 batches in 513.10s	training loss:	2.738659
+Done 800 batches in 678.74s	training loss:	2.735878
+Done 1000 batches in 848.73s	training loss:	2.738851
+Done 1200 batches in 1017.30s	training loss:	2.734791
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 63.10842487278817, 'exact_match': 52.39356669820246}
+F1:  63.1084248728
+Done 1400 batches in 1442.89s	training loss:	2.736860
+Done 1600 batches in 1611.92s	training loss:	2.735145
+Done 1800 batches in 1780.75s	training loss:	2.733961
+Done 2000 batches in 1948.58s	training loss:	2.741248
+Done 2200 batches in 2116.98s	training loss:	2.742882
+Done 2400 batches in 2287.29s	training loss:	2.740226
+Done 2600 batches in 2456.40s	training loss:	2.742121
+Done 2800 batches in 2623.18s	training loss:	2.744124
+Done 3000 batches in 2792.89s	training loss:	2.744460
+Done 3200 batches in 2963.37s	training loss:	2.742942
+Done 3400 batches in 3133.05s	training loss:	2.741826
+Done 3600 batches in 3303.54s	training loss:	2.738301
+Done 3800 batches in 3473.01s	training loss:	2.739111
+Done 4000 batches in 3639.71s	training loss:	2.738308
+Done 4200 batches in 3809.18s	training loss:	2.740032
+Done 4400 batches in 3977.02s	training loss:	2.743368
+Done 4600 batches in 4146.78s	training loss:	2.743750
+Done 4800 batches in 4312.62s	training loss:	2.744085
+Done 5000 batches in 4479.40s	training loss:	2.745439
+Done 5200 batches in 4649.31s	training loss:	2.747293
+Done 5400 batches in 4816.15s	training loss:	2.743352
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 64.10934108261871, 'exact_match': 54.16272469252602}
+F1:  64.1093410826
+Done 5600 batches in 5244.14s	training loss:	2.740785
+
+Training loss:   2.74097743421
+
+
+Starting epoch 4...
+
+Done 200 batches in 168.44s	training loss:	2.663305
+Done 400 batches in 335.17s	training loss:	2.649360
+Done 600 batches in 503.58s	training loss:	2.633800
+Done 800 batches in 671.82s	training loss:	2.635845
+Done 1000 batches in 839.82s	training loss:	2.636587
+Done 1200 batches in 1007.40s	training loss:	2.642908
+Done 1400 batches in 1181.13s	training loss:	2.640159
+Done 1600 batches in 1350.12s	training loss:	2.645714
+Done 1800 batches in 1515.14s	training loss:	2.645012
+Done 2000 batches in 1686.16s	training loss:	2.649138
+Done 2200 batches in 1855.57s	training loss:	2.645401
+Done 2400 batches in 2027.35s	training loss:	2.650926
+Done 2600 batches in 2199.93s	training loss:	2.644386
+Done 2800 batches in 2368.38s	training loss:	2.652206
+Done 3000 batches in 2539.64s	training loss:	2.650819
+Done 3200 batches in 2707.12s	training loss:	2.654971
+Done 3400 batches in 2874.88s	training loss:	2.658819
+Done 3600 batches in 3042.77s	training loss:	2.663955
+Done 3800 batches in 3213.74s	training loss:	2.660620
+Done 4000 batches in 3381.85s	training loss:	2.661125
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 64.27410227558997, 'exact_match': 54.512771996215704}
+F1:  64.2741022756
+Done 4200 batches in 3807.81s	training loss:	2.665944
+Done 4400 batches in 3978.48s	training loss:	2.664592
+Done 4600 batches in 4147.57s	training loss:	2.663195
+Done 4800 batches in 4319.02s	training loss:	2.661810
+Done 5000 batches in 4489.49s	training loss:	2.662473
+Done 5200 batches in 4659.39s	training loss:	2.663720
+Done 5400 batches in 4829.19s	training loss:	2.662901
+Done 5600 batches in 4998.81s	training loss:	2.663158
+
+Training loss:   2.66409373939
+
+
+Starting epoch 5...
+
+Done 200 batches in 169.59s	training loss:	2.650588
+Done 400 batches in 338.92s	training loss:	2.600380
+Done 600 batches in 508.14s	training loss:	2.591900
+Done 800 batches in 677.31s	training loss:	2.597432
+Done 1000 batches in 844.19s	training loss:	2.599161
+Done 1200 batches in 1011.85s	training loss:	2.594752
+Done 1400 batches in 1183.23s	training loss:	2.603529
+Done 1600 batches in 1350.79s	training loss:	2.603363
+Done 1800 batches in 1521.18s	training loss:	2.602126
+Done 2000 batches in 1690.23s	training loss:	2.607373
+Done 2200 batches in 1861.12s	training loss:	2.609241
+Done 2400 batches in 2028.55s	training loss:	2.611554
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 64.02801747752619, 'exact_match': 53.982970671712394}
+F1:  64.0280174775
+Lowering learning rate to  0.0005
+Done 2600 batches in 2453.88s	training loss:	2.617241
+Done 2800 batches in 2620.84s	training loss:	2.620327
+Done 3000 batches in 2791.35s	training loss:	2.615443
+Done 3200 batches in 2961.97s	training loss:	2.614830
+Done 3400 batches in 3134.71s	training loss:	2.610183
+Done 3600 batches in 3302.60s	training loss:	2.601449
+Done 3800 batches in 3471.68s	training loss:	2.598356
+Done 4000 batches in 3639.68s	training loss:	2.593084
+Done 4200 batches in 3808.75s	training loss:	2.591798
+Done 4400 batches in 3976.56s	training loss:	2.588489
+Done 4600 batches in 4145.47s	training loss:	2.583799
+Done 4800 batches in 4313.49s	training loss:	2.579552
+Done 5000 batches in 4482.73s	training loss:	2.580150
+Done 5200 batches in 4652.15s	training loss:	2.575915
+Done 5400 batches in 4819.90s	training loss:	2.573062
+Done 5600 batches in 4992.63s	training loss:	2.570193
+
+Training loss:   2.569437114
+
+
+Starting epoch 6...
+
+Done 200 batches in 168.55s	training loss:	2.369862
+Done 400 batches in 336.51s	training loss:	2.346682
+Done 600 batches in 506.33s	training loss:	2.350724
+Done 800 batches in 676.92s	training loss:	2.367336
+Done 1000 batches in 846.58s	training loss:	2.370625
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 66.08185505364695, 'exact_match': 56.22516556291391}
+F1:  66.0818550536
+Done 1200 batches in 1278.37s	training loss:	2.371900
+Done 1400 batches in 1452.85s	training loss:	2.382473
+Done 1600 batches in 1621.74s	training loss:	2.388843
+Done 1800 batches in 1791.48s	training loss:	2.382351
+Done 2000 batches in 1963.38s	training loss:	2.378932
+Done 2200 batches in 2132.12s	training loss:	2.376005
+Done 2400 batches in 2299.03s	training loss:	2.370221
+Done 2600 batches in 2466.74s	training loss:	2.373879
+Done 2800 batches in 2635.96s	training loss:	2.378372
+Done 3000 batches in 2804.17s	training loss:	2.375571
+Done 3200 batches in 2974.87s	training loss:	2.375226
+Done 3400 batches in 3145.03s	training loss:	2.374053
+Done 3600 batches in 3314.93s	training loss:	2.374071
+Done 3800 batches in 3481.81s	training loss:	2.374867
+Done 4000 batches in 3651.37s	training loss:	2.376921
+Done 4200 batches in 3821.58s	training loss:	2.378763
+Done 4400 batches in 3992.46s	training loss:	2.379350
+Done 4600 batches in 4159.79s	training loss:	2.379126
+Done 4800 batches in 4329.08s	training loss:	2.377610
+Done 5000 batches in 4498.02s	training loss:	2.377527
+Done 5200 batches in 4663.50s	training loss:	2.382707
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 66.81413988071505, 'exact_match': 56.88741721854305}
+F1:  66.8141398807
+Done 5400 batches in 5094.83s	training loss:	2.384763
+Done 5600 batches in 5263.11s	training loss:	2.385866
+
+Training loss:   2.38492015639
+
+
+Starting epoch 7...
+
+Done 200 batches in 169.73s	training loss:	2.296817
+Done 400 batches in 341.98s	training loss:	2.290319
+Done 600 batches in 511.71s	training loss:	2.267654
+Done 800 batches in 682.48s	training loss:	2.262309
+Done 1000 batches in 852.08s	training loss:	2.256194
+Done 1200 batches in 1018.74s	training loss:	2.266349
+Done 1400 batches in 1188.59s	training loss:	2.278718
+Done 1600 batches in 1355.57s	training loss:	2.284397
+Done 1800 batches in 1521.96s	training loss:	2.295035
+Done 2000 batches in 1690.14s	training loss:	2.297104
+Done 2200 batches in 1858.76s	training loss:	2.297555
+Done 2400 batches in 2030.38s	training loss:	2.296868
+Done 2600 batches in 2200.35s	training loss:	2.296108
+Done 2800 batches in 2368.68s	training loss:	2.298961
+Done 3000 batches in 2537.06s	training loss:	2.300329
+Done 3200 batches in 2706.67s	training loss:	2.304135
+Done 3400 batches in 2875.16s	training loss:	2.305311
+Done 3600 batches in 3045.83s	training loss:	2.305219
+Done 3800 batches in 3213.68s	training loss:	2.300130
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 66.9202354690251, 'exact_match': 57.24692526017029}
+F1:  66.920235469
+Done 4000 batches in 3642.46s	training loss:	2.302496
+Done 4200 batches in 3813.60s	training loss:	2.307207
+Done 4400 batches in 3985.36s	training loss:	2.309012
+Done 4600 batches in 4153.51s	training loss:	2.311604
+Done 4800 batches in 4325.82s	training loss:	2.310194
+Done 5000 batches in 4495.75s	training loss:	2.311648
+Done 5200 batches in 4663.36s	training loss:	2.312922
+Done 5400 batches in 4832.22s	training loss:	2.316003
+Done 5600 batches in 4999.93s	training loss:	2.316906
+
+Training loss:   2.31786671444
+
+
+Starting epoch 8...
+
+Done 200 batches in 170.72s	training loss:	2.213988
+Done 400 batches in 340.47s	training loss:	2.241287
+Done 600 batches in 508.34s	training loss:	2.234752
+Done 800 batches in 677.16s	training loss:	2.226459
+Done 1000 batches in 849.36s	training loss:	2.229830
+Done 1200 batches in 1017.33s	training loss:	2.220731
+Done 1400 batches in 1186.73s	training loss:	2.231644
+Done 1600 batches in 1353.77s	training loss:	2.233934
+Done 1800 batches in 1524.90s	training loss:	2.238472
+Done 2000 batches in 1695.19s	training loss:	2.240437
+Done 2200 batches in 1865.70s	training loss:	2.248487
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 66.9086974986691, 'exact_match': 57.13339640491959}
+F1:  66.9086974987
+Lowering learning rate to  0.00025
+Done 2400 batches in 2293.25s	training loss:	2.244864
+Done 2600 batches in 2463.12s	training loss:	2.248731
+Done 2800 batches in 2633.12s	training loss:	2.244953
+Done 3000 batches in 2803.55s	training loss:	2.240380
+Done 3200 batches in 2973.26s	training loss:	2.244176
+Done 3400 batches in 3140.98s	training loss:	2.240795
+Done 3600 batches in 3307.67s	training loss:	2.237295
+Done 3800 batches in 3476.81s	training loss:	2.234421
+Done 4000 batches in 3645.57s	training loss:	2.231462
+Done 4200 batches in 3812.97s	training loss:	2.231094
+Done 4400 batches in 3980.64s	training loss:	2.229212
+Done 4600 batches in 4150.11s	training loss:	2.227596
+Done 4800 batches in 4319.83s	training loss:	2.229290
+Done 5000 batches in 4490.57s	training loss:	2.225976
+Done 5200 batches in 4667.78s	training loss:	2.226014
+Done 5400 batches in 4838.20s	training loss:	2.225662
+Done 5600 batches in 5007.70s	training loss:	2.224561
+
+Training loss:   2.22485248603
+
+
+Starting epoch 9...
+
+Done 200 batches in 170.44s	training loss:	2.117537
+Done 400 batches in 340.92s	training loss:	2.148745
+Done 600 batches in 514.97s	training loss:	2.104338
+Done 800 batches in 687.99s	training loss:	2.092207
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 67.93413522943551, 'exact_match': 58.16461684011353}
+F1:  67.9341352294
+Done 1000 batches in 1114.31s	training loss:	2.095919
+Done 1200 batches in 1284.65s	training loss:	2.090129
+Done 1400 batches in 1451.22s	training loss:	2.098856
+Done 1600 batches in 1622.20s	training loss:	2.102607
+Done 1800 batches in 1791.49s	training loss:	2.097555
+Done 2000 batches in 1959.49s	training loss:	2.093831
+Done 2200 batches in 2129.16s	training loss:	2.099645
+Done 2400 batches in 2299.66s	training loss:	2.100466
+Done 2600 batches in 2466.34s	training loss:	2.099323
+Done 2800 batches in 2634.99s	training loss:	2.099375
+Done 3000 batches in 2804.87s	training loss:	2.107310
+Done 3200 batches in 2973.09s	training loss:	2.111509
+Done 3400 batches in 3140.44s	training loss:	2.111165
+Done 3600 batches in 3310.28s	training loss:	2.111731
+Done 3800 batches in 3479.29s	training loss:	2.111326
+Done 4000 batches in 3648.62s	training loss:	2.113054
+Done 4200 batches in 3819.13s	training loss:	2.112610
+Done 4400 batches in 3987.61s	training loss:	2.113309
+Done 4600 batches in 4159.07s	training loss:	2.113392
+Done 4800 batches in 4325.99s	training loss:	2.114178
+Done 5000 batches in 4495.16s	training loss:	2.115672
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 68.57600716807157, 'exact_match': 58.80794701986755}
+F1:  68.5760071681
+Done 5200 batches in 4921.57s	training loss:	2.114362
+Done 5400 batches in 5090.75s	training loss:	2.113269
+Done 5600 batches in 5261.80s	training loss:	2.113845
+
+Training loss:   2.11389449538
+
+
+Starting epoch 10...
+
+Done 200 batches in 171.99s	training loss:	2.042109
+Done 400 batches in 342.38s	training loss:	2.047657
+Done 600 batches in 509.98s	training loss:	2.053121
+Done 800 batches in 679.93s	training loss:	2.057195
+Done 1000 batches in 848.76s	training loss:	2.065615
+Done 1200 batches in 1018.58s	training loss:	2.064336
+Done 1400 batches in 1187.15s	training loss:	2.063229
+Done 1600 batches in 1356.87s	training loss:	2.065402
+Done 1800 batches in 1528.26s	training loss:	2.060800
+Done 2000 batches in 1693.19s	training loss:	2.053683
+Done 2200 batches in 1862.29s	training loss:	2.049594
+Done 2400 batches in 2033.06s	training loss:	2.051812
+Done 2600 batches in 2199.78s	training loss:	2.052681
+Done 2800 batches in 2370.44s	training loss:	2.054598
+Done 3000 batches in 2538.37s	training loss:	2.050360
+Done 3200 batches in 2709.25s	training loss:	2.052465
+Done 3400 batches in 2876.79s	training loss:	2.052140
+Done 3600 batches in 3044.91s	training loss:	2.052980
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 68.71959567806893, 'exact_match': 58.56196783349101}
+F1:  68.7195956781
+Done 3800 batches in 3472.43s	training loss:	2.054095
+Done 4000 batches in 3642.14s	training loss:	2.053150
+Done 4200 batches in 3807.26s	training loss:	2.055572
+Done 4400 batches in 3976.57s	training loss:	2.057282
+Done 4600 batches in 4145.57s	training loss:	2.056086
+Done 4800 batches in 4315.83s	training loss:	2.055526
+Done 5000 batches in 4489.01s	training loss:	2.058050
+Done 5200 batches in 4656.15s	training loss:	2.059607
+Done 5400 batches in 4824.21s	training loss:	2.063349
+Done 5600 batches in 4993.24s	training loss:	2.062100
+
+Training loss:   2.05949505094
+
+
+Starting epoch 11...
+
+Done 200 batches in 169.93s	training loss:	2.018256
+Done 400 batches in 339.44s	training loss:	2.015093
+Done 600 batches in 507.02s	training loss:	1.991552
+Done 800 batches in 674.46s	training loss:	1.992701
+Done 1000 batches in 843.84s	training loss:	1.988795
+Done 1200 batches in 1014.43s	training loss:	2.005078
+Done 1400 batches in 1181.40s	training loss:	2.005999
+Done 1600 batches in 1349.32s	training loss:	2.001022
+Done 1800 batches in 1519.53s	training loss:	2.003708
+Done 2000 batches in 1686.84s	training loss:	2.010112
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 68.86750862083753, 'exact_match': 59.11069063386944}
+F1:  68.8675086208
+Done 2200 batches in 2112.62s	training loss:	2.010564
+Done 2400 batches in 2283.81s	training loss:	2.009234
+Done 2600 batches in 2455.07s	training loss:	2.003817
+Done 2800 batches in 2622.67s	training loss:	2.005290
+Done 3000 batches in 2790.10s	training loss:	1.999455
+Done 3200 batches in 2958.81s	training loss:	2.000633
+Done 3400 batches in 3127.70s	training loss:	1.999719
+Done 3600 batches in 3297.17s	training loss:	1.996693
+Done 3800 batches in 3467.07s	training loss:	2.000417
+Done 4000 batches in 3637.97s	training loss:	2.003536
+Done 4200 batches in 3808.87s	training loss:	2.004178
+Done 4400 batches in 3976.74s	training loss:	2.006468
+Done 4600 batches in 4149.33s	training loss:	2.007281
+Done 4800 batches in 4316.25s	training loss:	2.007414
+Done 5000 batches in 4483.53s	training loss:	2.009661
+Done 5200 batches in 4655.30s	training loss:	2.010305
+Done 5400 batches in 4826.64s	training loss:	2.012654
+Done 5600 batches in 4994.14s	training loss:	2.011625
+
+Training loss:   2.01411060483
+
+
+Starting epoch 12...
+
+Done 200 batches in 172.66s	training loss:	1.940654
+Done 400 batches in 341.47s	training loss:	1.943837
+Done 600 batches in 512.45s	training loss:	1.940022
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 68.80238388132268, 'exact_match': 58.46736045411542}
+F1:  68.8023838813
+Lowering learning rate to  0.000125
+Done 800 batches in 935.82s	training loss:	1.938003
+Done 1000 batches in 1107.05s	training loss:	1.941055
+Done 1200 batches in 1277.38s	training loss:	1.940601
+Done 1400 batches in 1447.40s	training loss:	1.938799
+Done 1600 batches in 1617.36s	training loss:	1.939347
+Done 1800 batches in 1787.72s	training loss:	1.942187
+Done 2000 batches in 1958.00s	training loss:	1.937632
+Done 2200 batches in 2126.64s	training loss:	1.944042
+Done 2400 batches in 2297.22s	training loss:	1.943534
+Done 2600 batches in 2468.62s	training loss:	1.942073
+Done 2800 batches in 2634.86s	training loss:	1.940254
+Done 3000 batches in 2803.48s	training loss:	1.939934
+Done 3200 batches in 2973.35s	training loss:	1.940422
+Done 3400 batches in 3140.22s	training loss:	1.939085
+Done 3600 batches in 3313.39s	training loss:	1.939044
+Done 3800 batches in 3481.99s	training loss:	1.937315
+Done 4000 batches in 3653.33s	training loss:	1.937104
+Done 4200 batches in 3820.88s	training loss:	1.936826
+Done 4400 batches in 3991.78s	training loss:	1.935127
+Done 4600 batches in 4159.74s	training loss:	1.933819
+Done 4800 batches in 4329.42s	training loss:	1.934197
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 69.58552444626847, 'exact_match': 59.66887417218543}
+F1:  69.5855244463
+Done 5000 batches in 4759.61s	training loss:	1.929836
+Done 5200 batches in 4926.73s	training loss:	1.930197
+Done 5400 batches in 5096.52s	training loss:	1.931839
+Done 5600 batches in 5263.91s	training loss:	1.933665
+
+Training loss:   1.93561690336
+
+
+Starting epoch 13...
+
+Done 200 batches in 170.53s	training loss:	1.839538
+Done 400 batches in 337.48s	training loss:	1.830982
+Done 600 batches in 505.55s	training loss:	1.849982
+Done 800 batches in 673.59s	training loss:	1.864163
+Done 1000 batches in 843.57s	training loss:	1.864036
+Done 1200 batches in 1011.35s	training loss:	1.870249
+Done 1400 batches in 1181.73s	training loss:	1.872301
+Done 1600 batches in 1348.63s	training loss:	1.874766
+Done 1800 batches in 1521.11s	training loss:	1.879203
+Done 2000 batches in 1692.02s	training loss:	1.881834
+Done 2200 batches in 1860.48s	training loss:	1.886746
+Done 2400 batches in 2031.40s	training loss:	1.887228
+Done 2600 batches in 2200.96s	training loss:	1.885336
+Done 2800 batches in 2371.98s	training loss:	1.884654
+Done 3000 batches in 2540.72s	training loss:	1.884622
+Done 3200 batches in 2708.14s	training loss:	1.886211
+Done 3400 batches in 2876.97s	training loss:	1.885536
+Calculating validation f1...
+Done 1000 examples
+Done 2000 examples
+Done 3000 examples
+Done 4000 examples
+Done 5000 examples
+Done 6000 examples
+Done 7000 examples
+Done 8000 examples
+Done 9000 examples
+Done 10000 examples
+Predictions done
+{'f1': 69.62888111647642, 'exact_match': 59.57426679280984}
+F1:  69.6288811165
+Done 3600 batches in 3302.61s	training loss:	1.884025
+Done 3800 batches in 3472.38s	training loss:	1.886745
+Done 4000 batches in 3641.59s	training loss:	1.888823
+Done 4200 batches in 3811.54s	training loss:	1.888321
+Done 4400 batches in 3980.45s	training loss:	1.888673
+Done 4600 batches in 4149.42s	training loss:	1.889299
+Done 4800 batches in 4319.72s	training loss:	1.890174
+Done 5000 batches in 4490.21s	training loss:	1.888450
+Done 5200 batches in 4660.33s	training loss:	1.888501
+Done 5400 batches in 4827.13s	training loss:	1.889584
+Done 5600 batches in 4994.59s	training loss:	1.889744
+
+Training loss:   1.88924254878
+
+
+Total training time: 67723.52s
+Models saved as trained_models/glove_vocab/charemb_glove_fixed_dropout
