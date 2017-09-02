@@ -11,7 +11,7 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 class TrainPartOfEmbsLayer(Layer):
 
     def __init__(self, incoming, train_inds, E, input_size, output_size,
-                 W=init.Normal(), keep_rate=.5, **kwargs):
+                 W=init.Normal(), keep_rate=1, **kwargs):
 
         self.rng = RandomStreams(get_rng().randint(1, 2147462579))
         self.keep_rate = keep_rate
@@ -33,12 +33,16 @@ class TrainPartOfEmbsLayer(Layer):
         if self.W is not None:
             W = TT.set_subtensor(self.E[self.train_inds], self.W)
 
-        if self.keep_rate < 1 and not deterministic:
-            print "This is layer debug, word dropout is enabled"
-            mask = self.rng.binomial((self.input_size, 1), p=self.keep_rate, dtype=theano.config.floatX)
-            W = W * mask
+        res = W[input_]
 
-        return W[input_]
+        if self.keep_rate < 1 and not deterministic:
+            mask = self.rng.binomial((self.output_size,), p=self.keep_rate, dtype=theano.config.floatX)
+            res_shape = res.shape
+            res = res.reshape((-1, self.output_size))
+            res = (res * mask).reshape(res_shape)
+
+        return res
+
 
     def get_output_shape_for(self, input_shape):
         return input_shape + (self.output_size, )

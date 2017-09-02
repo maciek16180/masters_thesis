@@ -357,25 +357,23 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
 
     ''' Word embeddings '''
 
-    word_keep_rate = .5 if emb_dropout else 1
-    if emb_dropout:
-        print "Using word dropout with keep rate", word_keep_rate
+    # word_keep_rate = .5 if emb_dropout else 1
+    # if emb_dropout:
+    #     print "Using word dropout with keep rate", word_keep_rate
 
     l_c_emb = TrainPartOfEmbsLayer(l_context,
                                    output_size=emb_size,
                                    input_size=voc_size,
                                    W=emb_init[train_inds],
                                    E=emb_init,
-                                   train_inds=train_inds,
-                                   keep_rate=word_keep_rate)
+                                   train_inds=train_inds)
 
     l_q_emb = TrainPartOfEmbsLayer(l_question,
                                    output_size=emb_size,
                                    input_size=voc_size,
                                    W=l_c_emb.W,
                                    E=l_c_emb.E,
-                                   train_inds=train_inds,
-                                   keep_rate=word_keep_rate)
+                                   train_inds=train_inds)
 
     ''' Char-embeddings '''
 
@@ -439,10 +437,10 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
 
     ''' Dropout at the embeddings '''
 
-    # if emb_dropout:
-    #     print 'Using dropout.'
-    #     l_c_emb = LL.dropout(l_c_emb)
-    #     l_q_emb = LL.dropout(l_q_emb)
+    if emb_dropout:
+        print 'Using dropout.'
+        l_c_emb = LL.dropout(l_c_emb)
+        l_q_emb = LL.dropout(l_q_emb)
 
     ''' Highway layer allowing for interaction between embeddings '''
 
