@@ -1,4 +1,5 @@
 # similar to FastQA, https://arxiv.org/abs/1703.04816
+# use only with glove6B, glove840B is too big to fit in GPU memory
 
 import numpy as np
 import theano, os, io
@@ -22,7 +23,7 @@ class QANet:
 
     def __init__(self, voc_size, alphabet_size, emb_size, emb_char_size, num_emb_char_filters, rec_size,
                  train_inds, emb_init, pad_value=-1, squad_path='/pio/data/data/squad/',
-                 working_path='evaluate/glove_vocab/training/', eval_path='evaluate/', using_negative=True,
+                 working_path='evaluate/glove6B/training/', eval_path='evaluate/', using_negative=True,
                  checkpoint_examples=64000, **kwargs):
 
         self.data_dev = None
@@ -30,7 +31,7 @@ class QANet:
         self.squad_path = squad_path
         self.working_path = working_path
         self.eval_path = eval_path
-        self.dev_path = squad_path if not using_negative else squad_path + 'wiki_negative_dev/'
+        self.dev_path = squad_path + 'glove6B/' if not using_negative else squad_path + 'glove6B/wiki_negative_dev/'
 
         self.checkpoint_examples = checkpoint_examples
         self.examples_since_last_checkpoint = 0
@@ -96,9 +97,6 @@ class QANet:
 
         # MAKE THEANO FUNCTIONS
         print 'Compiling theano functions:'
-
-        # to train only part of the embeddings I can modify updates by hand here?
-        # I will need additional __init__ argument: indices of words that are fixed
 
         compile_train_fn = not kwargs.get('skip_train_fn', False)
         if compile_train_fn:
@@ -279,7 +277,7 @@ class QANet:
         if self.data_dev is None:
             self.data_dev = np.load(self.dev_path + 'dev.pkl')
 
-            dev = np.load(self.dev_path + 'dev_with_glove_vocab.pkl')
+            dev = np.load(self.dev_path + 'dev_words.pkl')
             dev_char = np.load(self.dev_path + 'dev_char_ascii.pkl')
             dev_bin_feats = np.load(self.dev_path + 'dev_bin_feats.pkl')
             self.data_dev_num = dev, dev_char, dev_bin_feats
@@ -359,19 +357,25 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
 
     ''' Word embeddings '''
 
+    word_keep_rate = .5 if emb_dropout else 1
+    if emb_dropout:
+        print "Using word dropout with keep rate", word_keep_rate
+
     l_c_emb = TrainPartOfEmbsLayer(l_context,
                                    output_size=emb_size,
                                    input_size=voc_size,
                                    W=emb_init[train_inds],
                                    E=emb_init,
-                                   train_inds=train_inds)
+                                   train_inds=train_inds,
+                                   keep_rate=word_keep_rate)
 
     l_q_emb = TrainPartOfEmbsLayer(l_question,
                                    output_size=emb_size,
                                    input_size=voc_size,
                                    W=l_c_emb.W,
                                    E=l_c_emb.E,
-                                   train_inds=train_inds)
+                                   train_inds=train_inds,
+                                   keep_rate=word_keep_rate)
 
     ''' Char-embeddings '''
 
@@ -435,10 +439,10 @@ def _build_net(context_var, question_var, context_char_var, question_char_var, b
 
     ''' Dropout at the embeddings '''
 
-    if emb_dropout:
-        print 'Using dropout.'
-        l_c_emb = LL.dropout(l_c_emb)
-        l_q_emb = LL.dropout(l_q_emb)
+    # if emb_dropout:
+    #     print 'Using dropout.'
+    #     l_c_emb = LL.dropout(l_c_emb)
+    #     l_q_emb = LL.dropout(l_q_emb)
 
     ''' Highway layer allowing for interaction between embeddings '''
 
@@ -700,9 +704,10 @@ def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuff
         question_char_mask = (questions_char != pad).astype(np.float32)
         context_char_mask = (contexts_char != pad).astype(np.float32)
 
+        res = questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
+                question_char_mask, context_char_mask
+
         if with_answer_inds:
-            yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
-                    question_char_mask, context_char_mask, answer_inds
-        else:
-            yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
-                    question_char_mask, context_char_mask
+            res = res + (answer_inds,)
+
+        yield res
