@@ -81,7 +81,7 @@ net = QANet.QANet(voc_size=voc_size,
                   train_inds=[400001],
                   emb_dropout=True,
                   working_path='../evaluate/glove6B/training/',
-                  eval_path='../evaluate/')
+                  dev_path='/pio/data/data/squad/glove6B/wiki_negative_dev/')
 
 model_filename = '../trained_models/glove6B/wiki_negative/charemb_trainNAW_dropout/charemb_trainNAW_dropout'
 

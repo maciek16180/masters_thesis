@@ -9,8 +9,8 @@ sys.path.append('../')
 import QANet
 
 
-squad_path = '/pio/data/data/squad/glove6B/'
-glove_path = '/pio/data/data/glove_vec/6B/glove/'
+squad_path = '/pio/data/data/squad/glove840B/'
+glove_path = '/pio/data/data/glove_vec/840B/glove/'
 
 use_negative_examples = False
 
@@ -33,9 +33,12 @@ else:
     data_char = data_char_pos + data_char_neg
     train_bin_feats = train_bin_feats_pos + train_bin_feats_neg
 
-glove_embs = np.load(glove_path + 'glove.6B.300d.npy')
+glove_embs = np.load(glove_path + 'glove.840B.300d.npy')
 voc_size = glove_embs.shape[0]
 alphabet_size = 128
+
+# Unk is a zero vector
+glove_embs[0] = 0
 
 def filter_broken_answers(data, data_char, train_bin_feats):
     data_new = []
@@ -80,10 +83,11 @@ net = QANet.QANet(voc_size=voc_size,
                   emb_init=glove_embs,
                   train_inds=[],
                   emb_dropout=True,
-                  working_path='../evaluate/glove6B/training/',
-                  dev_path='/pio/data/data/squad/glove6B/')
+                  working_path='../evaluate/glove840B/training/',
+                  dev_path='/pio/data/data/squad/glove840B/',
+                  prefetch_word_embs=True)
 
-model_filename = '../trained_models/glove6B/charemb_fixed_word_dropout_test/charemb_fixed_word_dropout_test'
+model_filename = '../trained_models/glove840B/charemb_fixed_dropout_0Unk/charemb_fixed_dropout_0Unk'
 
 num_epochs = 100
 

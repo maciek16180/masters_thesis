@@ -1,5 +1,5 @@
 # similar to FastQA, https://arxiv.org/abs/1703.04816
-# use only with glove6B, glove840B is too big to fit in GPU memory
+# vectors can be stored in RAM instead of GPU memory, works with GloVe 840B
 
 import numpy as np
 import theano, os, io
@@ -23,15 +23,14 @@ class QANet:
 
     def __init__(self, voc_size, alphabet_size, emb_size, emb_char_size, num_emb_char_filters, rec_size,
                  train_inds, emb_init, pad_value=-1, squad_path='/pio/data/data/squad/',
-                 working_path='evaluate/glove6B/training/', eval_path='evaluate/', using_negative=True,
-                 checkpoint_examples=64000, **kwargs):
+                 working_path='evaluate/glove6B/training/', dev_path='/pio/data/data/squad/glove6B/',
+                 checkpoint_examples=64000, prefetch_word_embs=False, **kwargs):
 
         self.data_dev = None
         self.data_dev_num = None
         self.squad_path = squad_path
         self.working_path = working_path
-        self.eval_path = eval_path
-        self.dev_path = squad_path + 'glove6B/' if not using_negative else squad_path + 'glove6B/wiki_negative_dev/'
+        self.dev_path = dev_path
 
         self.checkpoint_examples = checkpoint_examples
         self.examples_since_last_checkpoint = 0
@@ -42,56 +41,62 @@ class QANet:
         self.emb_size = emb_size
         self.rec_size = rec_size
 
-        context_var = T.imatrix('contexts')
-        mask_context_var = T.matrix('context_mask')
+        self.train_inds = train_inds
+        self.alphabet_size = alphabet_size
+        self.emb_char_size = emb_char_size
+        self.num_emb_char_filters = num_emb_char_filters
 
-        question_var = T.imatrix('questions')
-        mask_question_var = T.matrix('question_mask')
+        self.prefetch_word_embs = prefetch_word_embs
+        self.word_embeddings = emb_init
 
-        context_char_var = T.itensor3('context_char')
-        mask_context_char_var = T.tensor3('context_char_mask')
+        if not self.prefetch_word_embs:
+            self.context_var = T.imatrix('contexts')
+            self.question_var = T.imatrix('questions')
+        else:
+            self.context_var = T.tensor3('contexts')
+            self.question_var = T.tensor3('questions')
 
-        question_char_var = T.itensor3('question_char')
-        mask_question_char_var = T.tensor3('question_char_mask')
+        self.mask_context_var = T.matrix('context_mask')
+        self.mask_question_var = T.matrix('question_mask')
 
-        bin_feat_var = T.matrix('bin_feat')
-        answer_starts_var = T.ivector('answer_starts')
-        answer_ends_var = T.ivector('answer_ends')
+        self.context_char_var = T.itensor3('context_char')
+        self.mask_context_char_var = T.tensor3('context_char_mask')
+
+        self.question_char_var = T.itensor3('question_char')
+        self.mask_question_char_var = T.tensor3('question_char_mask')
+
+        self.bin_feat_var = T.matrix('bin_feat')
+        self.answer_starts_var = T.ivector('answer_starts')
+        self.answer_ends_var = T.ivector('answer_ends')
 
         # BUILD THE MODEL
         print 'Building the model...'
 
-        self.train_net = _build_net(context_var, question_var, context_char_var, question_char_var, bin_feat_var,
-                                    mask_context_var, mask_question_var, mask_context_char_var, mask_question_char_var,
-                                    answer_starts_var, voc_size, alphabet_size, emb_size, emb_char_size,
-                                    num_emb_char_filters, rec_size, train_inds, emb_init, **kwargs)
+        self.train_net = self._build_net(**kwargs)
 
         # CALCULATE THE LOSS
 
         train_out = LL.get_output(self.train_net)
         test_out = LL.get_output(self.train_net, deterministic=True)
 
-        start_probs = train_out[0][T.arange(context_var.shape[0]), answer_starts_var]
-        end_conditional_probs = train_out[1][T.arange(context_var.shape[0]), answer_ends_var]
+        start_probs = train_out[0][T.arange(self.context_var.shape[0]), self.answer_starts_var]
+        end_conditional_probs = train_out[1][T.arange(self.context_var.shape[0]), self.answer_ends_var]
         span_probs = start_probs * end_conditional_probs
 
         train_loss = -T.log(span_probs).mean()
 
-        test_start_probs = test_out[0][T.arange(context_var.shape[0]), answer_starts_var]
-        test_end_conditional_probs = test_out[1][T.arange(context_var.shape[0]), answer_ends_var]
+        test_start_probs = test_out[0][T.arange(self.context_var.shape[0]), self.answer_starts_var]
+        test_end_conditional_probs = test_out[1][T.arange(self.context_var.shape[0]), self.answer_ends_var]
         test_span_probs = test_start_probs * test_end_conditional_probs
         test_loss = -T.log(test_span_probs).mean()
+
+        # CREATE UPDATE RULES
 
         params = LL.get_all_params(self.train_net, trainable=True)
 
         learning_rate_var = T.scalar('learning_rate')
         self.learning_rate = .001
-
-        if kwargs.has_key('update_fn'):
-            print 'Using custom update_fn.'
-            update_fn = kwargs['update_fn']
-        else:
-            update_fn = lambda l, p: L.updates.adam(l, p, learning_rate=learning_rate_var)
+        update_fn = lambda l, p: L.updates.adam(l, p, learning_rate=learning_rate_var)
 
         updates = update_fn(train_loss, params)
 
@@ -103,33 +108,26 @@ class QANet:
 
             print '    train_fn...'
 
-            self.train_fn = theano.function([context_var, question_var, context_char_var, question_char_var, bin_feat_var,
-                                             mask_context_var, mask_question_var, mask_context_char_var,
-                                             mask_question_char_var, answer_starts_var, answer_ends_var,
+            self.train_fn = theano.function([self.context_var, self.question_var, self.context_char_var, self.question_char_var, self.bin_feat_var,
+                                             self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
+                                             self.mask_question_char_var, self.answer_starts_var, self.answer_ends_var,
                                              learning_rate_var],
                                             train_loss, updates=updates)
-
-            #print '    val_fn...'
-            #
-            #self.val_fn = theano.function([context_var, question_var, context_char_var, question_char_var, bin_feat_var,
-            #                               mask_context_var, mask_question_var, mask_context_char_var,
-            #                               mask_question_char_var, answer_starts_var, answer_ends_var],
-            #                              test_loss)
 
         compile_pred_fns = not kwargs.get('skip_pred_fns', False)
         if compile_pred_fns:
 
             print '    get_start_probs_fn...'
 
-            self.compile_get_start_probs_fn([context_var, question_var, context_char_var, question_char_var,
-                                             bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
-                                             mask_question_char_var], test_out[0])
+            self.compile_get_start_probs_fn([self.context_var, self.question_var, self.context_char_var, self.question_char_var,
+                                             self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
+                                             self.mask_question_char_var], test_out[0])
 
             print '    get_end_probs_fn...'
 
-            self.compile_get_end_probs_fn([context_var, question_var, context_char_var, question_char_var,
-                                           bin_feat_var, mask_context_var, mask_question_var, mask_context_char_var,
-                                           mask_question_char_var, answer_starts_var], test_out[1])
+            self.compile_get_end_probs_fn([self.context_var, self.question_var, self.context_char_var, self.question_char_var,
+                                           self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
+                                           self.mask_question_char_var, self.answer_starts_var], test_out[1])
         else:
             print 'Skipping predictions functions.'
 
@@ -146,8 +144,8 @@ class QANet:
 
     def get_start_probs(self, data, batch_size, premade_bin_feats=False):
         result = []
-        for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False,
-                                         premade_bin_feats=premade_bin_feats):
+        for batch in self.iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False,
+                                              premade_bin_feats=premade_bin_feats):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
             out = self.get_start_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats,
@@ -166,8 +164,8 @@ class QANet:
     def get_end_probs(self, data, answer_start_inds, batch_size, premade_bin_feats=False):
         result = []
         idx = 0
-        for batch in iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False,
-                                         premade_bin_feats=premade_bin_feats):
+        for batch in self.iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False,
+                                              premade_bin_feats=premade_bin_feats):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
             start_inds = answer_start_inds[idx:idx + batch_size]
@@ -184,8 +182,8 @@ class QANet:
         train_batches = 0
         start_time = time.time()
 
-        for batch in iterate_minibatches(train_data, batch_size, self.pad_value, shuffle=True,
-                                         premade_bin_feats=premade_bin_feats):
+        for batch in self.iterate_minibatches(train_data, batch_size, self.pad_value, shuffle=True,
+                                              premade_bin_feats=premade_bin_feats):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask, answer_inds = batch
 
@@ -215,33 +213,19 @@ class QANet:
         return train_err / train_batches
 
 
-    #def validate(self, val_data, batch_size, log_interval=10, premade_bin_feats=True):
-    #    val_err = 0.
-    #    val_batches = 0
-    #    start_time = time.time()
-    #
-    #    for batch in iterate_minibatches(val_data, batch_size, self.pad_value, premade_bin_feats=premade_bin_feats):
-    #        questions, contexts, questions_char, contexts_char, bin_feats, \
-    #            question_mask, context_mask, question_char_mask, context_char_mask, answer_inds = batch
-    #
-    #        val_err += self.val_fn(contexts, questions, contexts_char, questions_char, bin_feats,
-    #                               context_mask, question_mask, context_char_mask, question_char_mask,
-    #                               answer_inds[:,0], answer_inds[:,1])
-    #        val_batches += 1
-    #
-    #        if not val_batches % log_interval:
-    #            print "Done {} batches in {:.2f}s".format(train_batches, time.time() - start_time)
-    #
-    #    return val_err / val_batches
-
-
     def save_params(self, fname): # without the fixed word embeddings matrix
-        np.savez(fname, *L.layers.get_all_param_values(self.train_net)[1:])
+        params = L.layers.get_all_param_values(self.train_net)
+        if not self.prefetch_word_embs:
+            params = params[1:]
+        np.savez(fname, *params)
 
 
-    def load_params(self, fname, E): # E is the fixed word embeddings matrix
+    def load_params(self, fname, E=None): # E is the fixed word embeddings matrix
+        assert self.prefetch_word_embs or E is not None
         with np.load(fname) as f:
-            param_values = [E] + [f['arr_%d' % i] for i in range(len(f.files))]
+            param_values = [f['arr_%d' % i] for i in range(len(f.files))]
+            if not self.prefetch_word_embs:
+                param_values.insert(0, E)
             L.layers.set_all_param_values(self.train_net, param_values)
 
 
@@ -312,400 +296,399 @@ class QANet:
                     f.write(u', ')
             f.write(u'}')
 
-        res = os.system('python ' + self.eval_path + 'evaluate-v1.1.py ' + self.squad_path + 'dev-v1.1.json ' + path)
+        res = os.system('python ' + self.squad_path + 'evaluate-v1.1.py ' + self.squad_path + 'dev-v1.1.json ' + path)
 
         f1 = np.load(path + '.pkl')['f1']
         print "F1: ", f1
         return f1
 
-'''
-MODEL PARAMETERS (as in LL.get_params(train_net))
 
-    TODO
-'''
+    def _build_net(self, emb_char_filter_size=5, emb_char_init=None, train_emb_char=True, emb_dropout=False, **kwargs):
 
+        batch_size = self.question_var.shape[0]
+        context_len = self.context_var.shape[1]
+        question_len = self.question_var.shape[1]
+        context_word_len = self.context_char_var.shape[2]
+        question_word_len = self.question_char_var.shape[2]
 
-def _build_net(context_var, question_var, context_char_var, question_char_var, bin_feat_var, mask_context_var,
-               mask_question_var, mask_context_char_var, mask_question_char_var, answer_starts_var, voc_size, alphabet_size,
-               emb_size, emb_char_size, num_emb_char_filters, rec_size, train_inds, emb_init,
-               emb_char_filter_size=5, emb_char_init=None, train_emb_char=True, emb_dropout=False, **kwargs):
+        ''' Inputs '''
 
-    batch_size = question_var.shape[0]
-    context_len = context_var.shape[1]
-    question_len = question_var.shape[1]
-    context_word_len = context_char_var.shape[2]
-    question_word_len = question_char_var.shape[2]
+        l_context_char = LL.InputLayer(shape=(None, None, None), input_var=self.context_char_var)
+        l_question_char = LL.InputLayer(shape=(None, None, None), input_var=self.question_char_var)
 
-    ''' Inputs '''
+        l_c_mask = None
+        if self.mask_context_var is not None:
+            l_c_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_var)
 
-    l_context = LL.InputLayer(shape=(None, None), input_var=context_var)
-    l_question = LL.InputLayer(shape=(None, None), input_var=question_var)
+        l_q_mask = None
+        if self.mask_question_var is not None:
+            l_q_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_question_var)
 
-    l_context_char = LL.InputLayer(shape=(None, None, None), input_var=context_char_var)
-    l_question_char = LL.InputLayer(shape=(None, None, None), input_var=question_char_var)
+        l_c_char_mask = LL.InputLayer(shape=(None, None, None), input_var=self.mask_context_char_var)
+        l_q_char_mask = LL.InputLayer(shape=(None, None, None), input_var=self.mask_question_char_var)
 
-    l_c_mask = None
-    if mask_context_var is not None:
-        l_c_mask = LL.InputLayer(shape=(None, None), input_var=mask_context_var)
+        ''' Word embeddings '''
 
-    l_q_mask = None
-    if mask_question_var is not None:
-        l_q_mask = LL.InputLayer(shape=(None, None), input_var=mask_question_var)
+        # word_keep_rate = .5 if emb_dropout else 1
+        # if emb_dropout:
+        #     print "Using word dropout with keep rate", word_keep_rate
 
-    l_c_char_mask = LL.InputLayer(shape=(None, None, None), input_var=mask_context_char_var)
-    l_q_char_mask = LL.InputLayer(shape=(None, None, None), input_var=mask_question_char_var)
+        if not self.prefetch_word_embs:
+            l_context = LL.InputLayer(shape=(None, None), input_var=self.context_var)
+            l_question = LL.InputLayer(shape=(None, None), input_var=self.question_var)
 
-    ''' Word embeddings '''
+            l_c_emb = TrainPartOfEmbsLayer(l_context,
+                                           output_size=self.emb_size,
+                                           input_size=self.voc_size,
+                                           W=self.word_embeddings[self.train_inds],
+                                           E=self.word_embeddings,
+                                           train_inds=self.train_inds)
 
-    # word_keep_rate = .5 if emb_dropout else 1
-    # if emb_dropout:
-    #     print "Using word dropout with keep rate", word_keep_rate
-
-    l_c_emb = TrainPartOfEmbsLayer(l_context,
-                                   output_size=emb_size,
-                                   input_size=voc_size,
-                                   W=emb_init[train_inds],
-                                   E=emb_init,
-                                   train_inds=train_inds)
-
-    l_q_emb = TrainPartOfEmbsLayer(l_question,
-                                   output_size=emb_size,
-                                   input_size=voc_size,
-                                   W=l_c_emb.W,
-                                   E=l_c_emb.E,
-                                   train_inds=train_inds)
-
-    ''' Char-embeddings '''
-
-    if emb_char_init is None:
-        l_c_char_emb = LL.EmbeddingLayer(l_context_char,
-                                         input_size=alphabet_size,
-                                         output_size=emb_char_size)
-    else:
-        l_c_char_emb = LL.EmbeddingLayer(l_context_char,
-                                         input_size=alphabet_size,
-                                         output_size=emb_char_size,
-                                         W=emb_char_init)
-    # l_c_char_emb.shape is (batch_size x context_len x context_word_len x emb_char_size)
-
-    l_q_char_emb = LL.EmbeddingLayer(l_question_char,
-                                     input_size=alphabet_size,
-                                     output_size=emb_char_size,
-                                     W=l_c_char_emb.W)
-
-    if not train_emb_char:
-        l_c_char_emb.params[l_c_char_emb.W].remove('trainable')
-        l_q_char_emb.params[l_q_char_emb.W].remove('trainable')
-
-    # here I do multiplication of character embeddings with masks, because I want to pad them with constant zeros
-    # (I don't want those padding zeros to change over time)
-
-    l_c_char_mask = ForgetSizeLayer(LL.dimshuffle(l_c_char_mask, (0, 1, 2, 'x')))
-    l_q_char_mask = ForgetSizeLayer(LL.dimshuffle(l_q_char_mask, (0, 1, 2, 'x')))
-
-    l_c_char_emb = LL.ElemwiseMergeLayer([l_c_char_emb, l_c_char_mask], T.mul)
-    l_q_char_emb = LL.ElemwiseMergeLayer([l_q_char_emb, l_q_char_mask], T.mul)
-
-    #
-
-    l_c_char_emb = LL.dimshuffle(LL.reshape(l_c_char_emb, (batch_size * context_len, context_word_len, emb_char_size)),
-                                 (0, 2, 1))
-    l_c_char_conv = LL.Conv1DLayer(l_c_char_emb,
-                                   num_filters=num_emb_char_filters,
-                                   filter_size=emb_char_filter_size,
-                                   nonlinearity=L.nonlinearities.tanh)
-    # (batch_size * context_len x num_filters x context_word_len - filter_size + 1)
-
-    l_c_char_emb = LL.ExpressionLayer(l_c_char_conv, lambda X: X.max(2), output_shape='auto')
-    l_c_char_emb = LL.reshape(l_c_char_emb, (batch_size, context_len, num_emb_char_filters))
-    l_c_emb = LL.concat([l_c_emb, l_c_char_emb], axis=2)
-
-
-    l_q_char_emb = LL.dimshuffle(LL.reshape(l_q_char_emb, (batch_size * question_len, question_word_len, emb_char_size)),
-                                 (0, 2, 1))
-    l_q_char_conv = LL.Conv1DLayer(l_q_char_emb,
-                                   num_filters=num_emb_char_filters,
-                                   filter_size=emb_char_filter_size,
-                                   nonlinearity=L.nonlinearities.tanh,
-                                   W=l_c_char_conv.W,
-                                   b=l_c_char_conv.b)
-    # (batch_size * question_len x num_filters x question_word_len - filter_size + 1)
-
-    l_q_char_emb = LL.ExpressionLayer(l_q_char_conv, lambda X: X.max(2), output_shape='auto')
-    l_q_char_emb = LL.reshape(l_q_char_emb, (batch_size, question_len, num_emb_char_filters))
-    l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)
-
-    ''' Dropout at the embeddings '''
-
-    if emb_dropout:
-        print 'Using dropout.'
-        l_c_emb = LL.dropout(l_c_emb)
-        l_q_emb = LL.dropout(l_q_emb)
-
-    ''' Highway layer allowing for interaction between embeddings '''
-
-    l_c_P = LL.DenseLayer(LL.reshape(l_c_emb, (batch_size * context_len, emb_size + num_emb_char_filters)),
-                          num_units=rec_size,
-                          b=None,
-                          nonlinearity=None)
-
-    l_c_high = HighwayLayer(l_c_P)
-    l_c_emb = LL.reshape(l_c_high, (batch_size, context_len, rec_size))
-
-    l_q_P = LL.DenseLayer(LL.reshape(l_q_emb, (batch_size * question_len, emb_size + num_emb_char_filters)),
-                          num_units=rec_size,
-                          W=l_c_P.W,
-                          b=None,
-                          nonlinearity=None)
-
-    l_q_high = HighwayLayer(l_q_P,
-                            W1=l_c_high.W1,
-                            b1=l_c_high.b1,
-                            W2=l_c_high.W2,
-                            b2=l_c_high.b2)
-    l_q_emb = LL.reshape(l_q_high, (batch_size, question_len, rec_size))
-
-    ''' Here we calculate wiq features from https://arxiv.org/abs/1703.04816 '''
-
-    l_feat = WeightedFeatureLayer([l_c_emb, l_q_emb, l_c_mask])
-    l_weighted_feat = LL.dimshuffle(l_feat, (0, 1, 'x'))
-
-    l_bin_feat = LL.InputLayer(shape=(None, None), input_var=bin_feat_var)
-    l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
-
-    l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
-    l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=1, batch_ndim=2) # for the question we fix the features to 1
-
-    ''' Context and question encoding using the same BiLSTM for both '''
-
-    l_c_enc_forw = LL.LSTMLayer(l_c_emb, # output shape is (batch_size x context_len x rec_size)
-                                num_units=rec_size,
-                                grad_clipping=100,
-                                mask_input=l_c_mask)
-
-    l_c_enc_back = LL.LSTMLayer(l_c_emb,
-                                num_units=rec_size,
-                                grad_clipping=100,
-                                mask_input=l_c_mask,
-                                backwards=True)
-
-    l_q_enc_forw = LL.LSTMLayer(l_q_emb, # output shape is (batch_size x question_len x rec_size)
-                                num_units=rec_size,
-                                grad_clipping=100,
-                                mask_input=l_q_mask,
-                                ingate=LL.Gate(W_in=l_c_enc_forw.W_in_to_ingate,
-                                               W_hid=l_c_enc_forw.W_hid_to_ingate,
-                                               W_cell=l_c_enc_forw.W_cell_to_ingate,
-                                               b=l_c_enc_forw.b_ingate),
-                                forgetgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_forgetgate,
-                                                   W_hid=l_c_enc_forw.W_hid_to_forgetgate,
-                                                   W_cell=l_c_enc_forw.W_cell_to_forgetgate,
-                                                   b=l_c_enc_forw.b_forgetgate),
-                                outgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_outgate,
-                                                W_hid=l_c_enc_forw.W_hid_to_outgate,
-                                                W_cell=l_c_enc_forw.W_cell_to_outgate,
-                                                b=l_c_enc_forw.b_outgate),
-                                cell=LL.Gate(W_in=l_c_enc_forw.W_in_to_cell,
-                                             W_hid=l_c_enc_forw.W_hid_to_cell,
-                                             W_cell=None,
-                                             b=l_c_enc_forw.b_cell,
-                                             nonlinearity=L.nonlinearities.tanh))
-
-    l_q_enc_back = LL.LSTMLayer(l_q_emb,
-                                num_units=rec_size,
-                                grad_clipping=100,
-                                mask_input=l_q_mask,
-                                backwards=True,
-                                ingate=LL.Gate(W_in=l_c_enc_back.W_in_to_ingate,
-                                               W_hid=l_c_enc_back.W_hid_to_ingate,
-                                               W_cell=l_c_enc_back.W_cell_to_ingate,
-                                               b=l_c_enc_back.b_ingate),
-                                forgetgate=LL.Gate(W_in=l_c_enc_back.W_in_to_forgetgate,
-                                                   W_hid=l_c_enc_back.W_hid_to_forgetgate,
-                                                   W_cell=l_c_enc_back.W_cell_to_forgetgate,
-                                                   b=l_c_enc_back.b_forgetgate),
-                                outgate=LL.Gate(W_in=l_c_enc_back.W_in_to_outgate,
-                                                W_hid=l_c_enc_back.W_hid_to_outgate,
-                                                W_cell=l_c_enc_back.W_cell_to_outgate,
-                                                b=l_c_enc_back.b_outgate),
-                                cell=LL.Gate(W_in=l_c_enc_back.W_in_to_cell,
-                                             W_hid=l_c_enc_back.W_hid_to_cell,
-                                             W_cell=None,
-                                             b=l_c_enc_back.b_cell,
-                                             nonlinearity=L.nonlinearities.tanh))
-
-
-    l_c_enc = LL.concat([l_c_enc_forw, l_c_enc_back], axis=2) # batch_size x context_len x 2*rec_size
-    l_q_enc = LL.concat([l_q_enc_forw, l_q_enc_back], axis=2) # batch_size x question_len x 2*rec_size
-
-    # this is H from the paper
-    l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (-1, 2 * rec_size)), # batch_size * context_len x rec_size
-                             num_units=rec_size,
-                             W=np.vstack([np.eye(rec_size), np.eye(rec_size)]),
-                             b=None,
-                             nonlinearity=L.nonlinearities.tanh)
-
-    # this is Z from the paper
-    l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (-1, 2 * rec_size)), # batch_size * question_len x rec_size
-                             num_units=rec_size,
-                             W=np.vstack([np.eye(rec_size), np.eye(rec_size)]),
-                             b=None,
-                             nonlinearity=L.nonlinearities.tanh)
-
-    ''' Additional, weighted question encoding (alphas from https://arxiv.org/abs/1703.04816) '''
-
-    l_alpha = LL.DenseLayer(l_q_proj, # batch_size * question_len x 1
-                            num_units=1,
-                            b=None,
-                            nonlinearity=None)
-
-    l_alpha = MaskedSoftmaxLayer([LL.reshape(l_alpha, (batch_size, -1)), l_q_mask])
-
-    l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, -1, rec_size)), l_alpha]) # batch_size x rec_size
-
-    ''' Answer span prediction '''
-
-    # span start
-
-    l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj, (batch_size, context_len, rec_size)), l_z_hat])
-
-    l_start = LL.DenseLayer(LL.reshape(l_start_feat, (batch_size * context_len, 3*rec_size)),
-                            num_units=rec_size,
-                            nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x rec_size
-
-    l_Vs = LL.DenseLayer(l_start, # batch_size * context_len x 1
-                         num_units=1,
-                         b=None,
-                         nonlinearity=None)
-
-    # this is p_s from the paper
-    l_start_soft = MaskedSoftmaxLayer([LL.reshape(l_Vs, (batch_size, context_len)), l_c_mask]) # batch_size x context_len
-
-    # span end
-
-    l_answer_starts = LL.InputLayer(shape=(None,), input_var=answer_starts_var)
-
-    l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj, (batch_size, context_len, rec_size)), l_z_hat, l_answer_starts])
-
-    l_end = LL.DenseLayer(LL.reshape(l_end_feat, (batch_size * context_len, 5*rec_size)),
-                          num_units=rec_size,
-                          nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x rec_size
-
-    l_Ve = LL.DenseLayer(l_end, # batch_size * context_len x 1
-                         num_units=1,
-                         b=None,
-                         nonlinearity=None)
-
-    # this is p_e from the paper
-    l_end_soft = MaskedSoftmaxLayer([LL.reshape(l_Ve, (batch_size, context_len)), l_c_mask]) # batch_size x context_len
-
-    return l_start_soft, l_end_soft
-
-
-def iterate_minibatches(inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False, premade_bin_feats=False):
-
-    assert not premade_bin_feats or len(inputs) == 3
-
-    if not premade_bin_feats:
-        inputs, inputs_char = inputs
-    else:
-        inputs, inputs_char, all_bin_feats = inputs
-
-    if shuffle:
-        indices = np.arange(len(inputs))
-        np.random.shuffle(indices)
-        inputs = np.array(inputs)
-        inputs_char = np.array(inputs_char)
-        if premade_bin_feats:
-            all_bin_feats = np.array(all_bin_feats)
-
-    for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
-        if shuffle:
-            excerpt = indices[start_idx:start_idx + batch_size]
+            l_q_emb = TrainPartOfEmbsLayer(l_question,
+                                           output_size=self.emb_size,
+                                           input_size=self.voc_size,
+                                           W=l_c_emb.W,
+                                           E=l_c_emb.E,
+                                           train_inds=self.train_inds)
         else:
-            excerpt = slice(start_idx, start_idx + batch_size)
+            l_c_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.context_var)
+            l_q_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.question_var)
 
-        examples = inputs[excerpt]
-        examples_char = inputs_char[excerpt]
+        ''' Char-embeddings '''
 
-        context_len = max(len(e[2]) for e in examples)
-        question_len = max(len(e[1]) for e in examples)
+        if emb_char_init is None:
+            l_c_char_emb = LL.EmbeddingLayer(l_context_char,
+                                             input_size=self.alphabet_size,
+                                             output_size=self.emb_char_size)
+        else:
+            l_c_char_emb = LL.EmbeddingLayer(l_context_char,
+                                             input_size=self.alphabet_size,
+                                             output_size=self.emb_char_size,
+                                             W=emb_char_init)
+        # l_c_char_emb.shape is (batch_size x context_len x context_word_len x emb_char_size)
 
-        questions = []
-        contexts = []
-        bin_feats = []
+        l_q_char_emb = LL.EmbeddingLayer(l_question_char,
+                                         input_size=self.alphabet_size,
+                                         output_size=self.emb_char_size,
+                                         W=l_c_char_emb.W)
 
-        if premade_bin_feats:
-            bin_feats_premade = all_bin_feats[excerpt]
+        if not train_emb_char:
+            l_c_char_emb.params[l_c_char_emb.W].remove('trainable')
+            l_q_char_emb.params[l_q_char_emb.W].remove('trainable')
 
-        if with_answer_inds:
-            answer_inds = []
+        # here I do multiplication of character embeddings with masks, because I want to pad them with constant zeros
+        # (I don't want those padding zeros to change over time)
 
-        for l, (ans, q, c) in enumerate(examples):
-            q_words = set(q)
-            q = q + [pad] * (question_len - len(q))
+        l_c_char_mask = ForgetSizeLayer(LL.dimshuffle(l_c_char_mask, (0, 1, 2, 'x')))
+        l_q_char_mask = ForgetSizeLayer(LL.dimshuffle(l_q_char_mask, (0, 1, 2, 'x')))
 
-            if not premade_bin_feats:
-                bin_feat = [w in q_words for w in c]
+        l_c_char_emb = LL.ElemwiseMergeLayer([l_c_char_emb, l_c_char_mask], T.mul)
+        l_q_char_emb = LL.ElemwiseMergeLayer([l_q_char_emb, l_q_char_mask], T.mul)
+
+        #
+
+        l_c_char_emb = LL.dimshuffle(LL.reshape(l_c_char_emb, (batch_size * context_len, context_word_len, self.emb_char_size)),
+                                     (0, 2, 1))
+        l_c_char_conv = LL.Conv1DLayer(l_c_char_emb,
+                                       num_filters=self.num_emb_char_filters,
+                                       filter_size=emb_char_filter_size,
+                                       nonlinearity=L.nonlinearities.tanh)
+        # (batch_size * context_len x num_filters x context_word_len - filter_size + 1)
+
+        l_c_char_emb = LL.ExpressionLayer(l_c_char_conv, lambda X: X.max(2), output_shape='auto')
+        l_c_char_emb = LL.reshape(l_c_char_emb, (batch_size, context_len, self.num_emb_char_filters))
+        l_c_emb = LL.concat([l_c_emb, l_c_char_emb], axis=2)
+
+
+        l_q_char_emb = LL.dimshuffle(LL.reshape(l_q_char_emb, (batch_size * question_len, question_word_len, self.emb_char_size)),
+                                     (0, 2, 1))
+        l_q_char_conv = LL.Conv1DLayer(l_q_char_emb,
+                                       num_filters=self.num_emb_char_filters,
+                                       filter_size=emb_char_filter_size,
+                                       nonlinearity=L.nonlinearities.tanh,
+                                       W=l_c_char_conv.W,
+                                       b=l_c_char_conv.b)
+        # (batch_size * question_len x num_filters x question_word_len - filter_size + 1)
+
+        l_q_char_emb = LL.ExpressionLayer(l_q_char_conv, lambda X: X.max(2), output_shape='auto')
+        l_q_char_emb = LL.reshape(l_q_char_emb, (batch_size, question_len, self.num_emb_char_filters))
+        l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)
+
+        ''' Dropout at the embeddings '''
+
+        if emb_dropout:
+            print 'Using dropout.'
+            l_c_emb = LL.dropout(l_c_emb)
+            l_q_emb = LL.dropout(l_q_emb)
+
+        ''' Highway layer allowing for interaction between embeddings '''
+
+        l_c_P = LL.DenseLayer(LL.reshape(l_c_emb, (batch_size * context_len, self.emb_size + self.num_emb_char_filters)),
+                              num_units=self.rec_size,
+                              b=None,
+                              nonlinearity=None)
+
+        l_c_high = HighwayLayer(l_c_P)
+        l_c_emb = LL.reshape(l_c_high, (batch_size, context_len, self.rec_size))
+
+        l_q_P = LL.DenseLayer(LL.reshape(l_q_emb, (batch_size * question_len, self.emb_size + self.num_emb_char_filters)),
+                              num_units=self.rec_size,
+                              W=l_c_P.W,
+                              b=None,
+                              nonlinearity=None)
+
+        l_q_high = HighwayLayer(l_q_P,
+                                W1=l_c_high.W1,
+                                b1=l_c_high.b1,
+                                W2=l_c_high.W2,
+                                b2=l_c_high.b2)
+        l_q_emb = LL.reshape(l_q_high, (batch_size, question_len, self.rec_size))
+
+        ''' Here we calculate wiq features from https://arxiv.org/abs/1703.04816 '''
+
+        l_feat = WeightedFeatureLayer([l_c_emb, l_q_emb, l_c_mask])
+        l_weighted_feat = LL.dimshuffle(l_feat, (0, 1, 'x'))
+
+        l_bin_feat = LL.InputLayer(shape=(None, None), input_var=self.bin_feat_var)
+        l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
+
+        l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
+        l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=1, batch_ndim=2) # for the question we fix the features to 1
+
+        ''' Context and question encoding using the same BiLSTM for both '''
+
+        l_c_enc_forw = LL.LSTMLayer(l_c_emb, # output shape is (batch_size x context_len x rec_size)
+                                    num_units=self.rec_size,
+                                    grad_clipping=100,
+                                    mask_input=l_c_mask)
+
+        l_c_enc_back = LL.LSTMLayer(l_c_emb,
+                                    num_units=self.rec_size,
+                                    grad_clipping=100,
+                                    mask_input=l_c_mask,
+                                    backwards=True)
+
+        l_q_enc_forw = LL.LSTMLayer(l_q_emb, # output shape is (batch_size x question_len x rec_size)
+                                    num_units=self.rec_size,
+                                    grad_clipping=100,
+                                    mask_input=l_q_mask,
+                                    ingate=LL.Gate(W_in=l_c_enc_forw.W_in_to_ingate,
+                                                   W_hid=l_c_enc_forw.W_hid_to_ingate,
+                                                   W_cell=l_c_enc_forw.W_cell_to_ingate,
+                                                   b=l_c_enc_forw.b_ingate),
+                                    forgetgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_forgetgate,
+                                                       W_hid=l_c_enc_forw.W_hid_to_forgetgate,
+                                                       W_cell=l_c_enc_forw.W_cell_to_forgetgate,
+                                                       b=l_c_enc_forw.b_forgetgate),
+                                    outgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_outgate,
+                                                    W_hid=l_c_enc_forw.W_hid_to_outgate,
+                                                    W_cell=l_c_enc_forw.W_cell_to_outgate,
+                                                    b=l_c_enc_forw.b_outgate),
+                                    cell=LL.Gate(W_in=l_c_enc_forw.W_in_to_cell,
+                                                 W_hid=l_c_enc_forw.W_hid_to_cell,
+                                                 W_cell=None,
+                                                 b=l_c_enc_forw.b_cell,
+                                                 nonlinearity=L.nonlinearities.tanh))
+
+        l_q_enc_back = LL.LSTMLayer(l_q_emb,
+                                    num_units=self.rec_size,
+                                    grad_clipping=100,
+                                    mask_input=l_q_mask,
+                                    backwards=True,
+                                    ingate=LL.Gate(W_in=l_c_enc_back.W_in_to_ingate,
+                                                   W_hid=l_c_enc_back.W_hid_to_ingate,
+                                                   W_cell=l_c_enc_back.W_cell_to_ingate,
+                                                   b=l_c_enc_back.b_ingate),
+                                    forgetgate=LL.Gate(W_in=l_c_enc_back.W_in_to_forgetgate,
+                                                       W_hid=l_c_enc_back.W_hid_to_forgetgate,
+                                                       W_cell=l_c_enc_back.W_cell_to_forgetgate,
+                                                       b=l_c_enc_back.b_forgetgate),
+                                    outgate=LL.Gate(W_in=l_c_enc_back.W_in_to_outgate,
+                                                    W_hid=l_c_enc_back.W_hid_to_outgate,
+                                                    W_cell=l_c_enc_back.W_cell_to_outgate,
+                                                    b=l_c_enc_back.b_outgate),
+                                    cell=LL.Gate(W_in=l_c_enc_back.W_in_to_cell,
+                                                 W_hid=l_c_enc_back.W_hid_to_cell,
+                                                 W_cell=None,
+                                                 b=l_c_enc_back.b_cell,
+                                                 nonlinearity=L.nonlinearities.tanh))
+
+
+        l_c_enc = LL.concat([l_c_enc_forw, l_c_enc_back], axis=2) # batch_size x context_len x 2*rec_size
+        l_q_enc = LL.concat([l_q_enc_forw, l_q_enc_back], axis=2) # batch_size x question_len x 2*rec_size
+
+        # this is H from the paper
+        l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (-1, 2 * self.rec_size)), # batch_size * context_len x rec_size
+                                 num_units=self.rec_size,
+                                 W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
+                                 b=None,
+                                 nonlinearity=L.nonlinearities.tanh)
+
+        # this is Z from the paper
+        l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (-1, 2 * self.rec_size)), # batch_size * question_len x rec_size
+                                 num_units=self.rec_size,
+                                 W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
+                                 b=None,
+                                 nonlinearity=L.nonlinearities.tanh)
+
+        ''' Additional, weighted question encoding (alphas from https://arxiv.org/abs/1703.04816) '''
+
+        l_alpha = LL.DenseLayer(l_q_proj, # batch_size * question_len x 1
+                                num_units=1,
+                                b=None,
+                                nonlinearity=None)
+
+        l_alpha = MaskedSoftmaxLayer([LL.reshape(l_alpha, (batch_size, -1)), l_q_mask])
+
+        l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, -1, self.rec_size)), l_alpha]) # batch_size x rec_size
+
+        ''' Answer span prediction '''
+
+        # span start
+
+        l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj, (batch_size, context_len, self.rec_size)), l_z_hat])
+
+        l_start = LL.DenseLayer(LL.reshape(l_start_feat, (batch_size * context_len, 3*self.rec_size)),
+                                num_units=self.rec_size,
+                                nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x rec_size
+
+        l_Vs = LL.DenseLayer(l_start, # batch_size * context_len x 1
+                             num_units=1,
+                             b=None,
+                             nonlinearity=None)
+
+        # this is p_s from the paper
+        l_start_soft = MaskedSoftmaxLayer([LL.reshape(l_Vs, (batch_size, context_len)), l_c_mask]) # batch_size x context_len
+
+        # span end
+
+        l_answer_starts = LL.InputLayer(shape=(None,), input_var=self.answer_starts_var)
+
+        l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj, (batch_size, context_len, self.rec_size)), l_z_hat, l_answer_starts])
+
+        l_end = LL.DenseLayer(LL.reshape(l_end_feat, (batch_size * context_len, 5*self.rec_size)),
+                              num_units=self.rec_size,
+                              nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x self.rec_size
+
+        l_Ve = LL.DenseLayer(l_end, # batch_size * context_len x 1
+                             num_units=1,
+                             b=None,
+                             nonlinearity=None)
+
+        # this is p_e from the paper
+        l_end_soft = MaskedSoftmaxLayer([LL.reshape(l_Ve, (batch_size, context_len)), l_c_mask]) # batch_size x context_len
+
+        return l_start_soft, l_end_soft
+
+
+    def iterate_minibatches(self, inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False, premade_bin_feats=False):
+
+        assert not premade_bin_feats or len(inputs) == 3
+
+        if not premade_bin_feats:
+            inputs, inputs_char = inputs
+        else:
+            inputs, inputs_char, all_bin_feats = inputs
+
+        if shuffle:
+            indices = np.arange(len(inputs))
+            np.random.shuffle(indices)
+            inputs = np.array(inputs)
+            inputs_char = np.array(inputs_char)
+            if premade_bin_feats:
+                all_bin_feats = np.array(all_bin_feats)
+
+        for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
+            if shuffle:
+                excerpt = indices[start_idx:start_idx + batch_size]
             else:
-                bin_feat = bin_feats_premade[l]
+                excerpt = slice(start_idx, start_idx + batch_size)
 
-            bin_feat = bin_feat + [pad] * (context_len - len(bin_feat))
-            c = c + [pad] * (context_len - len(c))
+            examples = inputs[excerpt]
+            examples_char = inputs_char[excerpt]
+
+            context_len = max(len(e[2]) for e in examples)
+            question_len = max(len(e[1]) for e in examples)
+
+            questions = []
+            contexts = []
+            bin_feats = []
+
+            if premade_bin_feats:
+                bin_feats_premade = all_bin_feats[excerpt]
 
             if with_answer_inds:
-                answer_inds.append((min(ans[0]), max(ans[0])))
+                answer_inds = []
 
-            questions.append(q)
-            contexts.append(c)
-            bin_feats.append(bin_feat)
+            for l, (ans, q, c) in enumerate(examples):
+                q_words = set(q)
+                q = q + [pad] * (question_len - len(q))
 
-        questions = np.vstack(questions).astype(np.int32)
-        contexts = np.vstack(contexts).astype(np.int32)
-        bin_feats = np.vstack(bin_feats).astype(np.float32)
+                if not premade_bin_feats:
+                    bin_feat = [w in q_words for w in c]
+                else:
+                    bin_feat = bin_feats_premade[l]
 
-        if with_answer_inds:
-            answer_inds = np.vstack(answer_inds).astype(np.int32)
+                bin_feat = bin_feat + [pad] * (context_len - len(bin_feat))
+                c = c + [pad] * (context_len - len(c))
 
-        question_mask = (questions != pad).astype(np.float32)
-        context_mask = (contexts != pad).astype(np.float32)
+                if with_answer_inds:
+                    answer_inds.append((min(ans[0]), max(ans[0])))
 
-        c_word_len = max(len(w) for e in examples_char for w in e[1])
-        q_word_len = max(len(w) for e in examples_char for w in e[0])
+                questions.append(q)
+                contexts.append(c)
+                bin_feats.append(bin_feat)
 
-        questions_char = []
-        contexts_char = []
+            questions = np.vstack(questions).astype(np.int32)
+            contexts  = np.vstack(contexts).astype(np.int32)
+            bin_feats = np.vstack(bin_feats).astype(np.float32)
 
-        for q, c in examples_char:
-            q = q + [[]] * (question_len - len(q))
-            c = c + [[]] * (context_len - len(c))
-            q = [w + [pad] * (q_word_len - len(w)) for w in q]
-            if not all(len(x) == q_word_len for x in q):
-                print map(len, q)
-            c = [w + [pad] * (c_word_len - len(w)) for w in c]
+            if with_answer_inds:
+                answer_inds = np.vstack(answer_inds).astype(np.int32)
 
-            if not all(len(x) == c_word_len for x in c):
-                print map(len, c)
+            question_mask = (questions != pad).astype(np.float32)
+            context_mask = (contexts != pad).astype(np.float32)
 
-            questions_char.append([q])
-            contexts_char.append([c])
+            c_word_len = max(len(w) for e in examples_char for w in e[1])
+            q_word_len = max(len(w) for e in examples_char for w in e[0])
 
-        if not all(len(x[0]) == question_len for x in questions_char):
-            print [len(x[0]) for x in questions_char]
+            questions_char = []
+            contexts_char = []
 
-        if not all(len(x[0]) == context_len for x in contexts_char):
-            print [len(x[0]) for x in contexts_char]
+            for q, c in examples_char:
+                q = q + [[]] * (question_len - len(q))
+                c = c + [[]] * (context_len - len(c))
+                q = [w + [pad] * (q_word_len - len(w)) for w in q]
+                if not all(len(x) == q_word_len for x in q):
+                    print map(len, q)
+                c = [w + [pad] * (c_word_len - len(w)) for w in c]
 
-        questions_char = np.vstack(questions_char).astype(np.int32)
-        contexts_char = np.vstack(contexts_char).astype(np.int32)
+                if not all(len(x) == c_word_len for x in c):
+                    print map(len, c)
 
-        question_char_mask = (questions_char != pad).astype(np.float32)
-        context_char_mask = (contexts_char != pad).astype(np.float32)
+                questions_char.append([q])
+                contexts_char.append([c])
 
-        res = questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
-                question_char_mask, context_char_mask
+            if not all(len(x[0]) == question_len for x in questions_char):
+                print [len(x[0]) for x in questions_char]
 
-        if with_answer_inds:
-            res = res + (answer_inds,)
+            if not all(len(x[0]) == context_len for x in contexts_char):
+                print [len(x[0]) for x in contexts_char]
 
-        yield res
+            questions_char = np.vstack(questions_char).astype(np.int32)
+            contexts_char = np.vstack(contexts_char).astype(np.int32)
+
+            question_char_mask = (questions_char != pad).astype(np.float32)
+            context_char_mask = (contexts_char != pad).astype(np.float32)
+
+            if self.prefetch_word_embs:
+                questions = self.word_embeddings[questions]
+                contexts = self.word_embeddings[contexts]
+
+            res = questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
+                    question_char_mask, context_char_mask
+
+            if with_answer_inds:
+                res = res + (answer_inds,)
+
+            yield res
