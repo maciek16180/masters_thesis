@@ -498,7 +498,7 @@ class VHRED(SimpleRNNLM):
         l_slice = LL.SliceLayer(l_emb, indices=-1, axis=1)
 
         l_E0 = LL.DenseLayer(l_slice,
-                             num_units=out_self.emb_size,
+                             num_units=self.out_emb_size,
                              W=params['e0.W'],
                              b=None,
                              nonlinearity=None)
