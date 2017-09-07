@@ -1,7 +1,6 @@
-from HRED import HRED
-
 import sys
 sys.path.append('../../')
+from HRED import HRED
 
 from data_load.mt_load import load_mt, get_mt_voc, get_w2v_embs
 import numpy as np
@@ -28,11 +27,12 @@ net = HRED(voc_size=voc_size,
            out_emb_size=300,
            num_sampled=200,
            ssoft_probs=freqs,
-           #emb_init=emb_init,
-           train_emb=train_emb)
+           emb_init=emb_init,
+           train_emb=train_emb,
+           train_inds=[0,1,2])
 
 
-net.load_params('../trained_models/pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
+# net.load_params('../trained_models/pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
 
 
 last_scores = [np.inf]
@@ -46,8 +46,8 @@ model_filename = '../subtleFixed_300_300_300_300_ssoft200unigr_bs30_cut200_early
 t0 = time.time()
 while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last_scores) + tol:
     print '\n\nStarting epoch {}...\n'.format(epoch)
-    train_error = net.train_one_epoch(train_data=train, batch_size=30, log_interval=200)
-    val_error = net.validate(val_data=valid, batch_size=30)
+    train_error = net.train_one_epoch(train_data=train, batch_size=10, log_interval=10)
+    val_error = net.validate(val_data=valid, batch_size=10)
     print '\nTraining loss:   {}'.format(train_error)
     print 'Validation loss: {}'.format(val_error)
 
@@ -64,7 +64,7 @@ while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last
 
     epoch += 1
 
-test_error = net.validate(val_data=test, batch_size=30)
+test_error = net.validate(val_data=test, batch_size=10)
 
 print '\n\nTotal training time: {:.2f}s'.format(time.time() - t0)
 print 'Best model after {} epochs with loss {}'.format(best_epoch, min(last_scores))

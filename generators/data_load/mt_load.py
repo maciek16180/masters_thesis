@@ -8,7 +8,7 @@ def split_utt(utt):
     return [utt[:u2], utt[u2:u3], utt[u3:]]
 
 
-def load_mt(path, split=False, trim=200):
+def load_mt(path, split=False, trim=200, threeD=True):
     tr = np.load(path + 'Training.triples.pkl')
     vl = np.load(path + 'Validation.triples.pkl')
     ts = np.load(path + 'Test.triples.pkl')
@@ -31,11 +31,16 @@ def load_mt(path, split=False, trim=200):
                     if len(data[k]) > trim:
                         for i in xrange(3):
                             inds_to_remove[l].add(k - (k % 3) + i)
-                            
+
             tr = [tr[i] for i in xrange(len(tr)) if i not in inds_to_remove[0]]
             vl = [vl[i] for i in xrange(len(vl)) if i not in inds_to_remove[1]]
             ts = [ts[i] for i in xrange(len(ts)) if i not in inds_to_remove[2]]
-            
+
+    if threeD:
+        tr = [tr[i:i+3] for i in xrange(0, len(tr), 3)]
+        vl = [vl[i:i+3] for i in xrange(0, len(vl), 3)]
+        ts = [ts[i:i+3] for i in xrange(0, len(ts), 3)]
+
     return tr, vl, ts
 
 
@@ -49,7 +54,7 @@ def get_mt_voc(path, train_len, pad_value=-1):
 
     w_to_idx = dict(words)
     idx_to_w = sorted(w_to_idx, key=lambda w: w_to_idx[w])
-    
+
     w_to_idx['<utt_end>'] = pad_value
     idx_to_w.append('<utt_end>')
 

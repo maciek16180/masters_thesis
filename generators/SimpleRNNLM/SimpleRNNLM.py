@@ -15,9 +15,8 @@ from layers import NCEDenseLayer
 
 class SimpleRNNLM(object):
 
-    def __init__(self, voc_size, emb_size, rec_size, mode='ssoft', pad_value=-1, **kwargs):
+    def __init__(self, voc_size, emb_size, rec_size, mode='ssoft', **kwargs):
 
-        self.pad_value = pad_value
         self.voc_size = voc_size
         self.emb_size = emb_size
         self.rec_size = rec_size
@@ -95,7 +94,7 @@ class SimpleRNNLM(object):
         num_training_words = 0
         start_time = time.time()
 
-        for batch in self.iterate_minibatches(train_data, batch_size, self.pad_value):
+        for batch in self.iterate_minibatches(train_data, batch_size):
             inputs, targets, mask = batch
 
             num_batch_words = mask.sum()
@@ -115,7 +114,7 @@ class SimpleRNNLM(object):
         num_validate_words = 0
         start_time = time.time()
 
-        for batch in self.iterate_minibatches(val_data, batch_size, self.pad_value):
+        for batch in self.iterate_minibatches(val_data, batch_size):
             inputs, targets, mask = batch
 
             num_batch_words = mask.sum()

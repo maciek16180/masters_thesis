@@ -22,7 +22,7 @@ from layers import TrainPartOfEmbsLayer
 class QANet:
 
     def __init__(self, voc_size, alphabet_size, emb_size, emb_char_size, num_emb_char_filters, rec_size,
-                 train_inds, emb_init, pad_value=-1, squad_path='/pio/data/data/squad/',
+                 train_inds, emb_init, squad_path='/pio/data/data/squad/',
                  working_path='evaluate/glove6B/training/', dev_path='/pio/data/data/squad/glove6B/',
                  checkpoint_examples=64000, prefetch_word_embs=False, **kwargs):
 
@@ -36,7 +36,6 @@ class QANet:
         self.examples_since_last_checkpoint = 0
         self.dev_f1_log = []
 
-        self.pad_value = pad_value
         self.voc_size = voc_size
         self.emb_size = emb_size
         self.rec_size = rec_size
@@ -144,8 +143,7 @@ class QANet:
 
     def get_start_probs(self, data, batch_size, premade_bin_feats=False):
         result = []
-        for batch in self.iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False,
-                                              premade_bin_feats=premade_bin_feats):
+        for batch in self.iterate_minibatches(data, batch_size, with_answer_inds=False, premade_bin_feats=premade_bin_feats):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
             out = self.get_start_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats,
@@ -164,8 +162,7 @@ class QANet:
     def get_end_probs(self, data, answer_start_inds, batch_size, premade_bin_feats=False):
         result = []
         idx = 0
-        for batch in self.iterate_minibatches(data, batch_size, self.pad_value, with_answer_inds=False,
-                                              premade_bin_feats=premade_bin_feats):
+        for batch in self.iterate_minibatches(data, batch_size, with_answer_inds=False, premade_bin_feats=premade_bin_feats):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
             start_inds = answer_start_inds[idx:idx + batch_size]
@@ -182,8 +179,7 @@ class QANet:
         train_batches = 0
         start_time = time.time()
 
-        for batch in self.iterate_minibatches(train_data, batch_size, self.pad_value, shuffle=True,
-                                              premade_bin_feats=premade_bin_feats):
+        for batch in self.iterate_minibatches(train_data, batch_size, shuffle=True, premade_bin_feats=premade_bin_feats):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask, answer_inds = batch
 

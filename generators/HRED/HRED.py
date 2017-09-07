@@ -6,31 +6,32 @@ import time
 import lasagne as L
 
 import sys
-sys.path.append('../SimpleRNNLM/')
 sys.path.append('../')
-
-from SimpleRNNLM import SimpleRNNLM
 
 from layers import SampledSoftmaxDenseLayer
 from layers import ShiftLayer
 from layers import L2PoolingLayer
+from layers import TrainPartOfEmbsLayer
 
 
-class HRED(SimpleRNNLM):
+class HRED():
 
-    def __init__(self, voc_size, emb_size, lv1_rec_size, lv2_rec_size, out_emb_size, mode='ssoft', n=3,
-                 pad_value=-1, **kwargs):
+    def __init__(self, voc_size, emb_size, lv1_rec_size, lv2_rec_size, out_emb_size,
+                 train_emb=True, train_inds=[], mode='ssoft', **kwargs):
 
-        self.pad_value = pad_value
         self.voc_size = voc_size
         self.emb_size = emb_size
         self.lv1_rec_size = lv1_rec_size
         self.lv2_rec_size = lv2_rec_size
         self.out_emb_size = out_emb_size
 
-        self.input_var = T.imatrix('inputs')
-        self.target_var = T.imatrix('targets')  # these will be inputs shifted by 1
-        self.mask_input_var = T.matrix('input_mask')
+        self.train_inds = train_inds
+        self.train_emb = train_emb
+
+        self.input_gen_var = T.imatrix('inputs_gen')
+        self.input_var = T.itensor3('inputs')
+        self.target_var = T.itensor3('targets')  # these will be inputs shifted by 1
+        self.mask_input_var = T.tensor3('input_mask')
         mask_idx = self.mask_input_var.nonzero()
 
         self.emb_init = kwargs.get('emb_init', None)
@@ -43,7 +44,7 @@ class HRED(SimpleRNNLM):
 
         assert mode in ['ssoft']
 
-        self.train_net = self._build_hred(n=n, **kwargs)
+        self.train_net = self._build_hred(train_emb=self.train_emb, **kwargs)
 
         # CALCULATE THE LOSS
 
@@ -65,7 +66,10 @@ class HRED(SimpleRNNLM):
 
         updates = update_fn(train_loss, params)
 
+        print '    train_fn...'
         self.train_fn = theano.function([self.input_var, self.target_var, self.mask_input_var], train_loss, updates=updates)
+
+        print '    val_fn...'
         self.val_fn = theano.function([self.input_var, self.target_var, self.mask_input_var], test_loss)
 
         # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
@@ -79,11 +83,86 @@ class HRED(SimpleRNNLM):
         dec_net_out = L.layers.get_output(self.decoder_net, deterministic=True)
         new_con_init = L.layers.get_output(self.context_net, deterministic=True)
 
-        self.get_probs_and_new_dec_init_fn = theano.function([self.input_var, decoder_init], dec_net_out)
-        self.get_new_con_init_fn = theano.function([self.input_var, context_init], new_con_init)
+        print '    get_probs_and_new_dec_init_fn...'
+        self.get_probs_and_new_dec_init_fn = theano.function([self.input_gen_var, decoder_init], dec_net_out)
+
+        print '    get_new_con_init_fn...'
+        self.get_new_con_init_fn = theano.function([self.input_gen_var, context_init], new_con_init)
 
         print 'Done'
 
+
+    def train_one_epoch(self, train_data, batch_size, log_interval=10):
+        train_err = 0.
+        train_batches = 0
+        num_training_words = 0
+        start_time = time.time()
+
+        for batch in self.iterate_minibatches(train_data, batch_size):
+            inputs, targets, mask = batch
+
+            num_batch_words = mask.sum()
+            train_err += self.train_fn(inputs, targets, mask) * num_batch_words
+            train_batches += 1
+            num_training_words += num_batch_words
+
+            if not train_batches % log_interval:
+                print "Done {} batches in {:.2f}s\ttraining loss:\t{:.6f}".format(
+                    train_batches, time.time() - start_time, train_err / num_training_words)
+
+        return  train_err / num_training_words
+
+    def validate(self, val_data, batch_size):
+        val_err = 0.
+        val_batches = 0
+        num_validate_words = 0
+        start_time = time.time()
+
+        for batch in self.iterate_minibatches(val_data, batch_size):
+            inputs, targets, mask = batch
+
+            num_batch_words = mask.sum()
+            val_err += self.val_fn(inputs, targets, mask) * num_batch_words
+            val_batches += 1
+            num_validate_words += num_batch_words
+
+            if not val_batches % 100:
+                print "Done {} batches in {:.2f}s".format(val_batches, time.time() - start_time)
+
+        return val_err / num_validate_words
+
+    def train_model(self, train_data, val_data, train_batch_size, val_batch_size, num_epochs,
+                    save_params=False, path=None, log_interval=10):
+        if save_params:
+            open(path, 'w').close()
+
+        for epoch in range(num_epochs):
+            start_time = time.time()
+
+            train_err = self.train_one_epoch(train_data, train_batch_size, log_interval)
+            val_err = self.validate(val_data, val_batch_size)
+
+            print "Epoch {} of {} took {:.2f}s".format(epoch + 1, num_epochs, time.time() - start_time)
+            print "  training loss:\t\t{:.6f}".format(train_err)
+            print "  validation loss:\t\t{:.6f}".format(val_err)
+
+        if save_params:
+            self.save_params(path)
+
+    def save_params(self, fname): # without the fixed word embeddings matrix
+        params = L.layers.get_all_param_values(self.train_net)
+        if not self.train_emb:
+            params = params[1:]
+        np.savez(fname, *params)
+
+
+    def load_params(self, fname, E=None): # E is the fixed word embeddings matrix
+        assert self.train_emb or E is not None
+        with np.load(fname) as f:
+            param_values = [f['arr_%d' % i] for i in range(len(f.files))]
+            if not self.train_emb:
+                param_values.insert(0, E)
+            L.layers.set_all_param_values(self.train_net, param_values)
 
     '''
     MODEL PARAMETERS (as in L.layers.get_params(train_net))
@@ -104,50 +183,59 @@ class HRED(SimpleRNNLM):
      decoder_net: emb, GRU dec (no hid_init), H0, E0, softmax (full, no p from ssoft)
     '''
 
-    # "n" argument below is the maximum number of utterances in the sequence (so n=3 for Movie Triples).
-    # It doesn't affect number or shape of net parameters, so we can, for example, pretrain the net on short contexts
-    # and then feed it with longer ones. We have to rebuild the net with different n for that though.
-    # Because i use 2D input, batch_size has to be divisible by n.
+    # DONE: make it so we don't have to rebuild the net to feed in context with different n.
+    # NOTE: n has to remain constant throughout the batch (different batches can have different ns though)
 
-    # TODO: make it so we don't have to rebuild the net to feed in context with different n.
-    #       the input shape will be (batch_size x n x sequence_len)
+    # train_emb=False means we don't train ALL embeddings, but we can still train a few vectors specified in train_inds
 
-    def _build_hred(self, num_sampled, ssoft_probs=None, train_emb=True, n=3, **kwargs):
+    def _build_hred(self, num_sampled, ssoft_probs=None, train_emb=True, **kwargs):
 
-        batch_size = self.input_var.shape[0]
-        sequence_len = self.input_var.shape[1]
+        if train_emb and self.train_inds:
+            print 'train_inds has no effect if full training of embeddings is enabled!'
+
+        batch_size, n, sequence_len = self.input_var.shape
 
         ''' Inputs '''
 
-        l_in = L.layers.InputLayer(shape=(None, None), input_var=self.input_var)
+        l_in = L.layers.InputLayer(shape=(None, None, None), input_var=self.input_var)
+        l_in = L.layers.reshape(l_in, (batch_size * n, sequence_len))
 
-        l_mask = L.layers.InputLayer(shape=(None, None), input_var=self.mask_input_var)
+        l_mask = L.layers.InputLayer(shape=(None, None, None), input_var=self.mask_input_var)
+        l_mask = L.layers.reshape(l_mask, (batch_size * n, sequence_len))
 
         ''' Word embeddings '''
 
-        if self.emb_init is None:
-            l_emb = L.layers.EmbeddingLayer(l_in,
-                                            input_size=self.voc_size,  # not voc_size+1, because pad_value = <utt_end>
-                                            output_size=self.emb_size,
-                                            name='emb')
+        if train_emb:
+            if self.emb_init is None:
+                l_emb = L.layers.EmbeddingLayer(l_in,
+                                                input_size=self.voc_size,
+                                                output_size=self.emb_size,
+                                                name='emb')
+            else:
+                l_emb = L.layers.EmbeddingLayer(l_in,
+                                                input_size=self.voc_size,
+                                                output_size=self.emb_size,
+                                                W=self.emb_init,
+                                                name='emb')
         else:
-            l_emb = L.layers.EmbeddingLayer(l_in,
-                                            input_size=self.voc_size,
-                                            output_size=self.emb_size,
-                                            W=self.emb_init,
-                                            name='emb')
-        if not train_emb:
-            l_emb.params[l_emb.W].remove('trainable')
+            assert self.emb_init is not None
+            l_emb = TrainPartOfEmbsLayer(l_in,
+                                         output_size=self.emb_size,
+                                         input_size=self.voc_size,
+                                         W=self.emb_init[self.train_inds],
+                                         E=self.emb_init,
+                                         train_inds=self.train_inds,
+                                         name='emb')
 
         ''' Level 1 (sentence) BiGRU encoding with L2-pooling '''
 
-        l_lv1_enc_forw = L.layers.GRULayer(l_emb, # we process all utts in parallel, out_shape is batch_size x lv1_rec_size
+        l_lv1_enc_forw = L.layers.GRULayer(l_emb, # we process all utts in parallel, out_shape is batch_size * n x lv1_rec_size
                                            num_units=self.lv1_rec_size,
                                            grad_clipping=100,
                                            mask_input=l_mask,
                                            name='GRU1forw')
 
-        l_lv1_enc_back = L.layers.GRULayer(l_emb, # backward pass of encoder rnn, out_shape is batch_size x lv1_rec_size
+        l_lv1_enc_back = L.layers.GRULayer(l_emb, # backward pass of encoder rnn, out_shape is batch_size * n x lv1_rec_size
                                            num_units=self.lv1_rec_size,
                                            grad_clipping=100,
                                            mask_input=l_mask,
@@ -161,9 +249,9 @@ class HRED(SimpleRNNLM):
 
         ''' Level 2 (context) encoding '''
 
-        l_resh = L.layers.ReshapeLayer(l_lv1_enc, shape=(batch_size / n, n, 2 * self.lv1_rec_size))
+        l_resh = L.layers.ReshapeLayer(l_lv1_enc, shape=(batch_size, n, 2 * self.lv1_rec_size))
 
-        l_lv2_enc = L.layers.GRULayer(l_resh, # out_shape is batch_size/n x n x lv2_rec_size
+        l_lv2_enc = L.layers.GRULayer(l_resh, # out_shape is batch_size x n x lv2_rec_size
                                       num_units=self.lv2_rec_size,
                                       grad_clipping=100,
                                       name='GRU2')
@@ -172,28 +260,28 @@ class HRED(SimpleRNNLM):
 
         l_shift = ShiftLayer(l_lv2_enc) # we want to use i-th utterance summary as an init for decoding (i+1)-th
 
-        l_resh2 = L.layers.ReshapeLayer(l_shift, shape=(batch_size, self.lv2_rec_size))
+        l_resh2 = L.layers.ReshapeLayer(l_shift, shape=(batch_size * n, self.lv2_rec_size))
 
-        l_dec_inits = L.layers.DenseLayer(l_resh2, # out_shape is batch_size x lv1_rec_size
+        l_dec_inits = L.layers.DenseLayer(l_resh2, # out_shape is batch_size * n x lv1_rec_size
                                           num_units=self.lv1_rec_size,
                                           nonlinearity=L.nonlinearities.tanh,
                                           name='dec_init')
 
-        l_dec = L.layers.GRULayer(l_emb, # out_shape is batch_size x sequence_len x lv1_rec_size
+        l_dec = L.layers.GRULayer(l_emb, # out_shape is batch_size * n x sequence_len x lv1_rec_size
                                   num_units=self.lv1_rec_size,
                                   grad_clipping=100,
                                   mask_input=l_mask,
                                   hid_init=l_dec_inits,
                                   name='GRUdec')
 
-        l_resh3 = L.layers.ReshapeLayer(l_dec, shape=(batch_size * sequence_len, self.lv1_rec_size))
+        l_resh3 = L.layers.ReshapeLayer(l_dec, shape=(batch_size * n * sequence_len, self.lv1_rec_size))
 
         l_H0 = L.layers.DenseLayer(l_resh3,
                                    num_units=self.out_emb_size,
                                    nonlinearity=None,
                                    name='h0')
 
-        l_resh4 = L.layers.ReshapeLayer(l_emb, shape=(batch_size * sequence_len, self.emb_size))
+        l_resh4 = L.layers.ReshapeLayer(l_emb, shape=(batch_size * n * sequence_len, self.emb_size))
 
         l_E0 = L.layers.DenseLayer(l_resh4,
                                    num_units=self.out_emb_size,
@@ -209,19 +297,27 @@ class HRED(SimpleRNNLM):
                                            sample_unique=False,
                                            name='soft')
 
-        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(batch_size, sequence_len))
+        l_out = L.layers.ReshapeLayer(l_ssoft, shape=(batch_size, n, sequence_len))
 
         return l_out
 
 
     def _build_context_net_with_params(self, context_init, params):
 
-        l_in = L.layers.InputLayer(shape=(1,None), input_var=self.input_var)
+        l_in = L.layers.InputLayer(shape=(1,None), input_var=self.input_gen_var)
 
-        l_emb = L.layers.EmbeddingLayer(l_in,
-                                        input_size=self.voc_size,  # not voc_size+1, because pad_value = <utt_end>
-                                        output_size=self.emb_size,
-                                        W=params['emb.W'])
+        if self.train_emb:
+            l_emb = L.layers.EmbeddingLayer(l_in,
+                                            input_size=self.voc_size,
+                                            output_size=self.emb_size,
+                                            W=params['emb.W'])
+        else:
+            l_emb = TrainPartOfEmbsLayer(l_in,
+                                         output_size=self.emb_size,
+                                         input_size=self.voc_size,
+                                         W=params['emb.W'],
+                                         E=params['emb.E'],
+                                         train_inds=self.train_inds)
 
         l_lv1_enc_forw = L.layers.GRULayer(l_emb,
                                            num_units=self.lv1_rec_size,
@@ -291,12 +387,20 @@ class HRED(SimpleRNNLM):
 
     def _build_decoder_net_with_params(self, decoder_init, params):
 
-        l_in = L.layers.InputLayer(shape=(None, None), input_var=self.input_var)
+        l_in = L.layers.InputLayer(shape=(None, None), input_var=self.input_gen_var)
 
-        l_emb = L.layers.EmbeddingLayer(l_in,
-                                        input_size=self.voc_size,  # not voc_size+1, because pad_value = <utt_end>
-                                        output_size=self.emb_size,
-                                        W=params['emb.W'])
+        if self.train_emb:
+            l_emb = L.layers.EmbeddingLayer(l_in,
+                                            input_size=self.voc_size,
+                                            output_size=self.emb_size,
+                                            W=params['emb.W'])
+        else:
+            l_emb = TrainPartOfEmbsLayer(l_in,
+                                         output_size=self.emb_size,
+                                         input_size=self.voc_size,
+                                         W=params['emb.W'],
+                                         E=params['emb.E'],
+                                         train_inds=self.train_inds)
 
         l_dec_init = L.layers.InputLayer(shape=(None, self.lv1_rec_size), input_var=decoder_init)
 
@@ -341,6 +445,21 @@ class HRED(SimpleRNNLM):
                                      W=params['soft.W'],
                                      b=params['soft.b'])
 
-        l_out = L.layers.ReshapeLayer(l_soft, shape=(self.input_var.shape[0], self.voc_size))
+        l_out = L.layers.ReshapeLayer(l_soft, shape=(self.input_gen_var.shape[0], self.voc_size))
 
         return l_out, l_dec # l_out - probabilities, l_dec - new decoder init
+
+
+    def iterate_minibatches(self, inputs, batch_size, pad=-1):
+        for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
+            excerpt = slice(start_idx, start_idx + batch_size)
+            inp = inputs[excerpt]
+
+            inp_max_len = max([len(s) for d in inp for s in d])
+            inp = [[s + [pad] * (inp_max_len - len(s)) for s in d] for d in inp]
+            inp = np.asarray(inp, dtype=np.int32)
+            tar = np.concatenate([inp[:, :, 1:], np.zeros((batch_size, inp.shape[1], 1), dtype=np.int32) + pad], axis=2)
+
+            mask = (inp != pad).astype(np.float32)
+
+            yield inp, tar, mask

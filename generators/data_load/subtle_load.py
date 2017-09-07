@@ -6,10 +6,10 @@ def split_utt(utt):
     idx = [i for i,j in enumerate(utt) if j == 1]
     if len(idx) < 2:
         return []
-    return [utt[:idx[1]], utt[idx[1]:], []]
+    return [utt[:idx[1]], utt[idx[1]:]]
 
 
-def load_subtle(path, split=False, trim=200):
+def load_subtle(path, split=False, trim=200, threeD=True):
     data = np.load(path + 'Subtle_Dataset.triples.pkl')
 
     if split:
@@ -22,9 +22,12 @@ def load_subtle(path, split=False, trim=200):
             inds_to_remove = set()
             for k in xrange(len(data)):
                 if len(data[k]) > trim:
-                    for i in xrange(3):
-                        inds_to_remove.add(k - (k % 3) + i)
-                            
+                    for i in xrange(2):
+                        inds_to_remove.add(k - (k % 2) + i)
+
             data = [data[i] for i in xrange(len(data)) if i not in inds_to_remove]
-            
+
+    if threeD:
+        return [data[i:i+2] for i in xrange(0, len(data), 2)]
+
     return data

@@ -9,7 +9,7 @@ def get_reddit_voc(path):
     return words, w_to_i, len(words), np.load(path + 'freqs.pkl')
 
 
-def load_singles(path, threeD=False):
+def load_singles(path, threeD=True):
     train = np.load(path + 'utterances.single.shuffled.train.pkl')
     test = np.load(path + 'utterances.single.shuffled.test.pkl')
     if threeD:
@@ -18,7 +18,7 @@ def load_singles(path, threeD=False):
     return train, test
 
 
-def load_pairs(path, threeD=False):
+def load_pairs(path, threeD=True):
     train = np.load(path + 'utterances.pairs.shuffled.train.pkl')
     test = np.load(path + 'utterances.pairs.shuffled.test.pkl')
     if not threeD:
