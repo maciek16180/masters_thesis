@@ -28,8 +28,22 @@ net = HRED(voc_size=voc_size,
            out_emb_size=300,
            num_sampled=1000,
            emb_init=glove6B,
-           train_emb=True,
-           train_inds=[0, 400002, 400003])
+           train_emb=False,
+           train_inds=[0, 400002, 400003],
+           skip_gen=True,
+           emb_dropout=True)
+
+
+# net = HRED(voc_size=200000,
+#            emb_size=300,
+#            lv1_rec_size=300,
+#            lv2_rec_size=300,
+#            out_emb_size=300,
+#            num_sampled=1000,
+#            emb_init=None,
+#            train_emb=True,
+#            # train_inds=[0, 400002, 400003],
+#            skip_gen=True)
 
 last_scores = [np.inf]
 max_epochs_wo_improvement = 5
@@ -37,13 +51,14 @@ tol = 0.001
 epoch = 1
 best_epoch = None
 
-model_filename = 'trained_models/test1/redditv3_pairs_gloveFixed_bs25_early5'
+model_filename = '../trained_models/test1/redditv3_pairs_gloveFixed_bs100_early5'
 
 t0 = time.time()
 while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last_scores) + tol:
     print '\n\nStarting epoch {}...\n'.format(epoch)
-    train_error = net.train_one_epoch(train_data=train_pairs, batch_size=1, log_interval=1)
-    val_error = net.validate(val_data=test_pairs, batch_size=1)
+    train_error = net.train_one_epoch(train_data=train_pairs, batch_size=100, log_interval=200)
+    print 'validating...'
+    val_error = net.validate(val_data=test_pairs, batch_size=10, log_interval=500)
     print '\nTraining loss:   {}'.format(train_error)
     print 'Validation loss: {}'.format(val_error)
 

@@ -4,7 +4,7 @@ import sys
 sys.path.append('../')
 
 from HRED import HRED
-from diverse_beam_search import diverse_beam_search, softmax
+from diverse_beam_search import DiverseBeamSearch, softmax
 from data_load.mt_load import load_mt, get_mt_voc, get_w2v_embs
 
 
@@ -16,10 +16,11 @@ hred_net = HRED(voc_size=voc_size,
                 lv1_rec_size=300,
                 lv2_rec_size=300,
                 out_emb_size=300,
-                num_sampled=200)
+                num_sampled=200,
+                skip_train=True)
 
-#hred_net.load_params('../trained_models/pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
-hred_net.load_params('../trained_models/subtleFixed_300_300_300_300_ssoft200unigr_bs30_cut200_early5.npz')
+hred_net.load_params('trained_models/pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
+# hred_net.load_params('../trained_models/subtleFixed_300_300_300_300_ssoft200unigr_bs30_cut200_early5.npz')
 
 def print_utt(utt):
     return ' '.join([idx_to_w[x] for x in utt])
@@ -39,6 +40,15 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
          short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None,
          only_last_groups=False):
 
+    beamsearch = DiverseBeamSearch(idx_to_w, hred_net, beam_size, group_size,
+                                   rank_penalty=rank_penalty,
+                                   group_diversity_penalty=group_diversity_penalty,
+                                   seq_diversity_penalty=seq_diversity_penalty,
+                                   unk_penalty=100,
+                                   sharpen_probs=sharpen_bs_probs,
+                                   random_sample=bs_random,
+                                   only_last_groups=only_last_groups)
+
     user_input = sys.stdin.readline()
 
     context = [('<s> ' + user_input + ' </s>').split()]
@@ -54,14 +64,10 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
         return (y + len_bonus(x.size)) / denom
 
     while True:
-        beamsearch = diverse_beam_search(beam_size, group_size, dec_init, voc_size, hred_net,
-                                         init_seq=utt_to_array('<s> '.split()), rank_penalty=rank_penalty,
-                                         group_diversity_penalty=group_diversity_penalty,
-                                         seq_diversity_penalty=seq_diversity_penalty, verbose_log=False,
-                                         sample=bs_random, sharpen_probs=sharpen_bs_probs, only_last_groups=only_last_groups)
+        candidates = beamsearch.search(dec_init)
 
-        score_order = sorted(beamsearch, key=lambda (x,y): fn_score(x, y), reverse=True)
-    #     alphabetic_order = sorted(beamsearch, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
+        score_order = sorted(candidates, key=lambda (x,y): fn_score(x, y), reverse=True)
+    #     alphabetic_order = sorted(candidates, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
 
         if not random:
             bot_response = print_utt(score_order[0][0])

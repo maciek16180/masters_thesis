@@ -39,55 +39,67 @@ class HRED():
         context_init = T.matrix('context_init')
         decoder_init = T.matrix('decoder_init')
 
+        assert mode in ['ssoft']
+
+        skip_train = kwargs.get('skip_train', False)
+        skip_gen = kwargs.get('skip_gen', False)
+
+
         # BUILD THE MODEL
         print 'Building the model...'
 
-        assert mode in ['ssoft']
-
         self.train_net = self._build_hred(train_emb=self.train_emb, **kwargs)
 
-        # CALCULATE THE LOSS
+        if not skip_train:
 
-        train_out = L.layers.get_output(self.train_net)
-        test_out = L.layers.get_output(self.train_net, deterministic=True)
+            # CALCULATE THE LOSS
 
-        train_loss = -T.log(train_out[mask_idx]).mean()
-        test_loss = -T.log(test_out[mask_idx]).mean()
+            train_out = L.layers.get_output(self.train_net)
+            test_out = L.layers.get_output(self.train_net, deterministic=True)
 
-        # MAKE TRAIN AND VALIDATION FUNCTIONS
-        print 'Compiling theano functions...'
+            train_loss = -T.log(train_out[mask_idx]).mean()
+            test_loss = -T.log(test_out[mask_idx]).mean()
 
-        params = L.layers.get_all_params(self.train_net, trainable=True)
+            # MAKE TRAIN AND VALIDATION FUNCTIONS
+            print 'Compiling theano functions...'
 
-        if kwargs.has_key('update_fn'):
-            update_fn = kwargs['update_fn']
+            params = L.layers.get_all_params(self.train_net, trainable=True)
+
+            if kwargs.has_key('update_fn'):
+                update_fn = kwargs['update_fn']
+            else:
+                update_fn = lambda l, p: L.updates.adagrad(l, p, learning_rate=.01)
+
+            updates = update_fn(train_loss, params)
+
+            print '    train_fn...'
+            self.train_fn = theano.function([self.input_var, self.target_var, self.mask_input_var], train_loss, updates=updates)
+
+            print '    val_fn...'
+            self.val_fn = theano.function([self.input_var, self.target_var, self.mask_input_var], test_loss)
         else:
-            update_fn = lambda l, p: L.updates.adagrad(l, p, learning_rate=.01)
+            print 'Skipping training part...'
 
-        updates = update_fn(train_loss, params)
+        if not skip_gen:
 
-        print '    train_fn...'
-        self.train_fn = theano.function([self.input_var, self.target_var, self.mask_input_var], train_loss, updates=updates)
+            # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
+            print 'Building a network for generating...'
 
-        print '    val_fn...'
-        self.val_fn = theano.function([self.input_var, self.target_var, self.mask_input_var], test_loss)
+            all_params = {x.name : x for x in L.layers.get_all_params(self.train_net)}
 
-        # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
-        print 'Building a network for generating...'
+            self.context_net = self._build_context_net_with_params(context_init, all_params)
+            self.decoder_net = self._build_decoder_net_with_params(decoder_init, all_params)
 
-        all_params = {x.name : x for x in L.layers.get_all_params(self.train_net)}
+            dec_net_out = L.layers.get_output(self.decoder_net, deterministic=True)
+            new_con_init = L.layers.get_output(self.context_net, deterministic=True)
 
-        self.context_net = self._build_context_net_with_params(context_init, all_params)
-        self.decoder_net = self._build_decoder_net_with_params(decoder_init, all_params)
+            print '    get_probs_and_new_dec_init_fn...'
+            self.get_probs_and_new_dec_init_fn = theano.function([self.input_gen_var, decoder_init], dec_net_out)
 
-        dec_net_out = L.layers.get_output(self.decoder_net, deterministic=True)
-        new_con_init = L.layers.get_output(self.context_net, deterministic=True)
-
-        print '    get_probs_and_new_dec_init_fn...'
-        self.get_probs_and_new_dec_init_fn = theano.function([self.input_gen_var, decoder_init], dec_net_out)
-
-        print '    get_new_con_init_fn...'
-        self.get_new_con_init_fn = theano.function([self.input_gen_var, context_init], new_con_init)
+            print '    get_new_con_init_fn...'
+            self.get_new_con_init_fn = theano.function([self.input_gen_var, context_init], new_con_init)
+        else:
+            print 'Skipping generating part...'
 
         print 'Done'
 
@@ -112,7 +124,7 @@ class HRED():
 
         return  train_err / num_training_words
 
-    def validate(self, val_data, batch_size):
+    def validate(self, val_data, batch_size, log_interval=100):
         val_err = 0.
         val_batches = 0
         num_validate_words = 0
@@ -126,7 +138,7 @@ class HRED():
             val_batches += 1
             num_validate_words += num_batch_words
 
-            if not val_batches % 100:
+            if not val_batches % log_interval:
                 print "Done {} batches in {:.2f}s".format(val_batches, time.time() - start_time)
 
         return val_err / num_validate_words
@@ -188,7 +200,7 @@ class HRED():
 
     # train_emb=False means we don't train ALL embeddings, but we can still train a few vectors specified in train_inds
 
-    def _build_hred(self, num_sampled, ssoft_probs=None, train_emb=True, **kwargs):
+    def _build_hred(self, num_sampled, ssoft_probs=None, train_emb=True, emb_dropout=False, **kwargs):
 
         if train_emb and self.train_inds:
             print 'train_inds has no effect if full training of embeddings is enabled!'
@@ -226,6 +238,10 @@ class HRED():
                                          E=self.emb_init,
                                          train_inds=self.train_inds,
                                          name='emb')
+
+        if emb_dropout:
+            print 'Using dropout.'
+            l_emb = L.layers.dropout(l_emb)
 
         ''' Level 1 (sentence) BiGRU encoding with L2-pooling '''
 
