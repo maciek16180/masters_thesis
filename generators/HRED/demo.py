@@ -37,8 +37,7 @@ def context_summary(context, lookup=True):
     return con_init
 
 def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1,
-         short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None,
-         only_last_groups=False):
+         short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None):
 
     beamsearch = DiverseBeamSearch(idx_to_w, hred_net, beam_size, group_size,
                                    rank_penalty=rank_penalty,
@@ -46,8 +45,7 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
                                    seq_diversity_penalty=seq_diversity_penalty,
                                    unk_penalty=100,
                                    sharpen_probs=sharpen_bs_probs,
-                                   random_sample=bs_random,
-                                   only_last_groups=only_last_groups)
+                                   random_sample=bs_random)
 
     user_input = sys.stdin.readline()
 

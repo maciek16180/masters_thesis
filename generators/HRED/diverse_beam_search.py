@@ -10,6 +10,14 @@ def softmax(x):
     return x / x.sum(axis=1)[:, np.newaxis]
 
 
+def go_down_trie(trie, seq):
+    for x in seq:
+        if x not in trie:
+            raise KeyError("Sequence is not in trie.")
+        trie = trie[x]
+    return trie
+
+
 class DiverseBeamSearch(object):
 
     def __init__(self, words, model, beam_size, group_size,
@@ -19,8 +27,8 @@ class DiverseBeamSearch(object):
                  unk_penalty=100,
                  sharpen_probs=None,
                  random_sample=False,
-                 only_last_groups=False,
                  verbose_log=False,
+                 whitelist=None,
                  forbidden_words=['<unk>','<number>','<person>','<continued_utterance>']):
 
         assert not beam_size % group_size
@@ -41,9 +49,42 @@ class DiverseBeamSearch(object):
 
         self.verbose_log = verbose_log
         self.random_sample = random_sample
-        self.only_last_groups = only_last_groups
 
         self.sharpen_probs = sharpen_probs
+
+        def nums4seq(s):
+            return [1] + [self.w_to_idx.get(w, 0) for w in s.split()] + [2]
+
+        answers = map(nums4seq,
+                      ["i like you too .",
+                       "i am fine , thanks .",
+                       "this is very interesting .",
+                       "do you want to go out tonight ?"])
+
+
+        mt = np.load('/pio/data/data/mtriples/Training.triples.pkl')
+
+        answers = []
+        for s in mt:
+            answers.append(s[:s.index(2)+1])
+        answers = answers[:100]
+
+        for a in answers:
+            print a
+
+        print '\n\n\n##########\n\n'
+
+
+        whitelist = {}
+
+        for a in answers:
+            dic = whitelist
+            for w in a:
+                if w not in dic:
+                    dic[w] = {}
+                dic = dic[w]
+
+        self.whitelist = whitelist
 
 
     def search(self, dec_init, init_seq=None):
@@ -57,6 +98,9 @@ class DiverseBeamSearch(object):
         scores = np.zeros(self.beam_size)
 
         finished = []
+
+        if self.whitelist is not None:
+            trie_positions = [self.whitelist[self.w_to_idx['<s>']]] * self.beam_size
 
         while seq.shape[1] < 50:
             all_probs, all_dec_init = self.model.get_probs_and_new_dec_init_fn(seq[:,-1:], dec_init)
@@ -90,19 +134,47 @@ class DiverseBeamSearch(object):
 
                 # this line is for implementing rank penalty: https://arxiv.org/abs/1611.08562
                 # it doesn't work correctly at the moment
-                new_scores = (new_scores - (new_scores.argsort(axis=1) + 1) * self.rank_penalty).ravel()
+                new_scores = new_scores - (new_scores.argsort(axis=1) + 1) * self.rank_penalty
 
-                new_scores = new_scores.ravel()
+                if self.whitelist is not None:
+                    cands = []
+                    for i in xrange(self.group_size):
+                        cands.append(trie_positions[self.group_size * g + i].keys())
 
-                if not self.random_sample:
-                    if seq.shape[1] == 1:
-                        order = np.array(-new_scores[:self.voc_size]).argsort().astype(np.int32)
+                    # print cands
+
+                    cand_scores = []
+                    for i in xrange(self.group_size):
+                        for c in cands[i]:
+                            cand_scores.append((new_scores[i, c], i, c))
+
+                    if not self.random_sample:
+                        if seq.shape[1] == 1:
+                            order = (-np.array(cand_scores[:max(len(cands[0]), self.beam_size)])[:, 0]).argsort().astype(np.int32)
+                        else:
+                            order = (-np.array(cand_scores)[:, 0]).argsort().astype(np.int32)
+                        # print order
                     else:
-                        order = (-new_scores).argsort().astype(np.int32)
+                        count = len(cand_scores)
+                        scr = np.array([c[0] for c in cand_scores])
+                        if self.sharpen_probs is not None:
+                            scr = -(-scr**self.sharpen_probs)
+                        order = np.random.choice(count, size=2*self.group_size**2, replace=False, p=softmax(scr[np.newaxis])[0])
+
                 else:
-                    count = new_scores.size
-                    scr = new_scores if self.sharpen_probs is None else -(-new_scores**self.sharpen_probs)
-                    order = np.random.choice(count, size=2*self.group_size**2, replace=False, p=softmax(scr[np.newaxis])[0])
+                    new_scores = new_scores.ravel()
+
+                    if not self.random_sample:
+                        if seq.shape[1] == 1:
+                            order = (-new_scores[:self.voc_size]).argsort().astype(np.int32)
+                        else:
+                            order = (-new_scores).argsort().astype(np.int32)
+                    else:
+                        count = new_scores.size
+                        scr = new_scores if self.sharpen_probs is None else -(-new_scores**self.sharpen_probs)
+
+                        # tu moze byc blad: czasami wybieram za duzo, nie ma tyle nie-zer w p
+                        order = np.random.choice(count, size=2*self.group_size**2, replace=False, p=softmax(scr[np.newaxis])[0])
 
                 #print "###############"
                 #print new_seq.shape, order.size, new_scores.shape, next_word_scores.shape, scores.shape
@@ -111,19 +183,28 @@ class DiverseBeamSearch(object):
                     if new_seq.shape[0] == (g + 1) * self.group_size:
                         break
 
-                    i,j = divmod(idx, self.voc_size)
-
-                    #print seq.shape, self.group_size * g + i, i, j
-                    #print words
-
-                    extended_seq = np.concatenate([seq[self.group_size * g + i], np.array([words[i,j]])])
-                    if extended_seq[-1] == self.w_to_idx['</s>']:
-                        if not self.only_last_groups or g >= num_groups / 2:
-                            finished.append((extended_seq, new_scores[idx]))
+                    if self.whitelist is not None:
+                        seq_in_group, word_idx = cand_scores[idx][1:]
                     else:
+                        seq_in_group, word_idx = divmod(idx, self.voc_size)
+
+                        #print seq.shape, self.group_size * g + seq_in_group, seq_in_group, word_idx
+                        #print words
+
+                    extended_seq = np.concatenate([seq[self.group_size * g + seq_in_group], np.array([word_idx], dtype=np.int32)])
+                    scr = new_scores[idx] if self.whitelist is None else cand_scores[idx][0]
+
+                    if extended_seq[-1] == self.w_to_idx['</s>']:
+                        finished.append((extended_seq, scr))
+                    else:
+                        if self.whitelist is not None:
+                            index_in_group = new_seq.shape[0] % self.group_size
+                            k = g * self.group_size + index_in_group
+                            trie_positions[k] = go_down_trie(self.whitelist, extended_seq)
+
                         new_seq = np.vstack([new_seq, extended_seq])
-                        new_dec_inits.append(dec_init[i])
-                        next_scores.append(new_scores[idx])
+                        new_dec_inits.append(dec_init[seq_in_group])
+                        next_scores.append(scr)
 
                 if new_seq.shape[0] < (g + 1) * self.group_size:
                     pad_len = (g + 1) * self.group_size - new_seq.shape[0]
