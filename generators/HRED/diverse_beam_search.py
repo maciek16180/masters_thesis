@@ -52,38 +52,6 @@ class DiverseBeamSearch(object):
 
         self.sharpen_probs = sharpen_probs
 
-        def nums4seq(s):
-            return [1] + [self.w_to_idx.get(w, 0) for w in s.split()] + [2]
-
-        answers = map(nums4seq,
-                      ["i like you too .",
-                       "i am fine , thanks .",
-                       "this is very interesting .",
-                       "do you want to go out tonight ?"])
-
-
-        mt = np.load('/pio/data/data/mtriples/Training.triples.pkl')
-
-        answers = []
-        for s in mt:
-            answers.append(s[:s.index(2)+1])
-        answers = answers[:100]
-
-        for a in answers:
-            print a
-
-        print '\n\n\n##########\n\n'
-
-
-        whitelist = {}
-
-        for a in answers:
-            dic = whitelist
-            for w in a:
-                if w not in dic:
-                    dic[w] = {}
-                dic = dic[w]
-
         self.whitelist = whitelist
 
 
@@ -159,7 +127,9 @@ class DiverseBeamSearch(object):
                         scr = np.array([c[0] for c in cand_scores])
                         if self.sharpen_probs is not None:
                             scr = -(-scr**self.sharpen_probs)
-                        order = np.random.choice(count, size=2*self.group_size**2, replace=False, p=softmax(scr[np.newaxis])[0])
+                        p = softmax(scr[np.newaxis])[0]
+                        num_sampled = min(2 * self.group_size**2, np.nan_to_num(p).nonzero()[0].size)
+                        order = np.random.choice(count, size=num_sampled, replace=False, p=p)
 
                 else:
                     new_scores = new_scores.ravel()
@@ -172,9 +142,9 @@ class DiverseBeamSearch(object):
                     else:
                         count = new_scores.size
                         scr = new_scores if self.sharpen_probs is None else -(-new_scores**self.sharpen_probs)
-
-                        # tu moze byc blad: czasami wybieram za duzo, nie ma tyle nie-zer w p
-                        order = np.random.choice(count, size=2*self.group_size**2, replace=False, p=softmax(scr[np.newaxis])[0])
+                        p = softmax(scr[np.newaxis])[0]
+                        num_sampled = min(2 * self.group_size**2, np.nan_to_num(p).nonzero()[0].size)
+                        order = np.random.choice(count, size=num_sampled, replace=False, p=p)
 
                 #print "###############"
                 #print new_seq.shape, order.size, new_scores.shape, next_word_scores.shape, scores.shape
@@ -196,7 +166,7 @@ class DiverseBeamSearch(object):
 
                     if extended_seq[-1] == self.w_to_idx['</s>']:
                         finished.append((extended_seq, scr))
-                    else:
+                    elif scr > -np.inf:
                         if self.whitelist is not None:
                             index_in_group = new_seq.shape[0] % self.group_size
                             k = g * self.group_size + index_in_group

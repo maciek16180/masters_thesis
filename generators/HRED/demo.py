@@ -36,6 +36,37 @@ def context_summary(context, lookup=True):
         con_init = hred_net.get_new_con_init_fn(utt_to_array(utt) if lookup else utt, con_init)
     return con_init
 
+
+def go_down_trie(trie, seq):
+    for x in seq:
+        if x not in trie:
+            raise KeyError("Sequence is not in trie.")
+        trie = trie[x]
+    return trie
+
+def nums4seq(s):
+    return [1] + [w_to_idx.get(w, 0) for w in s.split()] + [2]
+
+print "Loading whitelist..."
+
+mt = np.load('/pio/data/data/mtriples/Training.triples.pkl')
+
+answers = []
+for s in mt:
+    answers.append(s[:s.index(2)+1])
+answers = answers[:5000]
+
+whitelist = {}
+
+for a in answers:
+    dic = whitelist
+    for w in a:
+        if w not in dic:
+            dic[w] = {}
+        dic = dic[w]
+
+print "Done"
+
 def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1,
          short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None):
 
@@ -45,7 +76,8 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
                                    seq_diversity_penalty=seq_diversity_penalty,
                                    unk_penalty=100,
                                    sharpen_probs=sharpen_bs_probs,
-                                   random_sample=bs_random)
+                                   random_sample=bs_random,
+                                   whitelist=whitelist)
 
     user_input = sys.stdin.readline()
 
