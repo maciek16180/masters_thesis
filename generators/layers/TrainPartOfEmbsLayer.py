@@ -10,8 +10,8 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 class TrainPartOfEmbsLayer(Layer):
 
-    def __init__(self, incoming, train_inds, E, input_size, output_size,
-                 W=init.Normal(), keep_rate=1, **kwargs):
+    def __init__(self, incoming, train_inds, input_size, output_size,
+                 E=init.Normal(), W=init.Normal(), keep_rate=1, **kwargs):
 
         self.rng = RandomStreams(get_rng().randint(1, 2147462579))
         self.keep_rate = keep_rate

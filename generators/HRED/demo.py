@@ -36,6 +36,7 @@ def context_summary(context, lookup=True):
         con_init = hred_net.get_new_con_init_fn(utt_to_array(utt) if lookup else utt, con_init)
     return con_init
 
+###################
 
 def go_down_trie(trie, seq):
     for x in seq:
@@ -43,9 +44,6 @@ def go_down_trie(trie, seq):
             raise KeyError("Sequence is not in trie.")
         trie = trie[x]
     return trie
-
-def nums4seq(s):
-    return [1] + [w_to_idx.get(w, 0) for w in s.split()] + [2]
 
 print "Loading whitelist..."
 
@@ -66,6 +64,8 @@ for a in answers:
         dic = dic[w]
 
 print "Done"
+
+###################
 
 def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1,
          short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None):

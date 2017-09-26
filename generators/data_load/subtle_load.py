@@ -8,6 +8,7 @@ def split_utt(utt):
         return []
     return [utt[:idx[1]], utt[idx[1]:]]
 
+n = 2
 
 def load_subtle(path, split=False, trim=200, threeD=True):
     data = np.load(path + 'Subtle_Dataset.triples.pkl')
@@ -22,12 +23,12 @@ def load_subtle(path, split=False, trim=200, threeD=True):
             inds_to_remove = set()
             for k in xrange(len(data)):
                 if len(data[k]) > trim:
-                    for i in xrange(2):
-                        inds_to_remove.add(k - (k % 2) + i)
+                    for i in xrange(n):
+                        inds_to_remove.add(k - (k % n) + i)
 
             data = [data[i] for i in xrange(len(data)) if i not in inds_to_remove]
 
     if threeD:
-        return [data[i:i+2] for i in xrange(0, len(data), 2)]
+        return [data[i:i+n] for i in xrange(0, len(data), n)]
 
     return data

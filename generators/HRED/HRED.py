@@ -57,6 +57,7 @@ class HRED():
             train_out = L.layers.get_output(self.train_net)
             test_out = L.layers.get_output(self.train_net, deterministic=True)
 
+            # train_loss = -T.log(train_out[mask_idx]).mean()
             train_loss = -T.log(train_out[mask_idx]).mean()
             test_loss = -T.log(test_out[mask_idx]).mean()
 
@@ -110,7 +111,7 @@ class HRED():
         num_training_words = 0
         start_time = time.time()
 
-        for batch in self.iterate_minibatches(train_data, batch_size):
+        for batch in self.iterate_minibatches(train_data, batch_size, shuffle=True):
             inputs, targets, mask = batch
 
             num_batch_words = mask.sum()
@@ -169,10 +170,9 @@ class HRED():
 
 
     def load_params(self, fname, E=None): # E is the fixed word embeddings matrix
-        assert self.train_emb or E is not None
         with np.load(fname) as f:
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
-            if not self.train_emb:
+            if not self.train_emb and E is not None:
                 param_values.insert(0, E)
             L.layers.set_all_param_values(self.train_net, param_values)
 
@@ -230,14 +230,20 @@ class HRED():
                                                 W=self.emb_init,
                                                 name='emb')
         else:
-            assert self.emb_init is not None
-            l_emb = TrainPartOfEmbsLayer(l_in,
-                                         output_size=self.emb_size,
-                                         input_size=self.voc_size,
-                                         W=self.emb_init[self.train_inds],
-                                         E=self.emb_init,
-                                         train_inds=self.train_inds,
-                                         name='emb')
+            if self.emb_init is not None:
+                l_emb = TrainPartOfEmbsLayer(l_in,
+                                             output_size=self.emb_size,
+                                             input_size=self.voc_size,
+                                             W=self.emb_init[self.train_inds],
+                                             E=self.emb_init,
+                                             train_inds=self.train_inds,
+                                             name='emb')
+            else:
+                l_emb = TrainPartOfEmbsLayer(l_in,
+                                             output_size=self.emb_size,
+                                             input_size=self.voc_size,
+                                             train_inds=self.train_inds,
+                                             name='emb')
 
         if emb_dropout:
             print 'Using dropout.'
@@ -331,7 +337,7 @@ class HRED():
             l_emb = TrainPartOfEmbsLayer(l_in,
                                          output_size=self.emb_size,
                                          input_size=self.voc_size,
-                                         W=params['emb.W'],
+                                         W=params['emb.W'] if self.train_inds else None,
                                          E=params['emb.E'],
                                          train_inds=self.train_inds)
 
@@ -414,7 +420,7 @@ class HRED():
             l_emb = TrainPartOfEmbsLayer(l_in,
                                          output_size=self.emb_size,
                                          input_size=self.voc_size,
-                                         W=params['emb.W'],
+                                         W=params['emb.W'] if self.train_inds else None,
                                          E=params['emb.E'],
                                          train_inds=self.train_inds)
 
@@ -466,9 +472,19 @@ class HRED():
         return l_out, l_dec # l_out - probabilities, l_dec - new decoder init
 
 
-    def iterate_minibatches(self, inputs, batch_size, pad=-1):
+    def iterate_minibatches(self, inputs, batch_size, pad=-1, shuffle=False):
+
+        if shuffle:
+            indices = np.arange(len(inputs))
+            np.random.shuffle(indices)
+            inputs = np.array(inputs)
+
         for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
-            excerpt = slice(start_idx, start_idx + batch_size)
+            if shuffle:
+                excerpt = indices[start_idx:start_idx + batch_size]
+            else:
+                excerpt = slice(start_idx, start_idx + batch_size)
+
             inp = inputs[excerpt]
 
             inp_max_len = max([len(s) for d in inp for s in d])

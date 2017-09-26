@@ -6,32 +6,27 @@ sys.path.append('../../')
 
 from HRED import HRED
 from diverse_beam_search import DiverseBeamSearch, softmax
-from data_load.redditv3_load import load_pairs
+from data_load.redditv3_load import load_pairs, get_redditv3_voc
 
-reddit_path = "/pio/data/data/reddit_sample/v3/"
+redditv3_path = "/pio/data/data/reddit_sample/v3/"
 
-train_pairs, test_pairs = load_pairs(path=reddit_path)
-
-glove6B = np.load('/pio/data/data/glove_vec/6B/glove/glove.6B.300d.npy')
-
-idx_to_w = np.load('/pio/data/data/glove_vec/6B/glove/glove.6B.wordlist.pkl')
-voc_size = len(idx_to_w)
-w_to_idx = {idx_to_w[i] : i for i in xrange(voc_size)}
+train_pairs, test_pairs = load_pairs(path=redditv3_path)
+idx_to_w, w_to_idx, voc_size, _ = get_redditv3_voc(path=redditv3_path, train_len=len(train_pairs) * 2)
 
 ###
 
 hred_net = HRED(voc_size=voc_size,
-           emb_size=300,
-           lv1_rec_size=300,
-           lv2_rec_size=300,
-           out_emb_size=300,
-           num_sampled=1000,
-           emb_init=glove6B,
-           train_emb=False,
-           train_inds=[0, 400002, 400003],
-           skip_train=True)
+                emb_size=300,
+                lv1_rec_size=300,
+                lv2_rec_size=300,
+                out_emb_size=300,
+                num_sampled=1000,
+                train_emb=False,
+                skip_train=True)
 
-hred_net.load_params('trained_models/test1/redditv3_pairs_gloveFixed_bs100_early5_ep32.npz', glove6B)
+subtle_params = np.load('trained_models/subtle_fixed_pretrain/pretrained_subtle_fixed_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200_ep10.npz')
+emb = subtle_params['arr_0']
+hred_net.load_params('trained_models/with_subtle/redditv3_pairs_subtleFixed_bs100_early5_ep25.npz', emb)
 
 def print_utt(utt):
     return ' '.join([idx_to_w[x] for x in utt])
@@ -47,6 +42,33 @@ def context_summary(context, lookup=True):
         con_init = hred_net.get_new_con_init_fn(utt_to_array(utt) if lookup else utt, con_init)
     return con_init
 
+###################
+
+def go_down_trie(trie, seq):
+    for x in seq:
+        if x not in trie:
+            raise KeyError("Sequence is not in trie.")
+        trie = trie[x]
+    return trie
+
+print "Loading whitelist..."
+
+answers = [s[1] for s in train_pairs if 0 not in s[1] and len(s[1]) > 5]
+answers = answers[:5000]
+
+whitelist = {}
+
+for a in answers:
+    dic = whitelist
+    for w in a:
+        if w not in dic:
+            dic[w] = {}
+        dic = dic[w]
+
+print "Done"
+
+###################
+
 def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1,
          short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None):
 
@@ -56,14 +78,19 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
                                    seq_diversity_penalty=seq_diversity_penalty,
                                    unk_penalty=100,
                                    sharpen_probs=sharpen_bs_probs,
-                                   random_sample=bs_random)
+                                   random_sample=bs_random,
+                                   whitelist=whitelist)
 
     user_input = sys.stdin.readline()
 
     context = [('<s> ' + user_input + ' </s>').split()]
     con_init = context_summary(context, lookup=True)
-    W = L.layers.get_all_param_values(hred_net.train_net)[32]
-    b = L.layers.get_all_param_values(hred_net.train_net)[33]
+
+    param_names = [x.name for x in L.layers.get_all_params(hred_net.train_net)]
+
+    W = L.layers.get_all_param_values(hred_net.train_net)[param_names.index('dec_init.W')]
+    b = L.layers.get_all_param_values(hred_net.train_net)[param_names.index('dec_init.b')]
+
     dec_init = np.repeat(np.tanh(con_init.dot(W) + b), beam_size, axis=0)
 
     len_bonus = lambda size: 0 #np.log(size)**2
@@ -99,7 +126,7 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
             con_init = hred_net.get_new_con_init_fn(utt_to_array(bot_response), con_init)
             con_init = hred_net.get_new_con_init_fn(utt_to_array(user_input), con_init)
         else:
-            context = [bot_response.split(), user_input]
+            context = [user_input]
             con_init = context_summary(context, lookup=True)
 
         dec_init = np.repeat(np.tanh(con_init.dot(W) + b), beam_size, axis=0)

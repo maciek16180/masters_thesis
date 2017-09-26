@@ -68,15 +68,22 @@ class QANet:
         self.answer_starts_var = T.ivector('answer_starts')
         self.answer_ends_var = T.ivector('answer_ends')
 
+        self.aux1_var = T.matrix('aux1')
+        self.aux2_var = T.matrix('aux2')
+
         # BUILD THE MODEL
         print 'Building the model...'
 
-        self.train_net = self._build_net(**kwargs)
+        self.intermediate_net = self._build_net(**kwargs)
+        self.train_net = self._build_predictors(*self.intermediate_net)
+
+        all_params = {x.name : x for x in L.layers.get_all_params(self.train_net)}
+        self.pred_net = self._build_predictors_from_intermediate_results(all_params)
 
         # CALCULATE THE LOSS
 
         train_out = LL.get_output(self.train_net)
-        test_out = LL.get_output(self.train_net, deterministic=True)
+        test_out = LL.get_output(self.pred_net, deterministic=True)
 
         start_probs = train_out[0][T.arange(self.context_var.shape[0]), self.answer_starts_var]
         end_conditional_probs = train_out[1][T.arange(self.context_var.shape[0]), self.answer_ends_var]
@@ -104,53 +111,64 @@ class QANet:
 
         compile_train_fn = not kwargs.get('skip_train_fn', False)
         if compile_train_fn:
-
             print '    train_fn...'
+            self.train_fn = theano.function(
+                [self.context_var, self.question_var, self.context_char_var, self.question_char_var, self.bin_feat_var,
+                 self.mask_context_var, self.mask_question_var, self.mask_context_char_var, self.mask_question_char_var,
+                 self.answer_starts_var, self.answer_ends_var, learning_rate_var],
+                train_loss, updates=updates)
 
-            self.train_fn = theano.function([self.context_var, self.question_var, self.context_char_var, self.question_char_var, self.bin_feat_var,
-                                             self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
-                                             self.mask_question_char_var, self.answer_starts_var, self.answer_ends_var,
-                                             learning_rate_var],
-                                            train_loss, updates=updates)
+        print '    get_intermediate_results_fn...'
+        self.get_intermediate_results_fn = theano.function(
+            [self.context_var, self.question_var, self.context_char_var, self.question_char_var, self.bin_feat_var,
+             self.mask_context_var, self.mask_question_var, self.mask_context_char_var, self.mask_question_char_var],
+            LL.get_output(self.intermediate_net))
 
-        compile_pred_fns = not kwargs.get('skip_pred_fns', False)
-        if compile_pred_fns:
+        print '    get_start_probs_fn...'
+        self.get_start_probs_fn = theano.function(
+            [self.context_var, self.mask_context_var, self.aux1_var, self.aux2_var],
+            test_out[0])
 
-            print '    get_start_probs_fn...'
+        print '    get_end_probs_fn...'
+        self.get_end_probs_fn = theano.function(
+            [self.context_var, self.mask_context_var, self.aux1_var, self.aux2_var, self.answer_starts_var],
+            test_out[1])
 
-            self.compile_get_start_probs_fn([self.context_var, self.question_var, self.context_char_var, self.question_char_var,
-                                             self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
-                                             self.mask_question_char_var], test_out[0])
+        # print '    get_start_probs_fn...'
+        # self.get_start_probs_fn = theano.function(
+        #     [self.context_var, self.question_var, self.context_char_var, self.question_char_var,
+        #      self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
+        #      self.mask_question_char_var],
+        #     test_out[0])
 
-            print '    get_end_probs_fn...'
+        # print '    get_end_probs_fn...'
+        # self.get_end_probs_fn = theano.function(
+        #     [self.context_var, self.question_var, self.context_char_var, self.question_char_var,
+        #      self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
+        #      self.mask_question_char_var, self.answer_starts_var],
+        #     test_out[1])
 
-            self.compile_get_end_probs_fn([self.context_var, self.question_var, self.context_char_var, self.question_char_var,
-                                           self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
-                                           self.mask_question_char_var, self.answer_starts_var], test_out[1])
-        else:
-            print 'Skipping predictions functions.'
 
         print 'Done'
 
 
-    def compile_get_start_probs_fn(self, variables, out):
-        self.get_start_probs_fn = theano.function(variables, out)
-
-
-    def compile_get_end_probs_fn(self, variables, out):
-        self.get_end_probs_fn = theano.function(variables, out)
-
-
     def get_start_probs(self, data, batch_size, premade_bin_feats=False):
         result = []
+        intermediate_results = []
         for batch in self.iterate_minibatches(data, batch_size, with_answer_inds=False, premade_bin_feats=premade_bin_feats):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
-            out = self.get_start_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats,
-                                          context_mask, question_mask, context_char_mask, question_char_mask)
+            inter_res = self.get_intermediate_results_fn(
+                contexts, questions, contexts_char, questions_char, bin_feats,
+                context_mask, question_mask, context_char_mask, question_char_mask)
+            # inter_res = [inter_res[0].astype(theano.config.floatX), inter_res[1].astype(theano.config.floatX)]
+            out = self.get_start_probs_fn(contexts, context_mask, inter_res[0], inter_res[1])
+            # out = self.get_start_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats,
+            #                               context_mask, question_mask, context_char_mask, question_char_mask)
+            intermediate_results.append(inter_res)
             result.append(out)
 
-        return np.vstack(result)
+        return np.vstack(result), intermediate_results
 
     '''
     tu jest blad! rozne batche maja rozna dlugosc, trzeba to zrobic inaczej (albo wsadzac jednobatchowe porcje danych)
@@ -159,15 +177,17 @@ class QANet:
 
     # current implementation only allows for generating ends for one start index per example
     # to get end probs for k candidates for the start index, get_end_probs needs to be run k times
-    def get_end_probs(self, data, answer_start_inds, batch_size, premade_bin_feats=False):
+    def get_end_probs(self, data, answer_start_inds, batch_size, intermediate_results, premade_bin_feats=False):
         result = []
         idx = 0
-        for batch in self.iterate_minibatches(data, batch_size, with_answer_inds=False, premade_bin_feats=premade_bin_feats):
+        for i, batch in enumerate(self.iterate_minibatches(data, batch_size, with_answer_inds=False, premade_bin_feats=premade_bin_feats)):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
+            inter_res = intermediate_results[i]
             start_inds = answer_start_inds[idx:idx + batch_size]
-            out = self.get_end_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats,
-                                        context_mask, question_mask, context_char_mask, question_char_mask, start_inds)
+            out = self.get_end_probs_fn(contexts, context_mask, inter_res[0], inter_res[1], start_inds)
+            # out = self.get_end_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats,
+            #                             context_mask, question_mask, context_char_mask, question_char_mask, start_inds)
             result.append(out)
             idx += batch_size
 
@@ -222,13 +242,17 @@ class QANet:
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
             if not self.prefetch_word_embs:
                 param_values.insert(0, E)
+            for i in range(len(param_values)):
+                if param_values[i].dtype == 'float64':
+                    param_values[i] = param_values[i].astype(theano.config.floatX)
             L.layers.set_all_param_values(self.train_net, param_values)
 
 
+    # WARNING: I don't know if beam > 1 works anymore (I don't use it anyway)
     def _predict_spans(self, data, beam=1, batch_size=10):
         num_examples = len(data[0])
 
-        start_probs = self.get_start_probs(data, batch_size, premade_bin_feats=True)
+        start_probs, intermediate_results = self.get_start_probs(data, batch_size, premade_bin_feats=True)
         best_starts = start_probs.argpartition(-beam, axis=1)[:, -beam:].astype(np.int32)
 
         scores = start_probs[np.arange(num_examples)[:, np.newaxis], best_starts]
@@ -236,7 +260,7 @@ class QANet:
 
         best_ends_all = []
         for i in xrange(beam):
-            end_probs = self.get_end_probs(data, best_starts[:, i], batch_size, premade_bin_feats=True)
+            end_probs = self.get_end_probs(data, best_starts[:, i], batch_size, intermediate_results, premade_bin_feats=True)
             best_ends = end_probs.argpartition(-beam, axis=1)[:, -beam:]
             scores[:, i, :] *= end_probs[np.arange(num_examples)[:, np.newaxis], best_ends]
             best_ends_all.append(best_ends)
@@ -301,11 +325,14 @@ class QANet:
 
     def _build_net(self, emb_char_filter_size=5, emb_char_init=None, train_emb_char=True, emb_dropout=False, **kwargs):
 
-        batch_size = self.question_var.shape[0]
+        batch_size = self.context_var.shape[0]
         context_len = self.context_var.shape[1]
         question_len = self.question_var.shape[1]
         context_word_len = self.context_char_var.shape[2]
         question_word_len = self.question_char_var.shape[2]
+
+        self.batch_size = batch_size
+        self.context_len = context_len
 
         ''' Inputs '''
 
@@ -449,7 +476,7 @@ class QANet:
         l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
 
         l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
-        l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=1, batch_ndim=2) # for the question we fix the features to 1
+        l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=L.utils.floatX(1), batch_ndim=2) # for the question we fix the features to 1
 
         ''' Context and question encoding using the same BiLSTM for both '''
 
@@ -516,14 +543,16 @@ class QANet:
         # this is H from the paper
         l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (-1, 2 * self.rec_size)), # batch_size * context_len x rec_size
                                  num_units=self.rec_size,
-                                 W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
+                                 W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
+                                              np.eye(self.rec_size, dtype=theano.config.floatX)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 
         # this is Z from the paper
         l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (-1, 2 * self.rec_size)), # batch_size * question_len x rec_size
                                  num_units=self.rec_size,
-                                 W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
+                                 W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
+                                              np.eye(self.rec_size, dtype=theano.config.floatX)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 
@@ -538,41 +567,108 @@ class QANet:
 
         l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, -1, self.rec_size)), l_alpha]) # batch_size x rec_size
 
+        return l_c_proj, l_z_hat
+
+
+    def _build_predictors(self, l_c_proj, l_z_hat):
+
+        l_c_mask = None
+        if self.mask_context_var is not None:
+            l_c_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_var)
+
         ''' Answer span prediction '''
 
         # span start
 
-        l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj, (batch_size, context_len, self.rec_size)), l_z_hat])
+        l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj, (self.batch_size, self.context_len, self.rec_size)), l_z_hat])
 
-        l_start = LL.DenseLayer(LL.reshape(l_start_feat, (batch_size * context_len, 3*self.rec_size)),
+        l_start = LL.DenseLayer(LL.reshape(l_start_feat, (self.batch_size * self.context_len, 3 * self.rec_size)),
                                 num_units=self.rec_size,
-                                nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x rec_size
+                                nonlinearity=L.nonlinearities.rectify,
+                                name='start_dense') # batch_size * context_len x rec_size
 
         l_Vs = LL.DenseLayer(l_start, # batch_size * context_len x 1
                              num_units=1,
                              b=None,
-                             nonlinearity=None)
+                             nonlinearity=None,
+                             name='Vs')
 
         # this is p_s from the paper
-        l_start_soft = MaskedSoftmaxLayer([LL.reshape(l_Vs, (batch_size, context_len)), l_c_mask]) # batch_size x context_len
+        l_start_soft = MaskedSoftmaxLayer([LL.reshape(l_Vs, (self.batch_size, self.context_len)), l_c_mask]) # batch_size x context_len
 
         # span end
 
         l_answer_starts = LL.InputLayer(shape=(None,), input_var=self.answer_starts_var)
 
-        l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj, (batch_size, context_len, self.rec_size)), l_z_hat, l_answer_starts])
+        l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj, (self.batch_size, self.context_len, self.rec_size)), l_z_hat, l_answer_starts])
 
-        l_end = LL.DenseLayer(LL.reshape(l_end_feat, (batch_size * context_len, 5*self.rec_size)),
+        l_end = LL.DenseLayer(LL.reshape(l_end_feat, (self.batch_size * self.context_len, 5 * self.rec_size)),
                               num_units=self.rec_size,
-                              nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x self.rec_size
+                              nonlinearity=L.nonlinearities.rectify,
+                              name='end_dense') # batch_size * context_len x self.rec_size
 
         l_Ve = LL.DenseLayer(l_end, # batch_size * context_len x 1
                              num_units=1,
                              b=None,
+                             nonlinearity=None,
+                             name='Ve')
+
+        # this is p_e from the paper
+        l_end_soft = MaskedSoftmaxLayer([LL.reshape(l_Ve, (self.batch_size, self.context_len)), l_c_mask]) # batch_size x context_len
+
+        return l_start_soft, l_end_soft
+
+
+    def _build_predictors_from_intermediate_results(self, params):
+
+        l_c_mask = None
+        if self.mask_context_var is not None:
+            l_c_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_var)
+
+        l_c_proj = LL.InputLayer(shape=(None, self.rec_size), input_var=self.aux1_var)
+        l_z_hat = LL.InputLayer(shape=(None, self.rec_size), input_var=self.aux2_var)
+
+        ''' Answer span prediction from itermediate results '''
+
+        # span start
+
+        l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj, (self.batch_size, self.context_len, self.rec_size)), l_z_hat])
+
+        l_start = LL.DenseLayer(LL.reshape(l_start_feat, (self.batch_size * self.context_len, 3 * self.rec_size)),
+                                num_units=self.rec_size,
+                                W=params['start_dense.W'],
+                                b=params['start_dense.b'],
+                                nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x rec_size
+
+        l_Vs = LL.DenseLayer(l_start, # batch_size * context_len x 1
+                             num_units=1,
+                             W=params['Vs.W'],
+                             b=None,
+                             nonlinearity=None)
+
+        # this is p_s from the paper
+        l_start_soft = MaskedSoftmaxLayer([LL.reshape(l_Vs, (self.batch_size, self.context_len)), l_c_mask]) # batch_size x context_len
+
+        # span end
+
+        l_answer_starts = LL.InputLayer(shape=(None,), input_var=self.answer_starts_var)
+
+        l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj, (self.batch_size, self.context_len, self.rec_size)), l_z_hat, l_answer_starts])
+
+        l_end = LL.DenseLayer(LL.reshape(l_end_feat, (self.batch_size * self.context_len, 5 * self.rec_size)),
+                              num_units=self.rec_size,
+                              W=params['end_dense.W'],
+                              b=params['end_dense.b'],
+                              nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x self.rec_size
+
+        l_Ve = LL.DenseLayer(l_end, # batch_size * context_len x 1
+                             num_units=1,
+                             W=params['Ve.W'],
+                             b=None,
                              nonlinearity=None)
 
         # this is p_e from the paper
-        l_end_soft = MaskedSoftmaxLayer([LL.reshape(l_Ve, (batch_size, context_len)), l_c_mask]) # batch_size x context_len
+        l_end_soft = MaskedSoftmaxLayer([LL.reshape(l_Ve, (self.batch_size, self.context_len)), l_c_mask]) # batch_size x context_len
 
         return l_start_soft, l_end_soft
 

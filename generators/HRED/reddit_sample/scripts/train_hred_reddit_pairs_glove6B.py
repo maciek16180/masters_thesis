@@ -7,11 +7,11 @@ sys.path.append('../../')
 sys.path.append('../../../')
 from HRED import HRED
 
-from data_load.redditv3_load import load_pairs
+from data_load.redditv3_load import load_pairs_glove6B
 
 reddit_path = "/pio/data/data/reddit_sample/v3/"
 
-train_pairs, test_pairs = load_pairs(path=reddit_path)
+train_pairs, test_pairs = load_pairs_glove6B(path=reddit_path)
 
 glove6B = np.load('/pio/data/data/glove_vec/6B/glove/glove.6B.300d.npy')
 
@@ -32,18 +32,6 @@ net = HRED(voc_size=voc_size,
            train_inds=[0, 400002, 400003],
            skip_gen=True,
            emb_dropout=True)
-
-
-# net = HRED(voc_size=200000,
-#            emb_size=300,
-#            lv1_rec_size=300,
-#            lv2_rec_size=300,
-#            out_emb_size=300,
-#            num_sampled=1000,
-#            emb_init=None,
-#            train_emb=True,
-#            # train_inds=[0, 400002, 400003],
-#            skip_gen=True)
 
 last_scores = [np.inf]
 max_epochs_wo_improvement = 5
