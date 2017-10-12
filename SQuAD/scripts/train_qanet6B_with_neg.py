@@ -15,12 +15,12 @@ glove_path = '/pio/data/data/glove_vec/6B/glove/'
 use_negative_examples = True
 
 if not use_negative_examples:
-    print "Only positive samples"
+    print("Only positive samples")
     data = np.load(squad_path + 'train_words.pkl')
     data_char = np.load(squad_path + 'train_char_ascii.pkl')
     train_bin_feats = np.load(squad_path + 'train_bin_feats.pkl')
 else:
-    print "Using negative samples from wikipedia"
+    print("Using negative samples from wikipedia")
     squad_path += 'wiki_negative_train/'
     data_pos = np.load(squad_path + 'train_pos_words.pkl')
     data_neg = np.load(squad_path + 'train_neg_words.pkl')
@@ -41,7 +41,7 @@ def filter_broken_answers(data, data_char, train_bin_feats):
     data_new = []
     data_char_new = []
     train_bin_feats_new = []
-    for i in xrange(len(data)):
+    for i in range(len(data)):
         if data[i][0]:
             data_new.append(data[i])
             data_char_new.append(data_char[i])
@@ -52,7 +52,7 @@ def trim_data(data, data_char, train_bin_feats, trim=300):
     data_new = []
     data_char_new = []
     train_bin_feats_new = []
-    for i in xrange(len(data)):
+    for i in range(len(data)):
         if len(data[i][2]) > trim:
             if data[i][0][0][-1] < trim:
                 data_new.append(data[i][:2] + [data[i][2][:trim]])
@@ -88,11 +88,11 @@ model_filename = '../trained_models/glove6B/wiki_negative/charemb_trainNAW_dropo
 num_epochs = 100
 
 t0 = time.time()
-for epoch in xrange(1, num_epochs + 1):
-    print '\n\nStarting epoch {}...\n'.format(epoch)
+for epoch in range(1, num_epochs + 1):
+    print('\n\nStarting epoch {}...\n'.format(epoch))
     train_error = net.train_one_epoch(train_data=data, batch_size=12, log_interval=200)
-    print '\nTraining loss:   {}'.format(train_error)
+    print('\nTraining loss:   {}'.format(train_error))
     net.save_params(model_filename + '_ep{}'.format(epoch))
 
-print '\n\nTotal training time: {:.2f}s'.format(time.time() - t0)
-print 'Models saved as ' + model_filename
+print('\n\nTotal training time: {:.2f}s'.format(time.time() - t0))
+print('Models saved as ' + model_filename)

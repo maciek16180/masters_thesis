@@ -39,7 +39,7 @@ class TrainPartOfEmbsLayer(Layer):
             mask = self.rng.binomial((self.output_size,), p=self.keep_rate, dtype=theano.config.floatX)
             res_shape = res.shape
             res = res.reshape((-1, self.output_size))
-            res = (res * mask).reshape(res_shape)
+            res = (res * mask).reshape(res_shape) / self.keep_rate
 
         return res
 
