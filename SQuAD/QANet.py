@@ -20,11 +20,13 @@ from layers import HighwayLayer
 from layers import ForgetSizeLayer
 from layers import TrainPartOfEmbsLayer
 
+print('floatX ==', theano.config.floatX)
+
 
 class QANet:
 
-    def __init__(self, voc_size, alphabet_size, emb_size, emb_char_size, num_emb_char_filters, rec_size,
-                 emb_init, train_inds=[], squad_path='/pio/data/data/squad/',
+    def __init__(self, voc_size, emb_init, alphabet_size=128, emb_size=300, emb_char_size=20,
+                 num_emb_char_filters=200, rec_size=300, train_inds=[], squad_path='/pio/data/data/squad/',
                  working_path='evaluate/glove6B/training/', dev_path='/pio/data/data/squad/glove6B/',
                  checkpoint_examples=64000, prefetch_word_embs=False, **kwargs):
 
@@ -177,7 +179,7 @@ class QANet:
 
         for batch in self.iterate_minibatches(train_data, batch_size, shuffle=True):
             answer_inds = batch[-1]
-            params = batch[:-1] + [answer_inds[:,0], answer_inds[:,1], self.learning_rate]
+            params = list(batch[:-1]) + [answer_inds[:,0], answer_inds[:,1], self.learning_rate]
 
             train_err += self.train_fn(*params)
             train_batches += 1
@@ -217,7 +219,7 @@ class QANet:
             if not self.prefetch_word_embs:
                 param_values.insert(0, E)
             for i in range(len(param_values)):
-                if param_values[i].dtype == 'float64':
+                if param_values[i].dtype in ['float32', 'float64']:
                     param_values[i] = param_values[i].astype(theano.config.floatX)
             L.layers.set_all_param_values(self.train_net, param_values)
 
@@ -254,9 +256,9 @@ class QANet:
     def _calc_dev_f1(self, checkpoint, batch_size=10):
         if self.data_dev is None:
             self.data_dev = np.load(self.dev_path + 'dev.pkl')
-
-            dev = np.load(self.dev_path + 'dev_words.pkl')
-            dev_char = np.load(self.dev_path + 'dev_char_ascii.pkl')
+s
+            dev           = np.load(self.dev_path + 'dev_words.pkl')
+            dev_char      = np.load(self.dev_path + 'dev_char_ascii.pkl')
             dev_bin_feats = np.load(self.dev_path + 'dev_bin_feats.pkl')
             self.data_dev_num = dev, dev_char, dev_bin_feats
 
@@ -354,7 +356,6 @@ class QANet:
                                          W=l_c_char_emb.W)
 
         # here I do multiplication of character embeddings with masks, because I want to pad them with constant zeros
-        # (I don't want those padding zeros to change over time)
 
         l_c_char_mask = ForgetSizeLayer(LL.dimshuffle(l_c_char_mask, (0, 1, 2, 'x')))
         l_q_char_mask = ForgetSizeLayer(LL.dimshuffle(l_q_char_mask, (0, 1, 2, 'x')))
@@ -362,7 +363,7 @@ class QANet:
         l_c_char_emb = LL.ElemwiseMergeLayer([l_c_char_emb, l_c_char_mask], T.mul)
         l_q_char_emb = LL.ElemwiseMergeLayer([l_q_char_emb, l_q_char_mask], T.mul)
 
-        #
+        # convolutions
 
         l_c_char_emb = LL.dimshuffle(LL.reshape(l_c_char_emb, (batch_size * context_len, context_word_len, self.emb_char_size)),
                                      (0, 2, 1))
@@ -374,7 +375,6 @@ class QANet:
 
         l_c_char_emb = LL.ExpressionLayer(l_c_char_conv, lambda X: X.max(2), output_shape='auto')
         l_c_char_emb = LL.reshape(l_c_char_emb, (batch_size, context_len, self.num_emb_char_filters))
-        l_c_emb = LL.concat([l_c_emb, l_c_char_emb], axis=2)
 
         l_q_char_emb = LL.dimshuffle(LL.reshape(l_q_char_emb, (batch_size * question_len, question_word_len, self.emb_char_size)),
                                      (0, 2, 1))
@@ -388,9 +388,20 @@ class QANet:
 
         l_q_char_emb = LL.ExpressionLayer(l_q_char_conv, lambda X: X.max(2), output_shape='auto')
         l_q_char_emb = LL.reshape(l_q_char_emb, (batch_size, question_len, self.num_emb_char_filters))
+
+        ''' Concatenating both embeddings '''
+
+        l_c_emb = LL.concat([l_c_emb, l_c_char_emb], axis=2)
         l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)
 
         # originally I had dropout here
+
+        ''' Dropout at the embeddings '''
+
+        if emb_dropout:
+            print('Using dropout.')
+            l_c_emb = LL.dropout(l_c_emb)
+            l_q_emb = LL.dropout(l_q_emb)
 
         ''' Highway layer allowing for interaction between embeddings '''
 
@@ -423,13 +434,6 @@ class QANet:
         l_bin_feat = LL.InputLayer(shape=(None, None), input_var=self.bin_feat_var) # batch_size x context_len
         l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
 
-        ''' Dropout at the embeddings '''
-
-        if emb_dropout:
-            print('Using dropout.')
-            l_c_emb = LL.dropout(l_c_emb)
-            l_q_emb = LL.dropout(l_q_emb)
-
         ''' Here we concatenate wiq features to embeddings'''
 
         l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
@@ -452,61 +456,69 @@ class QANet:
                                     num_units=self.rec_size,
                                     grad_clipping=100,
                                     mask_input=l_q_mask,
-                                    ingate=LL.Gate(W_in=l_c_enc_forw.W_in_to_ingate,
-                                                   W_hid=l_c_enc_forw.W_hid_to_ingate,
-                                                   W_cell=l_c_enc_forw.W_cell_to_ingate,
-                                                   b=l_c_enc_forw.b_ingate),
-                                    forgetgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_forgetgate,
-                                                       W_hid=l_c_enc_forw.W_hid_to_forgetgate,
-                                                       W_cell=l_c_enc_forw.W_cell_to_forgetgate,
-                                                       b=l_c_enc_forw.b_forgetgate),
-                                    outgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_outgate,
-                                                    W_hid=l_c_enc_forw.W_hid_to_outgate,
-                                                    W_cell=l_c_enc_forw.W_cell_to_outgate,
-                                                    b=l_c_enc_forw.b_outgate),
-                                    cell=LL.Gate(W_in=l_c_enc_forw.W_in_to_cell,
-                                                 W_hid=l_c_enc_forw.W_hid_to_cell,
-                                                 W_cell=None,
-                                                 b=l_c_enc_forw.b_cell,
-                                                 nonlinearity=L.nonlinearities.tanh))
+                                    ingate=LL.Gate(
+                                        W_in  =l_c_enc_forw.W_in_to_ingate,
+                                        W_hid =l_c_enc_forw.W_hid_to_ingate,
+                                        W_cell=l_c_enc_forw.W_cell_to_ingate,
+                                        b     =l_c_enc_forw.b_ingate),
+                                    forgetgate=LL.Gate(
+                                        W_in  =l_c_enc_forw.W_in_to_forgetgate,
+                                        W_hid =l_c_enc_forw.W_hid_to_forgetgate,
+                                        W_cell=l_c_enc_forw.W_cell_to_forgetgate,
+                                        b     =l_c_enc_forw.b_forgetgate),
+                                    outgate=LL.Gate(
+                                        W_in  =l_c_enc_forw.W_in_to_outgate,
+                                        W_hid =l_c_enc_forw.W_hid_to_outgate,
+                                        W_cell=l_c_enc_forw.W_cell_to_outgate,
+                                        b     =l_c_enc_forw.b_outgate),
+                                    cell=LL.Gate(
+                                        W_in  =l_c_enc_forw.W_in_to_cell,
+                                        W_hid =l_c_enc_forw.W_hid_to_cell,
+                                        W_cell=None,
+                                        b     =l_c_enc_forw.b_cell,
+                                        nonlinearity=L.nonlinearities.tanh))
 
         l_q_enc_back = LL.LSTMLayer(l_q_emb,
                                     num_units=self.rec_size,
                                     grad_clipping=100,
                                     mask_input=l_q_mask,
                                     backwards=True,
-                                    ingate=LL.Gate(W_in=l_c_enc_back.W_in_to_ingate,
-                                                   W_hid=l_c_enc_back.W_hid_to_ingate,
-                                                   W_cell=l_c_enc_back.W_cell_to_ingate,
-                                                   b=l_c_enc_back.b_ingate),
-                                    forgetgate=LL.Gate(W_in=l_c_enc_back.W_in_to_forgetgate,
-                                                       W_hid=l_c_enc_back.W_hid_to_forgetgate,
-                                                       W_cell=l_c_enc_back.W_cell_to_forgetgate,
-                                                       b=l_c_enc_back.b_forgetgate),
-                                    outgate=LL.Gate(W_in=l_c_enc_back.W_in_to_outgate,
-                                                    W_hid=l_c_enc_back.W_hid_to_outgate,
-                                                    W_cell=l_c_enc_back.W_cell_to_outgate,
-                                                    b=l_c_enc_back.b_outgate),
-                                    cell=LL.Gate(W_in=l_c_enc_back.W_in_to_cell,
-                                                 W_hid=l_c_enc_back.W_hid_to_cell,
-                                                 W_cell=None,
-                                                 b=l_c_enc_back.b_cell,
-                                                 nonlinearity=L.nonlinearities.tanh))
+                                    ingate=LL.Gate(
+                                        W_in  =l_c_enc_back.W_in_to_ingate,
+                                        W_hid =l_c_enc_back.W_hid_to_ingate,
+                                        W_cell=l_c_enc_back.W_cell_to_ingate,
+                                        b     =l_c_enc_back.b_ingate),
+                                    forgetgate=LL.Gate(
+                                        W_in  =l_c_enc_back.W_in_to_forgetgate,
+                                        W_hid =l_c_enc_back.W_hid_to_forgetgate,
+                                        W_cell=l_c_enc_back.W_cell_to_forgetgate,
+                                        b     =l_c_enc_back.b_forgetgate),
+                                    outgate=LL.Gate(
+                                        W_in  =l_c_enc_back.W_in_to_outgate,
+                                        W_hid =l_c_enc_back.W_hid_to_outgate,
+                                        W_cell=l_c_enc_back.W_cell_to_outgate,
+                                        b     =l_c_enc_back.b_outgate),
+                                    cell=LL.Gate(
+                                        W_in  =l_c_enc_back.W_in_to_cell,
+                                        W_hid =l_c_enc_back.W_hid_to_cell,
+                                        W_cell=None,
+                                        b     =l_c_enc_back.b_cell,
+                                        nonlinearity=L.nonlinearities.tanh))
 
 
-        l_c_enc = LL.concat([l_c_enc_forw, l_c_enc_back], axis=2) # batch_size x context_len x 2*rec_size
+        l_c_enc = LL.concat([l_c_enc_forw, l_c_enc_back], axis=2) # batch_size x context_len  x 2*rec_size
         l_q_enc = LL.concat([l_q_enc_forw, l_q_enc_back], axis=2) # batch_size x question_len x 2*rec_size
 
-        # this is H from the paper
-        l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (-1, 2 * self.rec_size)), # batch_size * context_len x rec_size
+        # this is H from the paper, shape: (batch_size * context_len x rec_size)
+        l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (batch_size * context_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
                                  W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
                                               np.eye(self.rec_size, dtype=theano.config.floatX)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 
-        # this is Z from the paper
-        l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (-1, 2 * self.rec_size)), # batch_size * question_len x rec_size
+        # this is Z from the paper, shape: (batch_size * question_len x rec_size)
+        l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (batch_size * question_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
                                  W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
                                               np.eye(self.rec_size, dtype=theano.config.floatX)]),
@@ -520,9 +532,11 @@ class QANet:
                                 b=None,
                                 nonlinearity=None)
 
-        l_alpha = MaskedSoftmaxLayer([LL.reshape(l_alpha, (batch_size, -1)), l_q_mask])
+        # batch_size x question_len
+        l_alpha = MaskedSoftmaxLayer(LL.reshape(l_alpha, (batch_size, question_len)), l_q_mask)
 
-        l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, -1, self.rec_size)), l_alpha]) # batch_size x rec_size
+        # batch_size x rec_size
+        l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, question_len, self.rec_size)), l_alpha])
 
         return l_c_proj, l_z_hat
 
@@ -535,7 +549,8 @@ class QANet:
 
         # span start
 
-        l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj, (self.batch_size, self.context_len, self.rec_size)), l_z_hat])
+        l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj,
+            (self.batch_size, self.context_len, self.rec_size)), l_z_hat])
 
         l_start = LL.DenseLayer(LL.reshape(l_start_feat, (self.batch_size * self.context_len, 3 * self.rec_size)),
                                 num_units=self.rec_size,
@@ -548,14 +563,15 @@ class QANet:
                              nonlinearity=None,
                              name='Vs')
 
-        # this is p_s from the paper
-        l_start_soft = MaskedSoftmaxLayer([LL.reshape(l_Vs, (self.batch_size, self.context_len)), l_c_mask]) # batch_size x context_len
+        # this is p_s from the paper, shape: (batch_size x context_len)
+        l_start_soft = MaskedSoftmaxLayer(LL.reshape(l_Vs, (self.batch_size, self.context_len)), l_c_mask)
 
         # span end
 
         l_answer_starts = LL.InputLayer(shape=(None,), input_var=self.answer_starts_var)
 
-        l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj, (self.batch_size, self.context_len, self.rec_size)), l_z_hat, l_answer_starts])
+        l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj,
+            (self.batch_size, self.context_len, self.rec_size)), l_z_hat, l_answer_starts])
 
         l_end = LL.DenseLayer(LL.reshape(l_end_feat, (self.batch_size * self.context_len, 5 * self.rec_size)),
                               num_units=self.rec_size,
@@ -568,8 +584,8 @@ class QANet:
                              nonlinearity=None,
                              name='Ve')
 
-        # this is p_e from the paper
-        l_end_soft = MaskedSoftmaxLayer([LL.reshape(l_Ve, (self.batch_size, self.context_len)), l_c_mask]) # batch_size x context_len
+        # this is p_e from the paper, shape: (batch_size x context_len)
+        l_end_soft = MaskedSoftmaxLayer(LL.reshape(l_Ve, (self.batch_size, self.context_len)), l_c_mask)
 
         return l_start_soft, l_end_soft
 
@@ -579,7 +595,7 @@ class QANet:
         l_c_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_var)
 
         l_c_proj = LL.InputLayer(shape=(None, self.rec_size), input_var=self.aux1_var)
-        l_z_hat = LL.InputLayer(shape=(None, self.rec_size), input_var=self.aux2_var)
+        l_z_hat  = LL.InputLayer(shape=(None, self.rec_size), input_var=self.aux2_var)
 
         ''' Answer span prediction from itermediate results '''
 
@@ -600,7 +616,7 @@ class QANet:
                              nonlinearity=None)
 
         # this is p_s from the paper
-        l_start_soft = MaskedSoftmaxLayer([LL.reshape(l_Vs, (self.batch_size, self.context_len)), l_c_mask]) # batch_size x context_len
+        l_start_soft = MaskedSoftmaxLayer(LL.reshape(l_Vs, (self.batch_size, self.context_len)), l_c_mask) # batch_size x context_len
 
         # span end
 
@@ -621,7 +637,7 @@ class QANet:
                              nonlinearity=None)
 
         # this is p_e from the paper
-        l_end_soft = MaskedSoftmaxLayer([LL.reshape(l_Ve, (self.batch_size, self.context_len)), l_c_mask]) # batch_size x context_len
+        l_end_soft = MaskedSoftmaxLayer(LL.reshape(l_Ve, (self.batch_size, self.context_len)), l_c_mask) # batch_size x context_len
 
         return l_start_soft, l_end_soft
 
@@ -657,7 +673,9 @@ class QANet:
             bin_feats      = []
             questions_char = []
             contexts_char  = []
-            answer_inds    = []
+
+            if with_answer_inds:
+                answer_inds = []
 
             for (ans, q, c), (q_char, c_char), bf in zip(examples, examples_char, examples_bin_feats):
                 q  = q  + [pad] * (question_len - len(q))
@@ -675,19 +693,23 @@ class QANet:
                 bin_feats.     append(bf)
                 questions_char.append([q_char])
                 contexts_char. append([c_char])
-                answer_inds.   append((min(ans[0]), max(ans[0])))
+
+                if with_answer_inds:
+                    answer_inds.append((min(ans[0]), max(ans[0])))
 
             questions      = np.vstack(questions).     astype(np.int32)
             contexts       = np.vstack(contexts).      astype(np.int32)
-            bin_feats      = np.vstack(bin_feats).     astype(np.float32)
+            bin_feats      = np.vstack(bin_feats).     astype(theano.config.floatX)
             questions_char = np.vstack(questions_char).astype(np.int32)
             contexts_char  = np.vstack(contexts_char). astype(np.int32)
-            answer_inds    = np.vstack(answer_inds).   astype(np.int32)
 
-            question_mask      = (questions      != pad).astype(np.float32)
-            context_mask       = (contexts       != pad).astype(np.float32)
-            question_char_mask = (questions_char != pad).astype(np.float32)
-            context_char_mask  = (contexts_char  != pad).astype(np.float32)
+            if with_answer_inds:
+                answer_inds = np.vstack(answer_inds).astype(np.int32)
+
+            question_mask      = (questions      != pad).astype(theano.config.floatX)
+            context_mask       = (contexts       != pad).astype(theano.config.floatX)
+            question_char_mask = (questions_char != pad).astype(theano.config.floatX)
+            context_char_mask  = (contexts_char  != pad).astype(theano.config.floatX)
 
             if self.prefetch_word_embs:
                 questions = self.word_embeddings[questions]

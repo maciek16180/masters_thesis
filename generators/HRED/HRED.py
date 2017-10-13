@@ -251,13 +251,13 @@ class HRED():
 
         ''' Level 1 (sentence) BiGRU encoding with L2-pooling '''
 
-        l_lv1_enc_forw = L.layers.GRULayer(l_emb, # we process all utts in parallel, out_shape is batch_size * n x lv1_rec_size
+        l_lv1_enc_forw = L.layers.GRULayer(l_emb,
                                            num_units=self.lv1_rec_size,
                                            grad_clipping=100,
                                            mask_input=l_mask,
                                            name='GRU1forw')
 
-        l_lv1_enc_back = L.layers.GRULayer(l_emb, # backward pass of encoder rnn, out_shape is batch_size * n x lv1_rec_size
+        l_lv1_enc_back = L.layers.GRULayer(l_emb,
                                            num_units=self.lv1_rec_size,
                                            grad_clipping=100,
                                            mask_input=l_mask,
