@@ -49,7 +49,7 @@ class WeightedFeatureLayer(MergeLayer):
         sums = esim.sum(axis=2)
         esim /= sums.dimshuffle(0, 1, 'x')
 
-        # esim *= q_mask.reshape((batch_size, -1, 1))
+        esim *= q_mask.reshape((batch_size, -1, 1))
 
         return esim.sum(axis=1) # batch_size x context_len
 

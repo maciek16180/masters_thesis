@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 import numpy as np
-import theano, os, io
+import theano, os, json
 import theano.tensor as T
 import time
 
@@ -256,7 +256,6 @@ class QANet:
     def _calc_dev_f1(self, checkpoint, batch_size=10):
         if self.data_dev is None:
             self.data_dev = np.load(self.dev_path + 'dev.pkl')
-s
             dev           = np.load(self.dev_path + 'dev_words.pkl')
             dev_char      = np.load(self.dev_path + 'dev_char_ascii.pkl')
             dev_bin_feats = np.load(self.dev_path + 'dev_bin_feats.pkl')
@@ -278,18 +277,16 @@ s
 
         predicted_spans = np.hstack(predicted_spans).T
 
-        prediction_path = self.working_path + 'pred_checkpoint%i.txt' % checkpoint
+        prediction_path = self.working_path + 'pred_checkpoint%i.json' % checkpoint
 
-        with io.open(prediction_path, 'w', encoding='utf-8') as f:
-            f.write(u'{')
-            for i in range(len(self.data_dev)):
-                ans = ' '.join(self.data_dev[i][2][predicted_spans[i][0]:predicted_spans[i][1] + 1])
-                ans = ans.replace('"', '\\"')
-                Id = self.data_dev[i][3]
-                f.write(u'"{}": "{}"'.format(Id, ans))
-                if i < len(self.data_dev) - 1:
-                    f.write(u', ')
-            f.write(u'}')
+        prediction_dict = {}
+        for i in range(len(self.data_dev)):
+            ans = u' '.join(self.data_dev[i][2][predicted_spans[i][0]:predicted_spans[i][1] + 1])
+            Id = self.data_dev[i][3]
+            prediction_dict[Id] = ans
+
+        with open(prediction_path, 'w') as f:
+            json.dump(prediction_dict, f)
 
         res = os.system('python ' + \
                         self.squad_path + 'evaluate-v1.1.py ' + \
@@ -400,8 +397,8 @@ s
 
         if emb_dropout:
             print('Using dropout.')
-            l_c_emb = LL.dropout(l_c_emb)
-            l_q_emb = LL.dropout(l_q_emb)
+            l_c_emb = LL.dropout_locations(l_c_emb)
+            l_q_emb = LL.dropout_locations(l_q_emb)
 
         ''' Highway layer allowing for interaction between embeddings '''
 
