@@ -26,7 +26,8 @@ net = QANet(voc_size=voc_size,
             emb_init=glove_embs,
             train_inds=[],
             emb_dropout=True,
-            working_path='../evaluate/glove6B/training_old/')
+            working_path='../evaluate/glove6B/training_old/',
+            prefetch_word_embs=True)
 
 model_filename = '../trained_models/glove6B/old/old'
 

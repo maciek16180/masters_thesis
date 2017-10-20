@@ -28,6 +28,8 @@ class QANet:
                  working_path='evaluate/glove6B/training/', dev_path='/pio/data/data/squad/glove6B/',
                  using_negative=False, checkpoint_examples=64000, prefetch_word_embs=False, **kwargs):
 
+        print "prefetch:", prefetch_word_embs
+
         self.data_dev = None
         self.data_dev_num = None
         self.squad_path = squad_path
