@@ -101,6 +101,9 @@ def train_QANet(net, train_data, model_filename, batch_size, num_epochs=100, log
                                           batch_size=batch_size,
                                           log_interval=log_interval)
         print('\nTraining loss:   {}'.format(train_error))
+        if np.isnan(train_error):
+            print("Encountered NaN, finishing...")
+            break
         net.save_params(model_filename + '_ep{}'.format(epoch))
 
     print('Models saved as ' + model_filename)

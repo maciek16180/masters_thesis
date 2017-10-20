@@ -21,6 +21,7 @@ from layers import ForgetSizeLayer
 from layers import TrainPartOfEmbsLayer
 
 print('floatX ==', theano.config.floatX)
+print('device ==', theano.config.device)
 
 
 class QANet:
@@ -28,7 +29,7 @@ class QANet:
     def __init__(self, voc_size, emb_init, alphabet_size=128, emb_size=300, emb_char_size=20,
                  num_emb_char_filters=200, rec_size=300, train_inds=[], squad_path='/pio/data/data/squad/',
                  working_path='evaluate/glove6B/training/', dev_path='/pio/data/data/squad/glove6B/',
-                 checkpoint_examples=64000, prefetch_word_embs=False, **kwargs):
+                 checkpoint_examples=64000, prefetch_word_embs=False, init_lrate=0.001, **kwargs):
 
         self.data_dev     = None #
         self.data_dev_num = None # those will be filled later
@@ -73,8 +74,8 @@ class QANet:
         self.answer_starts_var = T.ivector('answer_starts')
         self.answer_ends_var   = T.ivector('answer_ends')
 
-        self.aux1_var = T.matrix('aux1')
-        self.aux2_var = T.matrix('aux2')
+        self.aux1_var = T.dmatrix('aux1')
+        self.aux2_var = T.dmatrix('aux2')
 
         # BUILD THE MODEL
 
@@ -102,7 +103,7 @@ class QANet:
         params = LL.get_all_params(self.train_net, trainable=True)
 
         learning_rate_var = T.scalar('learning_rate')
-        self.learning_rate = .001
+        self.learning_rate = init_lrate
         update_fn = lambda l, p: L.updates.adam(l, p, learning_rate=learning_rate_var)
 
         updates = update_fn(train_loss, params)
@@ -397,8 +398,8 @@ class QANet:
 
         if emb_dropout:
             print('Using dropout.')
-            l_c_emb = LL.dropout_locations(l_c_emb)
-            l_q_emb = LL.dropout_locations(l_q_emb)
+            l_c_emb = LL.dropout(l_c_emb)
+            l_q_emb = LL.dropout(l_q_emb)
 
         ''' Highway layer allowing for interaction between embeddings '''
 
@@ -509,16 +510,16 @@ class QANet:
         # this is H from the paper, shape: (batch_size * context_len x rec_size)
         l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (batch_size * context_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
-                                 W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
-                                              np.eye(self.rec_size, dtype=theano.config.floatX)]),
+                                 W=np.vstack([np.eye(self.rec_size),# dtype=theano.config.floatX),
+                                              np.eye(self.rec_size)]),# dtype=theano.config.floatX)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 
         # this is Z from the paper, shape: (batch_size * question_len x rec_size)
         l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (batch_size * question_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
-                                 W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
-                                              np.eye(self.rec_size, dtype=theano.config.floatX)]),
+                                 W=np.vstack([np.eye(self.rec_size),# dtype=theano.config.floatX),
+                                              np.eye(self.rec_size)]),# dtype=theano.config.floatX)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 

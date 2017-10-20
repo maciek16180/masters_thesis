@@ -1,8 +1,8 @@
 import numpy as np
 import os, sys
 
+os.environ["THEANORC"] = "~/.theanorc.cpu"
 # os.environ["THEANO_FLAGS"] = "floatX=float64"
-# os.environ["THEANORC"] = "~/.theanorc.cuda"
 sys.path.append('../')
 
 from QANet import QANet
@@ -24,12 +24,10 @@ net = QANet(voc_size=voc_size,
             emb_init=glove_embs,
             train_inds=[],
             emb_dropout=True,
-            working_path='../evaluate/glove6B/training/',
+            working_path='../evaluate/glove6B/training3/',
             dev_path='/pio/data/data/squad/glove6B/',
-            prefetch_word_embs=True,
-            init_lrate=0.001,
-            checkpoint_examples=64000)
+            prefetch_word_embs=True)
 
-model_filename = '../trained_models/glove6B/charemb_fixed_dropout2/charemb_fixed_dropout2'
+model_filename = '../trained_models/glove6B/charemb_fixed_dropout4/charemb_fixed_dropout4'
 
-train_QANet(net, train_data, model_filename, batch_size=15)
+train_QANet(net, train_data, model_filename, batch_size=40)

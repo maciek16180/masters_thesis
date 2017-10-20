@@ -1,11 +1,13 @@
 import numpy as np
 import os, sys
 
-# os.environ["THEANO_FLAGS"] = "floatX=float64"
-# os.environ["THEANORC"] = "~/.theanorc.cuda"
+os.environ["THEANORC"] = "~/.theanorc.cuda"
+
+import time
+
 sys.path.append('../')
 
-from QANet import QANet
+from QANet_old import QANet
 from squad_tools import load_squad_train, filter_empty_answers, trim_data, train_QANet
 
 
@@ -24,12 +26,8 @@ net = QANet(voc_size=voc_size,
             emb_init=glove_embs,
             train_inds=[],
             emb_dropout=True,
-            working_path='../evaluate/glove6B/training/',
-            dev_path='/pio/data/data/squad/glove6B/',
-            prefetch_word_embs=True,
-            init_lrate=0.001,
-            checkpoint_examples=64000)
+            working_path='../evaluate/glove6B/training_old/')
 
-model_filename = '../trained_models/glove6B/charemb_fixed_dropout2/charemb_fixed_dropout2'
+model_filename = '../trained_models/glove6B/old/old'
 
 train_QANet(net, train_data, model_filename, batch_size=15)
