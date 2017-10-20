@@ -29,6 +29,8 @@ net = QANet(voc_size=voc_size,
             working_path='../evaluate/glove6B/training_old/',
             prefetch_word_embs=True)
 
+print("prefetch:", net.prefetch_word_embs)
+
 model_filename = '../trained_models/glove6B/old/old'
 
 train_QANet(net, train_data, model_filename, batch_size=15)

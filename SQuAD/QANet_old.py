@@ -1,4 +1,5 @@
 # similar to FastQA, https://arxiv.org/abs/1703.04816
+# vectors can be stored in RAM instead of GPU memory, works with GloVe 840B
 
 from __future__ import print_function
 
@@ -30,10 +31,8 @@ class QANet:
                  working_path='evaluate/glove6B/training/', dev_path='/pio/data/data/squad/glove6B/',
                  checkpoint_examples=64000, prefetch_word_embs=False, init_lrate=0.001, **kwargs):
 
-        print("prefetch:", prefetch_word_embs)
-
-        self.data_dev     = None
-        self.data_dev_num = None
+        self.data_dev     = None #
+        self.data_dev_num = None # those will be filled later
         self.squad_path   = squad_path
         self.working_path = working_path
         self.dev_path     = dev_path
@@ -199,12 +198,19 @@ class QANet:
         np.savez(fname, *params)
 
 
-    def load_params(self, fname, E): # E is the fixed word embeddings matrix
+    def load_params(self, fname, E=None): # E is the fixed word embeddings matrix
+        assert self.prefetch_word_embs or E is not None
         with np.load(fname) as f:
-            param_values = [E] + [f['arr_%d' % i] for i in range(len(f.files))]
+            param_values = [f['arr_%d' % i] for i in range(len(f.files))]
+            if not self.prefetch_word_embs:
+                param_values.insert(0, E)
+            for i in range(len(param_values)):
+                if param_values[i].dtype in ['float32', 'float64']:
+                    param_values[i] = param_values[i].astype(theano.config.floatX)
             L.layers.set_all_param_values(self.train_net, param_values)
 
 
+    # WARNING: I don't know if beam > 1 works anymore (I don't use it anyway)
     def _predict_spans(self, data, beam=1, batch_size=10):
         num_examples = len(data[0])
 
@@ -280,7 +286,7 @@ class QANet:
 
     def _build_net(self, emb_char_filter_size=5, emb_dropout=False, **kwargs):
 
-        batch_size        = self.question_var.shape[0]
+        batch_size        = self.context_var.shape[0]
         context_len       = self.context_var.shape[1]
         question_len      = self.question_var.shape[1]
         context_word_len  = self.context_char_var.shape[2]
@@ -324,7 +330,7 @@ class QANet:
 
         ''' Char-embeddings '''
 
-        l_c_char_emb = LL.EmbeddingLayer(l_context_char,
+        l_c_char_emb = LL.EmbeddingLayer(l_context_char, # (batch_size x context_len x context_word_len x emb_char_size)
                                          input_size=self.alphabet_size,
                                          output_size=self.emb_char_size)
 
@@ -370,8 +376,10 @@ class QANet:
 
         ''' Concatenating both embeddings '''
 
-        l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)
         l_c_emb = LL.concat([l_c_emb, l_c_char_emb], axis=2)
+        l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)
+
+        # originally I had dropout here
 
         ''' Dropout at the embeddings '''
 
@@ -403,13 +411,15 @@ class QANet:
                                 b2=l_c_high.b2)
         l_q_emb = LL.reshape(l_q_high, (batch_size, question_len, self.rec_size))
 
-        ''' Here we calculate wiq features from https://arxiv.org/abs/1703.04816 '''
+        ''' Calculating wiq features from https://arxiv.org/abs/1703.04816 '''
 
-        l_feat = WeightedFeatureLayer([l_c_emb, l_q_emb, l_c_mask, l_q_mask])
-        l_weighted_feat = LL.dimshuffle(l_feat, (0, 1, 'x'))
+        l_weighted_feat = WeightedFeatureLayer([l_c_emb, l_q_emb, l_c_mask, l_q_mask]) # batch_size x context_len
+        l_weighted_feat = LL.dimshuffle(l_weighted_feat, (0, 1, 'x'))
 
-        l_bin_feat = LL.InputLayer(shape=(None, None), input_var=self.bin_feat_var)
+        l_bin_feat = LL.InputLayer(shape=(None, None), input_var=self.bin_feat_var) # batch_size x context_len
         l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
+
+        ''' Here we concatenate wiq features to embeddings'''
 
         l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
         l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=L.utils.floatX(1), batch_ndim=2) # for the question we fix the features to 1
@@ -447,7 +457,7 @@ class QANet:
                                         W_cell=l_c_enc_forw.W_cell_to_outgate,
                                         b     =l_c_enc_forw.b_outgate),
                                     cell=LL.Gate(
-                                        W_in= l_c_enc_forw.W_in_to_cell,
+                                        W_in  =l_c_enc_forw.W_in_to_cell,
                                         W_hid =l_c_enc_forw.W_hid_to_cell,
                                         W_cell=None,
                                         b     =l_c_enc_forw.b_cell,
@@ -485,14 +495,14 @@ class QANet:
         l_q_enc = LL.concat([l_q_enc_forw, l_q_enc_back], axis=2) # batch_size x question_len x 2*rec_size
 
         # this is H from the paper, shape: (batch_size * context_len x rec_size)
-        l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (-1, 2 * self.rec_size)), # batch_size * context_len x rec_size
+        l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (batch_size * context_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
                                  W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 
         # this is Z from the paper, shape: (batch_size * question_len x rec_size)
-        l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (-1, 2 * self.rec_size)), # batch_size * question_len x rec_size
+        l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (batch_size * question_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
                                  W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
                                  b=None,
@@ -506,10 +516,10 @@ class QANet:
                                 nonlinearity=None)
 
         # batch_size x question_len
-        l_alpha = MaskedSoftmaxLayer(LL.reshape(l_alpha, (batch_size, -1)), l_q_mask)
+        l_alpha = MaskedSoftmaxLayer(LL.reshape(l_alpha, (batch_size, question_len)), l_q_mask)
 
         # batch_size x rec_size
-        l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, -1, self.rec_size)), l_alpha]) # batch_size x rec_size
+        l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, question_len, self.rec_size)), l_alpha])
 
         ''' Answer span prediction '''
 
@@ -518,7 +528,7 @@ class QANet:
         l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj,
             (self.batch_size, self.context_len, self.rec_size)), l_z_hat])
 
-        l_start = LL.DenseLayer(LL.reshape(l_start_feat, (self.batch_size * self.context_len, 3*self.rec_size)),
+        l_start = LL.DenseLayer(LL.reshape(l_start_feat, (self.batch_size * self.context_len, 3 * self.rec_size)),
                                 num_units=self.rec_size,
                                 nonlinearity=L.nonlinearities.rectify,
                                 name='start_dense') # batch_size * context_len x rec_size
@@ -530,7 +540,7 @@ class QANet:
                              name='Vs')
 
         # this is p_s from the paper, shape: (batch_size x context_len)
-        l_start_soft = MaskedSoftmaxLayer(LL.reshape(l_Vs, (self.batch_size, self.context_len)), l_c_mask) # batch_size x context_len
+        l_start_soft = MaskedSoftmaxLayer(LL.reshape(l_Vs, (self.batch_size, self.context_len)), l_c_mask)
 
         # span end
 
@@ -539,7 +549,7 @@ class QANet:
         l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj,
             (self.batch_size, self.context_len, self.rec_size)), l_z_hat, l_answer_starts])
 
-        l_end = LL.DenseLayer(LL.reshape(l_end_feat, (self.batch_size * self.context_len, 5*self.rec_size)),
+        l_end = LL.DenseLayer(LL.reshape(l_end_feat, (self.batch_size * self.context_len, 5 * self.rec_size)),
                               num_units=self.rec_size,
                               nonlinearity=L.nonlinearities.rectify,
                               name='end_dense') # batch_size * context_len x self.rec_size
@@ -551,7 +561,7 @@ class QANet:
                              name='Ve')
 
         # this is p_e from the paper, shape: (batch_size x context_len)
-        l_end_soft = MaskedSoftmaxLayer(LL.reshape(l_Ve, (self.batch_size, self.context_len)), l_c_mask) # batch_size x context_len
+        l_end_soft = MaskedSoftmaxLayer(LL.reshape(l_Ve, (self.batch_size, self.context_len)), l_c_mask)
 
         return l_start_soft, l_end_soft
 
