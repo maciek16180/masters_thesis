@@ -110,24 +110,22 @@ class QANet:
         if compile_train_fn:
             print('    train_fn...')
             self.train_fn = theano.function(
-                [self.context_var, self.question_var, self.context_char_var, self.question_char_var, self.bin_feat_var,
-                 self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
-                 self.mask_question_char_var, self.answer_starts_var, self.answer_ends_var,
-                 learning_rate_var],
+                [self.question_var, self.context_var, self.question_char_var, self.context_char_var, self.bin_feat_var,
+                 self.mask_question_var, self.mask_context_var, self.mask_question_char_var, self.mask_context_char_var,
+                 self.answer_starts_var, self.answer_ends_var, learning_rate_var],
                 train_loss, updates=updates)
 
         print('    get_start_probs_fn...')
         self.get_start_probs_fn = theano.function(
-            [self.context_var, self.question_var, self.context_char_var, self.question_char_var,
-             self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
-             self.mask_question_char_var],
+            [self.question_var, self.context_var, self.question_char_var, self.context_char_var, self.bin_feat_var,
+             self.mask_question_var, self.mask_context_var, self.mask_question_char_var, self.mask_context_char_var],
             test_out[0])
 
         print('    get_end_probs_fn...')
         self.get_end_probs_fn = theano.function(
-            [self.context_var, self.question_var, self.context_char_var, self.question_char_var,
-             self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
-             self.mask_question_char_var, self.answer_starts_var],
+            [self.question_var, self.context_var, self.question_char_var, self.context_char_var, self.bin_feat_var,
+             self.mask_question_var, self.mask_context_var, self.mask_question_char_var, self.mask_context_char_var,
+             self.answer_starts_var],
             test_out[1])
 
         print('Done')
@@ -136,10 +134,7 @@ class QANet:
     def get_start_probs(self, data, batch_size):
         result = []
         for batch in self.iterate_minibatches(data, batch_size, with_answer_inds=False):
-            questions, contexts, questions_char, contexts_char, bin_feats, \
-                question_mask, context_mask, question_char_mask, context_char_mask = batch
-            out = self.get_start_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats,
-                                          context_mask, question_mask, context_char_mask, question_char_mask)
+            out = self.get_start_probs_fn(*batch)
             result.append(out)
 
         return np.vstack(result)
@@ -155,11 +150,9 @@ class QANet:
         result = []
         idx = 0
         for batch in self.iterate_minibatches(data, batch_size, with_answer_inds=False):
-            questions, contexts, questions_char, contexts_char, bin_feats, \
-                question_mask, context_mask, question_char_mask, context_char_mask = batch
             start_inds = answer_start_inds[idx:idx + batch_size]
-            out = self.get_end_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats,
-                                        context_mask, question_mask, context_char_mask, question_char_mask, start_inds)
+            params = batch + (start_inds,)
+            out = self.get_end_probs_fn(*params)
             result.append(out)
             idx += batch_size
 
@@ -172,12 +165,10 @@ class QANet:
         start_time    = time.time()
 
         for batch in self.iterate_minibatches(train_data, batch_size, shuffle=True):
-            questions, contexts, questions_char, contexts_char, bin_feats, \
-                question_mask, context_mask, question_char_mask, context_char_mask, answer_inds = batch
+            answer_inds = batch[-1]
+            params = list(batch[:-1]) + [answer_inds[:,0], answer_inds[:,1], self.learning_rate]
 
-            train_err += self.train_fn(contexts, questions, contexts_char, questions_char, bin_feats,
-                                       context_mask, question_mask, context_char_mask, question_char_mask,
-                                       answer_inds[:,0], answer_inds[:,1], self.learning_rate)
+            train_err += self.train_fn(*params)
             train_batches += 1
             self.examples_since_last_checkpoint += batch_size
 
