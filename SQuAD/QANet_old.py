@@ -522,12 +522,10 @@ class QANet:
         # batch_size x rec_size
         l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, question_len, self.rec_size)), l_alpha])
 
-        return l_c_proj, l_z_hat
+        return l_c_proj, l_z_hat, l_c_mask
 
 
-    def _build_predictors(self, l_c_proj, l_z_hat):
-
-        l_c_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_var)
+    def _build_predictors(self, l_c_proj, l_z_hat, l_c_mask):
 
         ''' Answer span prediction '''
 
