@@ -1,5 +1,7 @@
 # similar to FastQA, https://arxiv.org/abs/1703.04816
 
+from __future__ import print_function
+
 import numpy as np
 import theano, os, json
 import theano.tensor as T
@@ -26,15 +28,15 @@ class QANet:
     def __init__(self, voc_size, emb_init, alphabet_size=128, emb_size=300, emb_char_size=20,
                  num_emb_char_filters=200, rec_size=300, train_inds=[], squad_path='/pio/data/data/squad/',
                  working_path='evaluate/glove6B/training/', dev_path='/pio/data/data/squad/glove6B/',
-                 using_negative=False, checkpoint_examples=64000, prefetch_word_embs=False, **kwargs):
+                 checkpoint_examples=64000, prefetch_word_embs=False, init_lrate=0.001, **kwargs):
 
-        print "prefetch:", prefetch_word_embs
+        print("prefetch:", prefetch_word_embs)
 
-        self.data_dev = None
+        self.data_dev     = None
         self.data_dev_num = None
-        self.squad_path = squad_path
+        self.squad_path   = squad_path
         self.working_path = working_path
-        self.dev_path = dev_path
+        self.dev_path     = dev_path
 
         self.checkpoint_examples = checkpoint_examples
         self.examples_since_last_checkpoint = 0
@@ -60,20 +62,22 @@ class QANet:
             self.context_var  = T.tensor3('contexts')
 
         self.mask_question_var = T.matrix('question_mask')
-        self.mask_context_var = T.matrix('context_mask')
-
-        self.context_char_var = T.itensor3('context_char')
-        self.mask_context_char_var = T.tensor3('context_char_mask')
+        self.mask_context_var  = T.matrix('context_mask')
 
         self.question_char_var = T.itensor3('question_char')
+        self.context_char_var  = T.itensor3('context_char')
+
         self.mask_question_char_var = T.tensor3('question_char_mask')
+        self.mask_context_char_var  = T.tensor3('context_char_mask')
 
         self.bin_feat_var = T.matrix('bin_feat')
+
         self.answer_starts_var = T.ivector('answer_starts')
-        self.answer_ends_var = T.ivector('answer_ends')
+        self.answer_ends_var   = T.ivector('answer_ends')
 
         # BUILD THE MODEL
-        print 'Building the model...'
+
+        print('Building the model...')
 
         self.train_net = self._build_net(**kwargs)
 
@@ -84,53 +88,49 @@ class QANet:
 
         start_probs = train_out[0][T.arange(self.context_var.shape[0]), self.answer_starts_var]
         end_probs   = train_out[1][T.arange(self.context_var.shape[0]), self.answer_ends_var]
-        span_probs = start_probs * end_probs
+        span_probs  = start_probs * end_probs
 
         train_loss = -T.log(span_probs).mean()
+
+        # CREATE UPDATE RULES
 
         params = LL.get_all_params(self.train_net, trainable=True)
 
         learning_rate_var = T.scalar('learning_rate')
-        self.learning_rate = .001
-
+        self.learning_rate = init_lrate
         update_fn = lambda l, p: L.updates.adam(l, p, learning_rate=learning_rate_var)
 
         updates = update_fn(train_loss, params)
 
         # MAKE THEANO FUNCTIONS
-        print 'Compiling theano functions:'
+
+        print('Compiling theano functions:')
 
         compile_train_fn = not kwargs.get('skip_train_fn', False)
         if compile_train_fn:
+            print('    train_fn...')
+            self.train_fn = theano.function(
+                [self.context_var, self.question_var, self.context_char_var, self.question_char_var, self.bin_feat_var,
+                 self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
+                 self.mask_question_char_var, self.answer_starts_var, self.answer_ends_var,
+                 learning_rate_var],
+                train_loss, updates=updates)
 
-            print '    train_fn...'
+        print('    get_start_probs_fn...')
+        self.get_start_probs_fn = theano.function(
+            [self.context_var, self.question_var, self.context_char_var, self.question_char_var,
+             self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
+             self.mask_question_char_var],
+            test_out[0])
 
-            self.train_fn = theano.function([self.context_var, self.question_var, self.context_char_var, self.question_char_var, self.bin_feat_var,
-                                             self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
-                                             self.mask_question_char_var, self.answer_starts_var, self.answer_ends_var,
-                                             learning_rate_var],
-                                            train_loss, updates=updates)
+        print('    get_end_probs_fn...')
+        self.get_end_probs_fn = theano.function(
+            [self.context_var, self.question_var, self.context_char_var, self.question_char_var,
+             self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
+             self.mask_question_char_var, self.answer_starts_var],
+            test_out[1])
 
-
-        print '    get_start_probs_fn...'
-        self.compile_get_start_probs_fn([self.context_var, self.question_var, self.context_char_var, self.question_char_var,
-                                         self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
-                                         self.mask_question_char_var], test_out[0])
-
-        print '    get_end_probs_fn...'
-        self.compile_get_end_probs_fn([self.context_var, self.question_var, self.context_char_var, self.question_char_var,
-                                       self.bin_feat_var, self.mask_context_var, self.mask_question_var, self.mask_context_char_var,
-                                       self.mask_question_char_var, self.answer_starts_var], test_out[1])
-
-        print 'Done'
-
-
-    def compile_get_start_probs_fn(self, variables, out):
-        self.get_start_probs_fn = theano.function(variables, out)
-
-
-    def compile_get_end_probs_fn(self, variables, out):
-        self.get_end_probs_fn = theano.function(variables, out)
+        print('Done')
 
 
     def get_start_probs(self, data, batch_size):
@@ -167,9 +167,9 @@ class QANet:
 
 
     def train_one_epoch(self, train_data, batch_size, log_interval=10):
-        train_err = 0.
+        train_err     = 0.
         train_batches = 0
-        start_time = time.time()
+        start_time    = time.time()
 
         for batch in self.iterate_minibatches(train_data, batch_size, shuffle=True):
             questions, contexts, questions_char, contexts_char, bin_feats, \
@@ -182,21 +182,21 @@ class QANet:
             self.examples_since_last_checkpoint += batch_size
 
             if not train_batches % log_interval:
-                print "Done {} batches in {:.2f}s\ttraining loss:\t{:.6f}".format(
-                    train_batches, time.time() - start_time, train_err / train_batches)
+                print("Done {} batches in {:.2f}s\ttraining loss:\t{:.6f}".format(
+                    train_batches, time.time() - start_time, train_err / train_batches))
 
             if self.examples_since_last_checkpoint > self.checkpoint_examples:
                 checkpoint = len(self.dev_f1_log) + 1
                 self.dev_f1_log.append(self._calc_dev_f1(checkpoint))
                 if checkpoint > 1 and self.dev_f1_log[-1] < self.dev_f1_log[-2]:
-                    print 'Lowering learning rate to ', self.learning_rate / 2
                     self.learning_rate /= 2
+                    print('Lowering learning rate to ', self.learning_rate)
                 self.examples_since_last_checkpoint = 0
 
                 if len(self.dev_f1_log) > 10 and self.dev_f1_log[-11] > max(self.dev_f1_log[-10:]):
-                    print '##################################'
-                    print 'No improvement for 10 checkpoints!'
-                    print '##################################'
+                    print('##################################')
+                    print('No improvement for 10 checkpoints!')
+                    print('##################################')
 
         return train_err / train_batches
 
@@ -224,7 +224,7 @@ class QANet:
         scores = np.tile(scores[:, np.newaxis], (beam, 1)).transpose(0, 2, 1)
 
         best_ends_all = []
-        for i in xrange(beam):
+        for i in range(beam):
             end_probs = self.get_end_probs(data, best_starts[:, i], batch_size)
             best_ends = end_probs.argpartition(-beam, axis=1)[:, -beam:]
             scores[:, i, :] *= end_probs[np.arange(num_examples)[:, np.newaxis], best_ends]
@@ -237,33 +237,32 @@ class QANet:
         starts = [i / beam for i in best_spans]
 
         starts = best_starts[np.arange(num_examples), starts]
-        ends = best_ends_all[np.arange(num_examples), best_spans]
+        ends   = best_ends_all[np.arange(num_examples), best_spans]
 
-        return starts, ends
+        return starts, ends, scores[np.arange(num_examples), best_spans]
 
 
     def _calc_dev_f1(self, checkpoint, batch_size=10):
         if self.data_dev is None:
             self.data_dev = np.load(self.dev_path + 'dev.pkl')
-
-            dev = np.load(self.dev_path + 'dev_words.pkl')
-            dev_char = np.load(self.dev_path + 'dev_char_ascii.pkl')
+            dev           = np.load(self.dev_path + 'dev_words.pkl')
+            dev_char      = np.load(self.dev_path + 'dev_char_ascii.pkl')
             dev_bin_feats = np.load(self.dev_path + 'dev_bin_feats.pkl')
             self.data_dev_num = dev, dev_char, dev_bin_feats
 
         predicted_spans = []
 
-        print "Calculating validation f1..."
+        print("Calculating validation f1...")
         idx = 0
         while idx < len(self.data_dev):
             data_dev_batch = [d[idx:idx + batch_size] for d in self.data_dev_num]
-            spans = self._predict_spans(data_dev_batch, beam=1)
+            spans = self._predict_spans(data_dev_batch, beam=1, batch_size=batch_size)[:2]
             predicted_spans.append(np.vstack(spans))
             idx += batch_size
-            if not idx % 1000:
-                print 'Done %i examples' % idx
+            if not idx % 2500:
+                print('Done %i examples' % idx)
 
-        print 'Predictions done'
+        print('Predictions done')
 
         predicted_spans = np.hstack(predicted_spans).T
 
@@ -284,21 +283,24 @@ class QANet:
                         prediction_path)
 
         f1 = np.load(prediction_path + '.pkl')['f1']
-        print "F1: ", f1
+        print("F1: ", f1)
         return f1
 
 
     def _build_net(self, emb_char_filter_size=5, emb_dropout=False, **kwargs):
 
-        batch_size = self.question_var.shape[0]
-        context_len = self.context_var.shape[1]
-        question_len = self.question_var.shape[1]
-        context_word_len = self.context_char_var.shape[2]
+        batch_size        = self.question_var.shape[0]
+        context_len       = self.context_var.shape[1]
+        question_len      = self.question_var.shape[1]
+        context_word_len  = self.context_char_var.shape[2]
         question_word_len = self.question_char_var.shape[2]
 
-        ''' Inputs '''
+        self.batch_size  = batch_size
+        self.context_len = context_len
 
-        l_context_char = LL.InputLayer(shape=(None, None, None), input_var=self.context_char_var)
+        ''' Inputs and word embeddings'''
+
+        l_context_char  = LL.InputLayer(shape=(None, None, None), input_var=self.context_char_var)
         l_question_char = LL.InputLayer(shape=(None, None, None), input_var=self.question_char_var)
 
         l_c_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_var)
@@ -307,7 +309,6 @@ class QANet:
         l_c_char_mask = LL.InputLayer(shape=(None, None, None), input_var=self.mask_context_char_var)
         l_q_char_mask = LL.InputLayer(shape=(None, None, None), input_var=self.mask_question_char_var)
 
-        ''' Word embeddings '''
         if not self.prefetch_word_embs:
             l_context  = LL.InputLayer(shape=(None, None), input_var=self.context_var)
             l_question = LL.InputLayer(shape=(None, None), input_var=self.question_var)
@@ -335,7 +336,6 @@ class QANet:
         l_c_char_emb = LL.EmbeddingLayer(l_context_char,
                                          input_size=self.alphabet_size,
                                          output_size=self.emb_char_size)
-        # l_c_char_emb.shape is (batch_size x context_len x context_word_len x emb_char_size)
 
         l_q_char_emb = LL.EmbeddingLayer(l_question_char,
                                          input_size=self.alphabet_size,
@@ -343,7 +343,7 @@ class QANet:
                                          W=l_c_char_emb.W)
 
         # here I do multiplication of character embeddings with masks, because I want to pad them with constant zeros
-        # (I don't want those padding zeros to change over time)
+
 
         l_c_char_mask = ForgetSizeLayer(LL.dimshuffle(l_c_char_mask, (0, 1, 2, 'x')))
         l_q_char_mask = ForgetSizeLayer(LL.dimshuffle(l_q_char_mask, (0, 1, 2, 'x')))
@@ -351,7 +351,7 @@ class QANet:
         l_c_char_emb = LL.ElemwiseMergeLayer([l_c_char_emb, l_c_char_mask], T.mul)
         l_q_char_emb = LL.ElemwiseMergeLayer([l_q_char_emb, l_q_char_mask], T.mul)
 
-        #
+        # convolutions
 
         l_c_char_emb = LL.dimshuffle(LL.reshape(l_c_char_emb, (batch_size * context_len, context_word_len, self.emb_char_size)),
                                      (0, 2, 1))
@@ -363,8 +363,6 @@ class QANet:
 
         l_c_char_emb = LL.ExpressionLayer(l_c_char_conv, lambda X: X.max(2), output_shape='auto')
         l_c_char_emb = LL.reshape(l_c_char_emb, (batch_size, context_len, self.num_emb_char_filters))
-        l_c_emb = LL.concat([l_c_emb, l_c_char_emb], axis=2)
-
 
         l_q_char_emb = LL.dimshuffle(LL.reshape(l_q_char_emb, (batch_size * question_len, question_word_len, self.emb_char_size)),
                                      (0, 2, 1))
@@ -378,12 +376,16 @@ class QANet:
 
         l_q_char_emb = LL.ExpressionLayer(l_q_char_conv, lambda X: X.max(2), output_shape='auto')
         l_q_char_emb = LL.reshape(l_q_char_emb, (batch_size, question_len, self.num_emb_char_filters))
+
+        ''' Concatenating both embeddings '''
+
         l_q_emb = LL.concat([l_q_emb, l_q_char_emb], axis=2)
+        l_c_emb = LL.concat([l_c_emb, l_c_char_emb], axis=2)
 
         ''' Dropout at the embeddings '''
 
         if emb_dropout:
-            print 'Using dropout.'
+            print('Using dropout.')
             l_c_emb = LL.dropout(l_c_emb)
             l_q_emb = LL.dropout(l_q_emb)
 
@@ -419,7 +421,7 @@ class QANet:
         l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
 
         l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
-        l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=1, batch_ndim=2) # for the question we fix the features to 1
+        l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=L.utils.floatX(1), batch_ndim=2) # for the question we fix the features to 1
 
         ''' Context and question encoding using the same BiLSTM for both '''
 
@@ -438,59 +440,67 @@ class QANet:
                                     num_units=self.rec_size,
                                     grad_clipping=100,
                                     mask_input=l_q_mask,
-                                    ingate=LL.Gate(W_in=l_c_enc_forw.W_in_to_ingate,
-                                                   W_hid=l_c_enc_forw.W_hid_to_ingate,
-                                                   W_cell=l_c_enc_forw.W_cell_to_ingate,
-                                                   b=l_c_enc_forw.b_ingate),
-                                    forgetgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_forgetgate,
-                                                       W_hid=l_c_enc_forw.W_hid_to_forgetgate,
-                                                       W_cell=l_c_enc_forw.W_cell_to_forgetgate,
-                                                       b=l_c_enc_forw.b_forgetgate),
-                                    outgate=LL.Gate(W_in=l_c_enc_forw.W_in_to_outgate,
-                                                    W_hid=l_c_enc_forw.W_hid_to_outgate,
-                                                    W_cell=l_c_enc_forw.W_cell_to_outgate,
-                                                    b=l_c_enc_forw.b_outgate),
-                                    cell=LL.Gate(W_in=l_c_enc_forw.W_in_to_cell,
-                                                 W_hid=l_c_enc_forw.W_hid_to_cell,
-                                                 W_cell=None,
-                                                 b=l_c_enc_forw.b_cell,
-                                                 nonlinearity=L.nonlinearities.tanh))
+                                    ingate=LL.Gate(
+                                        W_in  =l_c_enc_forw.W_in_to_ingate,
+                                        W_hid =l_c_enc_forw.W_hid_to_ingate,
+                                        W_cell=l_c_enc_forw.W_cell_to_ingate,
+                                        b     =l_c_enc_forw.b_ingate),
+                                    forgetgate=LL.Gate(
+                                        W_in  =l_c_enc_forw.W_in_to_forgetgate,
+                                        W_hid =l_c_enc_forw.W_hid_to_forgetgate,
+                                        W_cell=l_c_enc_forw.W_cell_to_forgetgate,
+                                        b     =l_c_enc_forw.b_forgetgate),
+                                    outgate=LL.Gate(
+                                        W_in  =l_c_enc_forw.W_in_to_outgate,
+                                        W_hid =l_c_enc_forw.W_hid_to_outgate,
+                                        W_cell=l_c_enc_forw.W_cell_to_outgate,
+                                        b     =l_c_enc_forw.b_outgate),
+                                    cell=LL.Gate(
+                                        W_in= l_c_enc_forw.W_in_to_cell,
+                                        W_hid =l_c_enc_forw.W_hid_to_cell,
+                                        W_cell=None,
+                                        b     =l_c_enc_forw.b_cell,
+                                        nonlinearity=L.nonlinearities.tanh))
 
         l_q_enc_back = LL.LSTMLayer(l_q_emb,
                                     num_units=self.rec_size,
                                     grad_clipping=100,
                                     mask_input=l_q_mask,
                                     backwards=True,
-                                    ingate=LL.Gate(W_in=l_c_enc_back.W_in_to_ingate,
-                                                   W_hid=l_c_enc_back.W_hid_to_ingate,
-                                                   W_cell=l_c_enc_back.W_cell_to_ingate,
-                                                   b=l_c_enc_back.b_ingate),
-                                    forgetgate=LL.Gate(W_in=l_c_enc_back.W_in_to_forgetgate,
-                                                       W_hid=l_c_enc_back.W_hid_to_forgetgate,
-                                                       W_cell=l_c_enc_back.W_cell_to_forgetgate,
-                                                       b=l_c_enc_back.b_forgetgate),
-                                    outgate=LL.Gate(W_in=l_c_enc_back.W_in_to_outgate,
-                                                    W_hid=l_c_enc_back.W_hid_to_outgate,
-                                                    W_cell=l_c_enc_back.W_cell_to_outgate,
-                                                    b=l_c_enc_back.b_outgate),
-                                    cell=LL.Gate(W_in=l_c_enc_back.W_in_to_cell,
-                                                 W_hid=l_c_enc_back.W_hid_to_cell,
-                                                 W_cell=None,
-                                                 b=l_c_enc_back.b_cell,
-                                                 nonlinearity=L.nonlinearities.tanh))
+                                    ingate=LL.Gate(
+                                        W_in  =l_c_enc_back.W_in_to_ingate,
+                                        W_hid =l_c_enc_back.W_hid_to_ingate,
+                                        W_cell=l_c_enc_back.W_cell_to_ingate,
+                                        b     =l_c_enc_back.b_ingate),
+                                    forgetgate=LL.Gate(
+                                        W_in  =l_c_enc_back.W_in_to_forgetgate,
+                                        W_hid =l_c_enc_back.W_hid_to_forgetgate,
+                                        W_cell=l_c_enc_back.W_cell_to_forgetgate,
+                                        b     =l_c_enc_back.b_forgetgate),
+                                    outgate=LL.Gate(
+                                        W_in  =l_c_enc_back.W_in_to_outgate,
+                                        W_hid =l_c_enc_back.W_hid_to_outgate,
+                                        W_cell=l_c_enc_back.W_cell_to_outgate,
+                                        b     =l_c_enc_back.b_outgate),
+                                    cell=LL.Gate(
+                                        W_in  =l_c_enc_back.W_in_to_cell,
+                                        W_hid =l_c_enc_back.W_hid_to_cell,
+                                        W_cell=None,
+                                        b     =l_c_enc_back.b_cell,
+                                        nonlinearity=L.nonlinearities.tanh))
 
 
-        l_c_enc = LL.concat([l_c_enc_forw, l_c_enc_back], axis=2) # batch_size x context_len x 2*rec_size
+        l_c_enc = LL.concat([l_c_enc_forw, l_c_enc_back], axis=2) # batch_size x context_len  x 2*rec_size
         l_q_enc = LL.concat([l_q_enc_forw, l_q_enc_back], axis=2) # batch_size x question_len x 2*rec_size
 
-        # this is H from the paper
+        # this is H from the paper, shape: (batch_size * context_len x rec_size)
         l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (-1, 2 * self.rec_size)), # batch_size * context_len x rec_size
                                  num_units=self.rec_size,
                                  W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 
-        # this is Z from the paper
+        # this is Z from the paper, shape: (batch_size * question_len x rec_size)
         l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (-1, 2 * self.rec_size)), # batch_size * question_len x rec_size
                                  num_units=self.rec_size,
                                  W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
@@ -504,45 +514,53 @@ class QANet:
                                 b=None,
                                 nonlinearity=None)
 
+        # batch_size x question_len
         l_alpha = MaskedSoftmaxLayer(LL.reshape(l_alpha, (batch_size, -1)), l_q_mask)
 
+        # batch_size x rec_size
         l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, -1, self.rec_size)), l_alpha]) # batch_size x rec_size
 
         ''' Answer span prediction '''
 
         # span start
 
-        l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj, (batch_size, context_len, self.rec_size)), l_z_hat])
+        l_start_feat = StartFeaturesLayer([LL.reshape(l_c_proj,
+            (self.batch_size, self.context_len, self.rec_size)), l_z_hat])
 
-        l_start = LL.DenseLayer(LL.reshape(l_start_feat, (batch_size * context_len, 3*self.rec_size)),
+        l_start = LL.DenseLayer(LL.reshape(l_start_feat, (self.batch_size * self.context_len, 3*self.rec_size)),
                                 num_units=self.rec_size,
-                                nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x rec_size
+                                nonlinearity=L.nonlinearities.rectify,
+                                name='start_dense') # batch_size * context_len x rec_size
 
         l_Vs = LL.DenseLayer(l_start, # batch_size * context_len x 1
                              num_units=1,
                              b=None,
-                             nonlinearity=None)
+                             nonlinearity=None,
+                             name='Vs')
 
-        # this is p_s from the paper
-        l_start_soft = MaskedSoftmaxLayer(LL.reshape(l_Vs, (batch_size, context_len)), l_c_mask) # batch_size x context_len
+        # this is p_s from the paper, shape: (batch_size x context_len)
+        l_start_soft = MaskedSoftmaxLayer(LL.reshape(l_Vs, (self.batch_size, self.context_len)), l_c_mask) # batch_size x context_len
 
         # span end
 
         l_answer_starts = LL.InputLayer(shape=(None,), input_var=self.answer_starts_var)
 
-        l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj, (batch_size, context_len, self.rec_size)), l_z_hat, l_answer_starts])
+        l_end_feat = EndFeaturesLayer([LL.reshape(l_c_proj,
+            (self.batch_size, self.context_len, self.rec_size)), l_z_hat, l_answer_starts])
 
-        l_end = LL.DenseLayer(LL.reshape(l_end_feat, (batch_size * context_len, 5*self.rec_size)),
+        l_end = LL.DenseLayer(LL.reshape(l_end_feat, (self.batch_size * self.context_len, 5*self.rec_size)),
                               num_units=self.rec_size,
-                              nonlinearity=L.nonlinearities.rectify) # batch_size * context_len x self.rec_size
+                              nonlinearity=L.nonlinearities.rectify,
+                              name='end_dense') # batch_size * context_len x self.rec_size
 
         l_Ve = LL.DenseLayer(l_end, # batch_size * context_len x 1
                              num_units=1,
                              b=None,
-                             nonlinearity=None)
+                             nonlinearity=None,
+                             name='Ve')
 
-        # this is p_e from the paper
-        l_end_soft = MaskedSoftmaxLayer(LL.reshape(l_Ve, (batch_size, context_len)), l_c_mask) # batch_size x context_len
+        # this is p_e from the paper, shape: (batch_size x context_len)
+        l_end_soft = MaskedSoftmaxLayer(LL.reshape(l_Ve, (self.batch_size, self.context_len)), l_c_mask) # batch_size x context_len
 
         return l_start_soft, l_end_soft
 
