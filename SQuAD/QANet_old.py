@@ -69,7 +69,7 @@ class QANet:
         # BUILD THE MODEL
         print 'Building the model...'
 
-        self.train_net = _build_net(**kwargs)
+        self.train_net = self._build_net(**kwargs)
 
         # CALCULATE THE LOSS
 
@@ -129,7 +129,7 @@ class QANet:
 
     def get_start_probs(self, data, batch_size):
         result = []
-        for batch in iterate_minibatches(data, batch_size, with_answer_inds=False):
+        for batch in self.iterate_minibatches(data, batch_size, with_answer_inds=False):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
             out = self.get_start_probs_fn(contexts, questions, contexts_char, questions_char, bin_feats,
@@ -148,7 +148,7 @@ class QANet:
     def get_end_probs(self, data, answer_start_inds, batch_size):
         result = []
         idx = 0
-        for batch in iterate_minibatches(data, batch_size, with_answer_inds=False):
+        for batch in self.iterate_minibatches(data, batch_size, with_answer_inds=False):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask = batch
             start_inds = answer_start_inds[idx:idx + batch_size]
@@ -165,7 +165,7 @@ class QANet:
         train_batches = 0
         start_time = time.time()
 
-        for batch in iterate_minibatches(train_data, batch_size, shuffle=True):
+        for batch in self.iterate_minibatches(train_data, batch_size, shuffle=True):
             questions, contexts, questions_char, contexts_char, bin_feats, \
                 question_mask, context_mask, question_char_mask, context_char_mask, answer_inds = batch
 
@@ -537,15 +537,13 @@ class QANet:
     def iterate_minibatches(self, inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False):
 
         assert len(inputs) == 3
-
-        inputs, inputs_char, all_bin_feats = inputs
+        inputs, inputs_char, inputs_bin_feats = inputs
 
         if shuffle:
-            indices = np.arange(len(inputs))
-            np.random.shuffle(indices)
-            inputs = np.array(inputs)
-            inputs_char = np.array(inputs_char)
-            all_bin_feats = np.array(all_bin_feats)
+            indices = np.random.permutation(len(inputs))
+            inputs           = np.array(inputs)
+            inputs_char      = np.array(inputs_char)
+            inputs_bin_feats = np.array(inputs_bin_feats)
 
         for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
             if shuffle:
@@ -553,82 +551,66 @@ class QANet:
             else:
                 excerpt = slice(start_idx, start_idx + batch_size)
 
-            examples = inputs[excerpt]
-            examples_char = inputs_char[excerpt]
+            examples           = inputs[excerpt]
+            examples_char      = inputs_char[excerpt]
+            examples_bin_feats = inputs_bin_feats[excerpt]
 
-            context_len = max(len(e[2]) for e in examples)
             question_len = max(len(e[1]) for e in examples)
+            context_len  = max(len(e[2]) for e in examples)
+            q_word_len   = max(len(w)    for e in examples_char for w in e[0])
+            c_word_len   = max(len(w)    for e in examples_char for w in e[1])
 
-            questions = []
-            contexts = []
-            bin_feats = []
-
-            bin_feats_premade = all_bin_feats[excerpt]
+            questions      = []
+            contexts       = []
+            bin_feats      = []
+            questions_char = []
+            contexts_char  = []
 
             if with_answer_inds:
                 answer_inds = []
 
-            for l, (ans, q, c) in enumerate(examples):
-                q_words = set(q)
-                q = q + [pad] * (question_len - len(q))
+            for (ans, q, c), (q_char, c_char), bf in zip(examples, examples_char, examples_bin_feats):
+                q  = q  + [pad] * (question_len - len(q))
+                c  = c  + [pad] * (context_len  - len(c))
+                bf = bf + [pad] * (context_len  - len(bf))
 
-                bin_feat = bin_feats_premade[l]
+                q_char = q_char + [[]] * (question_len - len(q_char))
+                c_char = c_char + [[]] * (context_len  - len(c_char))
 
-                bin_feat = bin_feat + [pad] * (context_len - len(bin_feat))
-                c = c + [pad] * (context_len - len(c))
+                q_char = [w + [pad] * (q_word_len - len(w)) for w in q_char]
+                c_char = [w + [pad] * (c_word_len - len(w)) for w in c_char]
+
+                questions.     append(q)
+                contexts.      append(c)
+                bin_feats.     append(bf)
+                questions_char.append([q_char])
+                contexts_char. append([c_char])
 
                 if with_answer_inds:
                     answer_inds.append((min(ans[0]), max(ans[0])))
 
-                questions.append(q)
-                contexts.append(c)
-                bin_feats.append(bin_feat)
-
-            questions = np.vstack(questions).astype(np.int32)
-            contexts = np.vstack(contexts).astype(np.int32)
-            bin_feats = np.vstack(bin_feats).astype(theano.config.floatX)
+            questions      = np.vstack(questions).     astype(np.int32)
+            contexts       = np.vstack(contexts).      astype(np.int32)
+            bin_feats      = np.vstack(bin_feats).     astype(theano.config.floatX)
+            questions_char = np.vstack(questions_char).astype(np.int32)
+            contexts_char  = np.vstack(contexts_char). astype(np.int32)
 
             if with_answer_inds:
                 answer_inds = np.vstack(answer_inds).astype(np.int32)
 
-            question_mask = (questions != pad).astype(theano.config.floatX)
-            context_mask = (contexts != pad).astype(theano.config.floatX)
-
-            c_word_len = max(len(w) for e in examples_char for w in e[1])
-            q_word_len = max(len(w) for e in examples_char for w in e[0])
-
-            questions_char = []
-            contexts_char = []
-
-            for q, c in examples_char:
-                q = q + [[]] * (question_len - len(q))
-                c = c + [[]] * (context_len - len(c))
-                q = [w + [pad] * (q_word_len - len(w)) for w in q]
-                if not all(len(x) == q_word_len for x in q):
-                    print map(len, q)
-                c = [w + [pad] * (c_word_len - len(w)) for w in c]
-
-                if not all(len(x) == c_word_len for x in c):
-                    print map(len, c)
-
-                questions_char.append([q])
-                contexts_char.append([c])
-
-            if not all(len(x[0]) == question_len for x in questions_char):
-                print [len(x[0]) for x in questions_char]
-
-            if not all(len(x[0]) == context_len for x in contexts_char):
-                print [len(x[0]) for x in contexts_char]
-
-            questions_char = np.vstack(questions_char).astype(np.int32)
-            contexts_char = np.vstack(contexts_char).astype(np.int32)
-
+            question_mask      = (questions      != pad).astype(theano.config.floatX)
+            context_mask       = (contexts       != pad).astype(theano.config.floatX)
             question_char_mask = (questions_char != pad).astype(theano.config.floatX)
-            context_char_mask = (contexts_char != pad).astype(theano.config.floatX)
+            context_char_mask  = (contexts_char  != pad).astype(theano.config.floatX)
+
+            if self.prefetch_word_embs:
+                questions = self.word_embeddings[questions]
+                contexts  = self.word_embeddings[contexts]
+
+            res = questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
+                    question_char_mask, context_char_mask
 
             if with_answer_inds:
-                yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
-                        question_char_mask, context_char_mask, answer_inds
-            else:
-                yield questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
-                        question_char_mask, context_char_mask
+                res = res + (answer_inds,)
+
+            yield res
