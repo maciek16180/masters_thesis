@@ -26,7 +26,7 @@ class QANet:
     def __init__(self, voc_size, emb_init, alphabet_size=128, emb_size=300, emb_char_size=20,
                  num_emb_char_filters=200, rec_size=300, train_inds=[], squad_path='/pio/data/data/squad/',
                  working_path='evaluate/glove6B/training/', dev_path='/pio/data/data/squad/glove6B/',
-                 using_negative=False, checkpoint_examples=64000, **kwargs):
+                 using_negative=False, checkpoint_examples=64000, prefetch_word_embs=False, **kwargs):
 
         self.data_dev = None
         self.data_dev_num = None
@@ -47,14 +47,18 @@ class QANet:
         self.emb_char_size        = emb_char_size
         self.num_emb_char_filters = num_emb_char_filters
 
+        self.prefetch_word_embs = prefetch_word_embs
         self.word_embeddings    = emb_init
 
+        if not self.prefetch_word_embs:
+            self.question_var = T.imatrix('questions')
+            self.context_var  = T.imatrix('contexts')
+        else:
+            self.question_var = T.tensor3('questions')
+            self.context_var  = T.tensor3('contexts')
 
-        self.context_var = T.imatrix('contexts')
-        self.mask_context_var = T.matrix('context_mask')
-
-        self.question_var = T.imatrix('questions')
         self.mask_question_var = T.matrix('question_mask')
+        self.mask_context_var = T.matrix('context_mask')
 
         self.context_char_var = T.itensor3('context_char')
         self.mask_context_char_var = T.tensor3('context_char_mask')
@@ -196,7 +200,10 @@ class QANet:
 
 
     def save_params(self, fname): # without the fixed word embeddings matrix
-        np.savez(fname, *L.layers.get_all_param_values(self.train_net)[1:])
+        params = L.layers.get_all_param_values(self.train_net)
+        if not self.prefetch_word_embs:
+            params = params[1:]
+        np.savez(fname, *params)
 
 
     def load_params(self, fname, E): # E is the fixed word embeddings matrix
@@ -289,9 +296,6 @@ class QANet:
 
         ''' Inputs '''
 
-        l_context = LL.InputLayer(shape=(None, None), input_var=self.context_var)
-        l_question = LL.InputLayer(shape=(None, None), input_var=self.question_var)
-
         l_context_char = LL.InputLayer(shape=(None, None, None), input_var=self.context_char_var)
         l_question_char = LL.InputLayer(shape=(None, None, None), input_var=self.question_char_var)
 
@@ -302,20 +306,27 @@ class QANet:
         l_q_char_mask = LL.InputLayer(shape=(None, None, None), input_var=self.mask_question_char_var)
 
         ''' Word embeddings '''
+        if not self.prefetch_word_embs:
+            l_context  = LL.InputLayer(shape=(None, None), input_var=self.context_var)
+            l_question = LL.InputLayer(shape=(None, None), input_var=self.question_var)
 
-        l_c_emb = TrainPartOfEmbsLayer(l_context,
-                                       output_size=self.emb_size,
-                                       input_size=self.voc_size,
-                                       W=self.word_embeddings[self.train_inds],
-                                       E=self.word_embeddings,
-                                       train_inds=self.train_inds)
+            l_c_emb = TrainPartOfEmbsLayer(l_context,
+                                           output_size=self.emb_size,
+                                           input_size=self.voc_size,
+                                           W=self.word_embeddings[self.train_inds],
+                                           E=self.word_embeddings,
+                                           train_inds=self.train_inds)
 
-        l_q_emb = TrainPartOfEmbsLayer(l_question,
-                                       output_size=self.emb_size,
-                                       input_size=self.voc_size,
-                                       W=l_c_emb.W,
-                                       E=l_c_emb.E,
-                                       train_inds=self.train_inds)
+            l_q_emb = TrainPartOfEmbsLayer(l_question,
+                                           output_size=self.emb_size,
+                                           input_size=self.voc_size,
+                                           W=l_c_emb.W,
+                                           E=l_c_emb.E,
+                                           train_inds=self.train_inds)
+        else:
+            l_c_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.context_var)
+            l_q_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.question_var)
+
 
         ''' Char-embeddings '''
 
