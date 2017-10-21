@@ -95,15 +95,24 @@ def trim_data(data, trim):
 
 
 def train_QANet(net, train_data, model_filename, batch_size, num_epochs=100, log_interval=200):
+    best = 0
     for epoch in range(1, num_epochs + 1):
         print('\n\nStarting epoch {}...\n'.format(epoch))
         train_error = net.train_one_epoch(train_data=train_data,
                                           batch_size=batch_size,
                                           log_interval=log_interval)
+        print('\n')
+        f1 = net._calc_dev_f1(0)
         print('\nTraining loss:   {}'.format(train_error))
+        print('F1 after epoch %i:' % epoch, f1)
+
         if np.isnan(train_error):
             print("Encountered NaN, finishing...")
             break
-        net.save_params(model_filename + '_ep{}'.format(epoch))
+
+        if f1 > best:
+            net.save_params(model_filename + '.ep{:02d}'.format(epoch))
+            best = f1
+            print('Best F1 so far, model saved.')
 
     print('Models saved as ' + model_filename)

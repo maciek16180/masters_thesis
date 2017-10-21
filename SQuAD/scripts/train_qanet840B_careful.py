@@ -1,7 +1,7 @@
 import numpy as np
 import os, sys
 
-# os.environ["THEANO_FLAGS"] = "floatX=float64"
+os.environ["THEANORC"] = "~/.theanorc.cuda"
 sys.path.append('../')
 
 from QANet import QANet

@@ -254,7 +254,7 @@ class QANet:
         return starts, ends, scores[np.arange(num_examples), best_spans]
 
 
-    def _calc_dev_f1(self, checkpoint, batch_size=10):
+    def _calc_dev_f1(self, checkpoint, batch_size=10, verbose=True):
         if self.data_dev is None:
             self.data_dev = np.load(self.dev_path + 'dev.pkl')
             dev           = np.load(self.dev_path + 'dev_words.pkl')
@@ -271,10 +271,11 @@ class QANet:
             spans = self._predict_spans(data_dev_batch, beam=1, batch_size=batch_size)[:2]
             predicted_spans.append(np.vstack(spans))
             idx += batch_size
-            if not idx % 2500:
+            if not idx % 2500 and verbose:
                 print('Done %i examples' % idx)
 
-        print('Predictions done')
+        if verbose:
+            print('Predictions done')
 
         predicted_spans = np.hstack(predicted_spans).T
 
@@ -295,7 +296,8 @@ class QANet:
                         prediction_path)
 
         f1 = np.load(prediction_path + '.pkl')['f1']
-        print("F1: ", f1)
+        if verbose:
+            print("F1: ", f1)
         return f1
 
 
