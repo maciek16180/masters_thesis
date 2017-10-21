@@ -43,7 +43,9 @@ class WeightedFeatureLayer(MergeLayer):
 
         context = context.dimshuffle(0, 2, 1) # batch_size x emb_size x context_len
 
-        esim = T.exp(T.batched_dot(question, context)) # batch_size x question_len x context_len
+        x = T.batched_dot(question, context) # batch_size x question_len x context_len
+        x_max = x.max(axis=2).dimshuffle(0, 1, 'x')
+        esim = T.exp(x - x_max)
         esim *= c_mask.reshape((batch_size, 1, -1))
 
         sums = esim.sum(axis=2)

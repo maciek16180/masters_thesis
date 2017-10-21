@@ -74,8 +74,8 @@ class QANet:
         self.answer_starts_var = T.ivector('answer_starts')
         self.answer_ends_var   = T.ivector('answer_ends')
 
-        self.aux1_var = T.dmatrix('aux1')
-        self.aux2_var = T.dmatrix('aux2')
+        self.aux1_var = T.matrix('aux1')
+        self.aux2_var = T.matrix('aux2')
 
         # BUILD THE MODEL
 
@@ -125,7 +125,7 @@ class QANet:
         self.get_intermediate_results_fn = theano.function(
             [self.question_var, self.context_var, self.question_char_var, self.context_char_var, self.bin_feat_var,
              self.mask_question_var, self.mask_context_var, self.mask_question_char_var, self.mask_context_char_var],
-            LL.get_output(self.intermediate_net))
+            LL.get_output(self.intermediate_net, deterministic=True))
 
         print('    get_start_probs_fn...')
         self.get_start_probs_fn = theano.function(
@@ -510,16 +510,16 @@ class QANet:
         # this is H from the paper, shape: (batch_size * context_len x rec_size)
         l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (batch_size * context_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
-                                 W=np.vstack([np.eye(self.rec_size),# dtype=theano.config.floatX),
-                                              np.eye(self.rec_size)]),# dtype=theano.config.floatX)]),
+                                 W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
+                                              np.eye(self.rec_size, dtype=theano.config.floatX)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 
         # this is Z from the paper, shape: (batch_size * question_len x rec_size)
         l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (batch_size * question_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
-                                 W=np.vstack([np.eye(self.rec_size),# dtype=theano.config.floatX),
-                                              np.eye(self.rec_size)]),# dtype=theano.config.floatX)]),
+                                 W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
+                                              np.eye(self.rec_size, dtype=theano.config.floatX)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 

@@ -22,7 +22,8 @@ class MaskedSoftmaxLayer(MergeLayer):
         assert len(inputs) == 2
         input_, mask = inputs
 
-        input_ = T.exp(input_) * mask
+        input_max = input_.max(axis=1).dimshuffle(0, 'x')
+        input_ = T.exp(input_ - input_max) * mask
         sums = input_.sum(axis=1).dimshuffle(0, 'x')
         return input_ / sums
 
