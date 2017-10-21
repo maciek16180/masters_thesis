@@ -200,7 +200,7 @@ class QANet:
 
             if self.examples_since_last_checkpoint > self.checkpoint_examples:
                 checkpoint = len(self.dev_f1_log) + 1
-                self.dev_f1_log.append(self.calc_dev_f1(checkpoint), verbose=False)
+                self.dev_f1_log.append(self.calc_dev_f1(checkpoint, verbose=False))
                 if checkpoint > 1 and self.dev_f1_log[-1] < self.dev_f1_log[-2]:
                     self.learning_rate /= 2
                     print('Lowering learning rate to ', self.learning_rate)
