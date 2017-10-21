@@ -7,7 +7,7 @@ import time
 
 sys.path.append('../')
 
-from QANet_old import QANet
+from QANet_old2 import QANet
 from squad_tools import load_squad_train, filter_empty_answers, trim_data, train_QANet
 
 
@@ -26,11 +26,11 @@ net = QANet(voc_size=voc_size,
             emb_init=glove_embs,
             train_inds=[],
             emb_dropout=True,
-            working_path='../evaluate/glove6B/training_old/',
+            working_path='../evaluate/glove6B/training_old2/',
             prefetch_word_embs=True)
 
 print("prefetch:", net.prefetch_word_embs)
 
-model_filename = '../trained_models/glove6B/old/old'
+model_filename = '../trained_models/glove6B/old2/old2'
 
 train_QANet(net, train_data, model_filename, batch_size=15)

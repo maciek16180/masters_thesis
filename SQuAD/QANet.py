@@ -4,9 +4,8 @@
 from __future__ import print_function
 
 import numpy as np
-import theano, os, json
+import theano, json, time, os
 import theano.tensor as T
-import time
 
 import lasagne as L
 import lasagne.layers as LL
@@ -20,22 +19,30 @@ from layers import HighwayLayer
 from layers import ForgetSizeLayer
 from layers import TrainPartOfEmbsLayer
 
+from evaluate import evaluate
+
 print('floatX ==', theano.config.floatX)
 print('device ==', theano.config.device)
 
 
 class QANet:
 
-    def __init__(self, voc_size, emb_init, alphabet_size=128, emb_size=300, emb_char_size=20,
-                 num_emb_char_filters=200, rec_size=300, train_inds=[], squad_path='/pio/data/data/squad/',
-                 working_path='evaluate/glove6B/training/', dev_path='/pio/data/data/squad/glove6B/',
-                 checkpoint_examples=64000, prefetch_word_embs=False, init_lrate=0.001, **kwargs):
+    def __init__(self, voc_size, emb_init, dev_data=None, alphabet_size=128, emb_size=300,
+                 emb_char_size=20, num_emb_char_filters=200, rec_size=300, train_inds=[],
+                 checkpoint_examples=64000, prefetch_word_embs=False, init_lrate=0.001,
+                 predictions_path=None, **kwargs):
 
-        self.data_dev     = None #
-        self.data_dev_num = None # those will be filled later
-        self.squad_path   = squad_path
-        self.working_path = working_path
-        self.dev_path     = dev_path
+        self.data_dev     = None
+        self.data_dev_num = None
+        self.dev_json     = None
+
+        if dev_data is not None:
+            assert len(dev_data) == 5
+            self.dev_json     = dev_data[0]
+            self.data_dev     = dev_data[1]
+            self.data_dev_num = dev_data[2:]
+
+        self.predictions_path = predictions_path
 
         self.checkpoint_examples = checkpoint_examples
         self.examples_since_last_checkpoint = 0
@@ -114,6 +121,7 @@ class QANet:
 
         compile_train_fn = not kwargs.get('skip_train_fn', False)
         if compile_train_fn:
+            assert dev_data is not None
             print('    train_fn...')
             self.train_fn = theano.function(
                 [self.question_var, self.context_var, self.question_char_var, self.context_char_var, self.bin_feat_var,
@@ -192,7 +200,7 @@ class QANet:
 
             if self.examples_since_last_checkpoint > self.checkpoint_examples:
                 checkpoint = len(self.dev_f1_log) + 1
-                self.dev_f1_log.append(self._calc_dev_f1(checkpoint))
+                self.dev_f1_log.append(self.calc_dev_f1(checkpoint), verbose=False)
                 if checkpoint > 1 and self.dev_f1_log[-1] < self.dev_f1_log[-2]:
                     self.learning_rate /= 2
                     print('Lowering learning rate to ', self.learning_rate)
@@ -254,17 +262,14 @@ class QANet:
         return starts, ends, scores[np.arange(num_examples), best_spans]
 
 
-    def _calc_dev_f1(self, checkpoint, batch_size=10, verbose=True):
-        if self.data_dev is None:
-            self.data_dev = np.load(self.dev_path + 'dev.pkl')
-            dev           = np.load(self.dev_path + 'dev_words.pkl')
-            dev_char      = np.load(self.dev_path + 'dev_char_ascii.pkl')
-            dev_bin_feats = np.load(self.dev_path + 'dev_bin_feats.pkl')
-            self.data_dev_num = dev, dev_char, dev_bin_feats
+    def calc_dev_f1(self, checkpoint, batch_size=10, verbose=True, mode='cp'):
+        assert self.data_dev     is not None
+        assert self.data_dev_num is not None
+        assert self.dev_json     is not None
 
         predicted_spans = []
 
-        print("Calculating validation f1...")
+        print("Calculating validation F1...")
         idx = 0
         while idx < len(self.data_dev):
             data_dev_batch = [d[idx:idx + batch_size] for d in self.data_dev_num]
@@ -279,29 +284,26 @@ class QANet:
 
         predicted_spans = np.hstack(predicted_spans).T
 
-        prediction_path = self.working_path + 'pred_checkpoint%i.json' % checkpoint
-
         prediction_dict = {}
         for i in range(len(self.data_dev)):
             ans = u' '.join(self.data_dev[i][2][predicted_spans[i][0]:predicted_spans[i][1] + 1])
             Id = self.data_dev[i][3]
             prediction_dict[Id] = ans
 
-        with open(prediction_path, 'w') as f:
-            json.dump(prediction_dict, f)
+        result = evaluate(self.dev_json['data'], prediction_dict)
+        print("F1: ", result['f1'])
+        print("EM: ", result['exact_match'])
 
-        res = os.system('python ' + \
-                        self.squad_path + 'evaluate-v1.1.py ' + \
-                        self.squad_path + 'dev-v1.1.json ' + \
-                        prediction_path)
+        if self.predictions_path is not None:
+            pred_path = os.path.join(self.predictions_path,
+                'pred.' + mode + '{:02d}.json'.format(checkpoint))
+            with open(pred_path, 'w') as f:
+                json.dump(prediction_dict, f)
 
-        f1 = np.load(prediction_path + '.pkl')['f1']
-        if verbose:
-            print("F1: ", f1)
-        return f1
+        return result['f1']
 
 
-    def _build_net(self, emb_char_filter_size=5, emb_dropout=False, **kwargs):
+    def _build_net(self, emb_char_filter_size=5, emb_dropout=True, **kwargs):
 
         batch_size        = self.context_var.shape[0]
         context_len       = self.context_var.shape[1]

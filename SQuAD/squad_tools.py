@@ -1,22 +1,25 @@
+from __future__ import print_function
+
 import numpy as np
+import os, json
 
 
 def load_squad_train(path, negative_path=None, NAW_token=None, NAW_char=3):
-    train_words     = np.load(path + 'train_words.pkl')
-    train_char      = np.load(path + 'train_char_ascii.pkl')
-    train_bin_feats = np.load(path + 'train_bin_feats.pkl')
+    train_words     = np.load(os.path.join(path, 'train_words.pkl'))
+    train_char      = np.load(os.path.join(path, 'train_char_ascii.pkl'))
+    train_bin_feats = np.load(os.path.join(path, 'train_bin_feats.pkl'))
 
     if negative_path is None:
         print("Only positive samples.")
     else:
-        print("Using negative samples from wikipedia")
+        print("Using negative samples.")
 
         train_words_pos, train_char_pos, train_bin_feats_pos = \
             add_NAW_token([train_words, train_char, train_bin_feats], NAW_token)
 
-        train_words_neg     = np.load(negative_path + 'train_neg_words.pkl')
-        train_char_neg      = np.load(negative_path + 'train_neg_char_ascii.pkl')
-        train_bin_feats_neg = np.load(negative_path + 'train_neg_bin_feats.pkl')
+        train_words_neg     = np.load(os.path.join(negative_path, 'train_neg_words.pkl'))
+        train_char_neg      = np.load(os.path.join(negative_path, 'train_neg_char_ascii.pkl'))
+        train_bin_feats_neg = np.load(os.path.join(negative_path, 'train_neg_bin_feats.pkl'))
 
         train_words     = train_words_pos     + train_words_neg
         train_char      = train_char_pos      + train_char_neg
@@ -25,17 +28,21 @@ def load_squad_train(path, negative_path=None, NAW_token=None, NAW_char=3):
     return train_words, train_char, train_bin_feats
 
 
-def load_squad_dev(path, negative_path=None, NAW_token=None, NAW_char=3):
-    dev           = np.load(path + 'dev.pkl')
-    dev_words     = np.load(path + 'dev_words.pkl')
-    dev_char      = np.load(path + 'dev_char_ascii.pkl')
-    dev_bin_feats = np.load(path + 'dev_bin_feats.pkl')
+def load_squad_dev(squad_path, pkls_path, make_negative=False, NAW_token=None, NAW_char=3):
+    with open(os.path.join(squad_path, 'dev-v1.1.json')) as f:
+        json_dev = json.load(f)
 
-    if negative_path is not None:
+    dev           = np.load(os.path.join(pkls_path, 'dev.pkl'))
+    dev_words     = np.load(os.path.join(pkls_path, 'dev_words.pkl'))
+    dev_char      = np.load(os.path.join(pkls_path, 'dev_char_ascii.pkl'))
+    dev_bin_feats = np.load(os.path.join(pkls_path, 'dev_bin_feats.pkl'))
+
+    if make_negative:
+        assert NAW_token is not None
         dev, dev_words, dev_char, dev_bin_feats = \
             add_NAW_token([dev, dev_words, dev_char, dev_bin_feats], NAW_token)
 
-    return dev, dev_words, dev_char, dev_bin_feats
+    return json_dev, dev, dev_words, dev_char, dev_bin_feats
 
 
 def add_NAW_token(data, NAW_token, NAW_word=u'<not_a_word>'):
@@ -102,7 +109,7 @@ def train_QANet(net, train_data, model_filename, batch_size, num_epochs=100, log
                                           batch_size=batch_size,
                                           log_interval=log_interval)
         print('\n')
-        f1 = net._calc_dev_f1(0)
+        f1 = net.calc_dev_f1(epoch, mode='ep', verbose=False)
         print('\nTraining loss:   {}'.format(train_error))
         print('F1 after epoch %i:' % epoch, f1)
 

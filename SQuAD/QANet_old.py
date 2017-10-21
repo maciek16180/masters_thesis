@@ -23,6 +23,8 @@ from layers import TrainPartOfEmbsLayer
 print('floatX ==', theano.config.floatX)
 print('device ==', theano.config.device)
 
+print('full float32, fixed softmax')
+
 
 class QANet:
 
@@ -498,14 +500,16 @@ class QANet:
         # this is H from the paper, shape: (batch_size * context_len x rec_size)
         l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (batch_size * context_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
-                                 W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
+                                 W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
+                                              np.eye(self.rec_size, dtype=theano.config.floatX)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 
         # this is Z from the paper, shape: (batch_size * question_len x rec_size)
         l_q_proj = LL.DenseLayer(LL.reshape(l_q_enc, (batch_size * question_len, 2 * self.rec_size)),
                                  num_units=self.rec_size,
-                                 W=np.vstack([np.eye(self.rec_size), np.eye(self.rec_size)]),
+                                 W=np.vstack([np.eye(self.rec_size, dtype=theano.config.floatX),
+                                              np.eye(self.rec_size, dtype=theano.config.floatX)]),
                                  b=None,
                                  nonlinearity=L.nonlinearities.tanh)
 
@@ -522,10 +526,12 @@ class QANet:
         # batch_size x rec_size
         l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, question_len, self.rec_size)), l_alpha])
 
-        return l_c_proj, l_z_hat, l_c_mask
+        return l_c_proj, l_z_hat
 
 
-    def _build_predictors(self, l_c_proj, l_z_hat, l_c_mask):
+    def _build_predictors(self, l_c_proj, l_z_hat):
+
+        l_c_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_var)
 
         ''' Answer span prediction '''
 
