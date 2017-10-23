@@ -12,6 +12,8 @@ parser.add_argument('-bs', '--batch_size', default=30, type=int)
 parser.add_argument('-lr', '--learning_rate', default=0.001, type=float)
 parser.add_argument('-cp', '--checkpoint_examples', default=64000, type=int)
 parser.add_argument('--squad_subdir', default='')
+parser.add_argument('--unk', default='mean', choices=['mean', 'zero', 'train'])
+parser.add_argument('-n', '--negative', default='')
 
 args = parser.parse_args()
 
@@ -23,6 +25,9 @@ squad_path  = os.path.join(squad_base_path, 'glove' + args.glove_version, args.s
 glove_fname = 'glove.' + args.glove_version + '.300d.npy'
 glove_path  = os.path.join('/pio/data/data/glove_vec', args.glove_version, 'glove', glove_fname)
 preds_path  = os.path.join(output_path, 'pred') if args.save_preds else None
+
+glove_words_fname = 'glove.' + args.glove_version + '.wordlist.pkl'
+glove_words_path  = os.path.join('/pio/data/data/glove_vec', args.glove_version, 'glove', glove_words_fname)
 
 if not os.path.exists(output_path):
     os.makedirs(output_path)
@@ -54,17 +59,27 @@ print("Loading data...")
 glove_embs = np.load(glove_path)
 voc_size = glove_embs.shape[0]
 
-train_data = load_squad_train(squad_path, negative_path=None)
+if args.unk == 'zero':
+    glove_embs[0] = 0
+
+glove_words = np.load(glove_words_path)
+NAW_token = glove_words.index('<not_a_word>')
+
+train_data = load_squad_train(squad_path,
+    negative_path=args.negative or None, NAW_token=NAW_token)
 train_data = filter_empty_answers(train_data)
 train_data = trim_data(train_data, args.trim)
 
-dev_data = load_squad_dev(squad_base_path, squad_path, make_negative=False)
+dev_data = load_squad_dev(squad_base_path, squad_path,
+    make_negative=bool(args.negative), NAW_token=NAW_token)
 
 net = QANet(voc_size=voc_size,
             emb_init=glove_embs,
             dev_data=dev_data,
             predictions_path=preds_path,
             prefetch_word_embs=True,
+            train_unk=args.unk=='train',
+            negative=bool(args.negative),
             init_lrate=args.learning_rate,
             checkpoint_examples=args.checkpoint_examples)
 

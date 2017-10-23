@@ -18,6 +18,8 @@ from layers import EndFeaturesLayer
 from layers import HighwayLayer
 from layers import ForgetSizeLayer
 from layers import TrainPartOfEmbsLayer
+from layers import TrainUnkLayer
+from layers import TrainNAWLayer
 
 from evaluate import evaluate
 
@@ -30,7 +32,7 @@ class QANet:
     def __init__(self, voc_size, emb_init, dev_data=None, alphabet_size=128, emb_size=300,
                  emb_char_size=20, num_emb_char_filters=200, rec_size=300, train_inds=[],
                  checkpoint_examples=64000, prefetch_word_embs=False, init_lrate=0.001,
-                 predictions_path=None, **kwargs):
+                 predictions_path=None, train_unk=False, negative=False, **kwargs):
 
         self.data_dev     = None
         self.data_dev_num = None
@@ -52,6 +54,8 @@ class QANet:
         self.emb_size = emb_size
         self.rec_size = rec_size
 
+        self.negative             = negative
+        self.train_unk            = train_unk
         self.train_inds           = train_inds
         self.alphabet_size        = alphabet_size
         self.emb_char_size        = emb_char_size
@@ -75,6 +79,9 @@ class QANet:
 
         self.mask_question_char_var = T.tensor3('question_char_mask')
         self.mask_context_char_var  = T.tensor3('context_char_mask')
+
+        self.mask_question_unk_var = T.imatrix('question_unk_mask')
+        self.mask_context_unk_var  = T.imatrix('context_unk_mask')
 
         self.bin_feat_var = T.matrix('bin_feat')
 
@@ -119,20 +126,20 @@ class QANet:
 
         print('Compiling theano functions:')
 
+        inter_vars = [self.question_var, self.context_var, self.question_char_var, self.context_char_var, self.bin_feat_var,
+                      self.mask_question_var, self.mask_context_var, self.mask_question_char_var, self.mask_context_char_var]
+        if self.train_unk:
+            inter_vars += [self.mask_question_unk_var, self.mask_context_unk_var]
+
         compile_train_fn = not kwargs.get('skip_train_fn', False)
         if compile_train_fn:
             assert dev_data is not None
             print('    train_fn...')
-            self.train_fn = theano.function(
-                [self.question_var, self.context_var, self.question_char_var, self.context_char_var, self.bin_feat_var,
-                 self.mask_question_var, self.mask_context_var, self.mask_question_char_var, self.mask_context_char_var,
-                 self.answer_starts_var, self.answer_ends_var, learning_rate_var],
+            self.train_fn = theano.function(inter_vars + [self.answer_starts_var, self.answer_ends_var, learning_rate_var],
                 train_loss, updates=updates)
 
         print('    get_intermediate_results_fn...')
-        self.get_intermediate_results_fn = theano.function(
-            [self.question_var, self.context_var, self.question_char_var, self.context_char_var, self.bin_feat_var,
-             self.mask_question_var, self.mask_context_var, self.mask_question_char_var, self.mask_context_char_var],
+        self.get_intermediate_results_fn = theano.function(inter_vars,
             LL.get_output(self.intermediate_net, deterministic=True))
 
         print('    get_start_probs_fn...')
@@ -151,8 +158,9 @@ class QANet:
     def get_start_probs(self, data, batch_size):
         result = []
         intermediate_results = []
-        for batch in self.iterate_minibatches(data, batch_size, with_answer_inds=False):
-            _, contexts, _, _, _, _, context_mask, _, _ = batch
+        for batch in self._iterate_minibatches(data, batch_size, with_answer_inds=False):
+            contexts     = batch[1]
+            context_mask = batch[6]
             inter_res = self.get_intermediate_results_fn(*batch)
             out = self.get_start_probs_fn(contexts, context_mask, inter_res[0], inter_res[1])
             intermediate_results.append(inter_res)
@@ -170,8 +178,9 @@ class QANet:
     def get_end_probs(self, data, answer_start_inds, batch_size, intermediate_results):
         result = []
         idx = 0
-        for i, batch in enumerate(self.iterate_minibatches(data, batch_size, with_answer_inds=False)):
-            _, contexts, _, _, _, _, context_mask, _, _ = batch
+        for i, batch in enumerate(self._iterate_minibatches(data, batch_size, with_answer_inds=False)):
+            contexts     = batch[1]
+            context_mask = batch[6]
             inter_res = intermediate_results[i]
             start_inds = answer_start_inds[idx : idx + batch_size]
             out = self.get_end_probs_fn(contexts, context_mask, inter_res[0], inter_res[1], start_inds)
@@ -186,7 +195,7 @@ class QANet:
         train_batches = 0
         start_time    = time.time()
 
-        for batch in self.iterate_minibatches(train_data, batch_size, shuffle=True):
+        for batch in self._iterate_minibatches(train_data, batch_size, shuffle=True):
             answer_inds = batch[-1]
             params = list(batch[:-1]) + [answer_inds[:,0], answer_inds[:,1], self.learning_rate]
 
@@ -345,6 +354,23 @@ class QANet:
         else:
             l_c_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.context_var)
             l_q_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.question_var)
+
+            if self.train_unk:
+                l_c_unk_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_unk_var)
+                l_q_unk_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_question_unk_var)
+
+                l_c_emb = TrainUnkLayer(l_c_emb,
+                                        l_c_unk_mask,
+                                        output_size=self.emb_size,
+                                        W=self.word_embeddings[0])
+
+                l_q_emb = TrainUnkLayer(l_q_emb,
+                                        l_q_unk_mask,
+                                        output_size=self.emb_size,
+                                        W=l_c_emb.W)
+
+            if self.negative:
+                l_c_emb = TrainNAWLayer(l_c_emb, l_c_mask, output_size=self.emb_size)
 
         ''' Char-embeddings '''
 
@@ -644,7 +670,7 @@ class QANet:
         return l_start_soft, l_end_soft
 
 
-    def iterate_minibatches(self, inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False):
+    def _iterate_minibatches(self, inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False):
 
         assert len(inputs) == 3
         inputs, inputs_char, inputs_bin_feats = inputs
@@ -713,12 +739,18 @@ class QANet:
             question_char_mask = (questions_char != pad).astype(theano.config.floatX)
             context_char_mask  = (contexts_char  != pad).astype(theano.config.floatX)
 
+            question_unk_mask = (questions == 0).astype(np.int32)
+            context_unk_mask  = (contexts  == 0).astype(np.int32)
+
             if self.prefetch_word_embs:
                 questions = self.word_embeddings[questions]
                 contexts  = self.word_embeddings[contexts]
 
             res = questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
                     question_char_mask, context_char_mask
+
+            if self.train_unk:
+                res += (question_unk_mask, context_unk_mask)
 
             if with_answer_inds:
                 res = res + (answer_inds,)

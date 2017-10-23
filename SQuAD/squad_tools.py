@@ -38,7 +38,6 @@ def load_squad_dev(squad_path, pkls_path, make_negative=False, NAW_token=None, N
     dev_bin_feats = np.load(os.path.join(pkls_path, 'dev_bin_feats.pkl'))
 
     if make_negative:
-        assert NAW_token is not None
         dev, dev_words, dev_char, dev_bin_feats = \
             add_NAW_token([dev, dev_words, dev_char, dev_bin_feats], NAW_token)
 
