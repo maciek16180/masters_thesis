@@ -96,7 +96,7 @@ class QANet:
         print('Building the model...')
 
         self.intermediate_net = self._build_net(**kwargs)
-        self.train_net        = self._build_predictors(*self.intermediate_net)
+        self.train_net        = self._build_predictors(*self.intermediate_net[:2])
 
         all_params = {x.name : x for x in L.layers.get_all_params(self.train_net)}
         self.pred_net = self._build_predictors_from_intermediate_results(all_params)
@@ -161,7 +161,7 @@ class QANet:
         for batch in self._iterate_minibatches(data, batch_size, with_answer_inds=False):
             contexts     = batch[1]
             context_mask = batch[6]
-            inter_res = self.get_intermediate_results_fn(*batch)
+            inter_res = self.get_intermediate_results_fn(*batch)[:2]
             out = self.get_start_probs_fn(contexts, context_mask, inter_res[0], inter_res[1])
             intermediate_results.append(inter_res)
             result.append(out)
@@ -424,13 +424,6 @@ class QANet:
 
         # originally I had dropout here
 
-        ''' Dropout at the embeddings '''
-
-        if emb_dropout:
-            print('Using dropout.')
-            l_c_emb = LL.dropout(l_c_emb)
-            l_q_emb = LL.dropout(l_q_emb)
-
         ''' Highway layer allowing for interaction between embeddings '''
 
         l_c_P = LL.DenseLayer(LL.reshape(l_c_emb, (batch_size * context_len, self.emb_size + self.num_emb_char_filters)),
@@ -461,6 +454,13 @@ class QANet:
 
         l_bin_feat = LL.InputLayer(shape=(None, None), input_var=self.bin_feat_var) # batch_size x context_len
         l_bin_feat = LL.dimshuffle(l_bin_feat, (0, 1, 'x'))
+
+        ''' Dropout at the embeddings '''
+
+        if emb_dropout:
+            print('Using dropout after wiq calculation.')
+            l_c_emb = LL.dropout(l_c_emb)
+            l_q_emb = LL.dropout(l_q_emb)
 
         ''' Here we concatenate wiq features to embeddings'''
 
@@ -566,7 +566,7 @@ class QANet:
         # batch_size x rec_size
         l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, question_len, self.rec_size)), l_alpha])
 
-        return l_c_proj, l_z_hat
+        return l_c_proj, l_z_hat, l_alpha
 
 
     def _build_predictors(self, l_c_proj, l_z_hat):

@@ -17,9 +17,9 @@ def load_squad_train(path, negative_path=None, NAW_token=None, NAW_char=3):
         train_words_pos, train_char_pos, train_bin_feats_pos = \
             add_NAW_token([train_words, train_char, train_bin_feats], NAW_token)
 
-        train_words_neg     = np.load(os.path.join(negative_path, 'train_neg_words.pkl'))
-        train_char_neg      = np.load(os.path.join(negative_path, 'train_neg_char_ascii.pkl'))
-        train_bin_feats_neg = np.load(os.path.join(negative_path, 'train_neg_bin_feats.pkl'))
+        train_words_neg     = np.load(os.path.join(path, negative_path, 'train_neg_words.pkl'))
+        train_char_neg      = np.load(os.path.join(path, negative_path, 'train_neg_char_ascii.pkl'))
+        train_bin_feats_neg = np.load(os.path.join(path, negative_path, 'train_neg_bin_feats.pkl'))
 
         train_words     = train_words_pos     + train_words_neg
         train_char      = train_char_pos      + train_char_neg
@@ -38,6 +38,7 @@ def load_squad_dev(squad_path, pkls_path, make_negative=False, NAW_token=None, N
     dev_bin_feats = np.load(os.path.join(pkls_path, 'dev_bin_feats.pkl'))
 
     if make_negative:
+        print("Adding NAW token to dev set.")
         dev, dev_words, dev_char, dev_bin_feats = \
             add_NAW_token([dev, dev_words, dev_char, dev_bin_feats], NAW_token)
 
@@ -80,6 +81,9 @@ def filter_empty_answers(train_data):
 
 
 def trim_data(data, trim):
+    if trim <= 0:
+        return data
+
     words, char, bin_feats = data
 
     words_new     = []

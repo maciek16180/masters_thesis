@@ -4,7 +4,7 @@ import numpy as np
 import os, sys, argparse
 
 parser = argparse.ArgumentParser(description='Train script for QANet.')
-parser.add_argument('--glove_version', choices=['6B', '840B'], default='6B')
+parser.add_argument('-g', '--glove_version', choices=['6B', '840B'], default='6B')
 parser.add_argument('-o', '--output_dir', default='default_dir')
 parser.add_argument('--trim', default=300, type=int)
 parser.add_argument('--save_preds', action='store_true')
