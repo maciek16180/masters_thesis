@@ -30,8 +30,8 @@ print('device ==', theano.config.device)
 class QANet:
 
     def __init__(self, voc_size, emb_init, dev_data=None, alphabet_size=128, emb_size=300,
-                 emb_char_size=20, num_emb_char_filters=200, rec_size=300, train_inds=[],
-                 checkpoint_examples=64000, prefetch_word_embs=False, init_lrate=0.001,
+                 emb_char_size=20, num_emb_char_filters=200, rec_size=300,
+                 checkpoint_examples=64000, init_lrate=0.001,
                  predictions_path=None, train_unk=False, negative=False, **kwargs):
 
         self.data_dev     = None
@@ -56,20 +56,14 @@ class QANet:
 
         self.negative             = negative
         self.train_unk            = train_unk
-        self.train_inds           = train_inds
         self.alphabet_size        = alphabet_size
         self.emb_char_size        = emb_char_size
         self.num_emb_char_filters = num_emb_char_filters
 
-        self.prefetch_word_embs = prefetch_word_embs
         self.word_embeddings    = emb_init
 
-        if not self.prefetch_word_embs:
-            self.question_var = T.imatrix('questions')
-            self.context_var  = T.imatrix('contexts')
-        else:
-            self.question_var = T.tensor3('questions')
-            self.context_var  = T.tensor3('contexts')
+        self.question_var = T.tensor3('questions')
+        self.context_var  = T.tensor3('contexts')
 
         self.mask_question_var = T.matrix('question_mask')
         self.mask_context_var  = T.matrix('context_mask')
@@ -225,21 +219,13 @@ class QANet:
 
     def save_params(self, fname): # without the fixed word embeddings matrix
         params = L.layers.get_all_param_values(self.train_net)
-        if not self.prefetch_word_embs:
-            params = params[1:]
         np.savez(fname, *params)
 
 
-    def load_params(self, fname, E=None): # E is the fixed word embeddings matrix
-        assert self.prefetch_word_embs or E is not None
+    def load_params(self, fname): # E is the fixed word embeddings matrix
         with np.load(fname) as f:
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
-            if not self.prefetch_word_embs:
-                param_values.insert(0, E)
-            for i in range(len(param_values)):
-                if param_values[i].dtype in ['float32', 'float64']:
-                    param_values[i] = param_values[i].astype(theano.config.floatX)
-            L.layers.set_all_param_values(self.train_net, param_values)
+        L.layers.set_all_param_values(self.train_net, param_values)
 
 
     # WARNING: I don't know if beam > 1 works anymore (I don't use it anyway)
@@ -334,43 +320,25 @@ class QANet:
         l_c_char_mask = LL.InputLayer(shape=(None, None, None), input_var=self.mask_context_char_var)
         l_q_char_mask = LL.InputLayer(shape=(None, None, None), input_var=self.mask_question_char_var)
 
-        if not self.prefetch_word_embs:
-            l_context  = LL.InputLayer(shape=(None, None), input_var=self.context_var)
-            l_question = LL.InputLayer(shape=(None, None), input_var=self.question_var)
+        l_c_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.context_var)
+        l_q_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.question_var)
 
-            l_c_emb = TrainPartOfEmbsLayer(l_context,
-                                           output_size=self.emb_size,
-                                           input_size=self.voc_size,
-                                           W=self.word_embeddings[self.train_inds],
-                                           E=self.word_embeddings,
-                                           train_inds=self.train_inds)
+        if self.train_unk:
+            l_c_unk_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_unk_var)
+            l_q_unk_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_question_unk_var)
 
-            l_q_emb = TrainPartOfEmbsLayer(l_question,
-                                           output_size=self.emb_size,
-                                           input_size=self.voc_size,
-                                           W=l_c_emb.W,
-                                           E=l_c_emb.E,
-                                           train_inds=self.train_inds)
-        else:
-            l_c_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.context_var)
-            l_q_emb = LL.InputLayer(shape=(None, None, self.emb_size), input_var=self.question_var)
+            l_c_emb = TrainUnkLayer(l_c_emb,
+                                    l_c_unk_mask,
+                                    output_size=self.emb_size,
+                                    W=self.word_embeddings[0])
 
-            if self.train_unk:
-                l_c_unk_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_context_unk_var)
-                l_q_unk_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_question_unk_var)
+            l_q_emb = TrainUnkLayer(l_q_emb,
+                                    l_q_unk_mask,
+                                    output_size=self.emb_size,
+                                    W=l_c_emb.W)
 
-                l_c_emb = TrainUnkLayer(l_c_emb,
-                                        l_c_unk_mask,
-                                        output_size=self.emb_size,
-                                        W=self.word_embeddings[0])
-
-                l_q_emb = TrainUnkLayer(l_q_emb,
-                                        l_q_unk_mask,
-                                        output_size=self.emb_size,
-                                        W=l_c_emb.W)
-
-            if self.negative:
-                l_c_emb = TrainNAWLayer(l_c_emb, l_c_mask, output_size=self.emb_size)
+        if self.negative:
+            l_c_emb = TrainNAWLayer(l_c_emb, l_c_mask, output_size=self.emb_size)
 
         ''' Char-embeddings '''
 
@@ -742,9 +710,8 @@ class QANet:
             question_unk_mask = (questions == 0).astype(np.int32)
             context_unk_mask  = (contexts  == 0).astype(np.int32)
 
-            if self.prefetch_word_embs:
-                questions = self.word_embeddings[questions]
-                contexts  = self.word_embeddings[contexts]
+            questions = self.word_embeddings[questions]
+            contexts  = self.word_embeddings[contexts]
 
             res = questions, contexts, questions_char, contexts_char, bin_feats, question_mask, context_mask, \
                     question_char_mask, context_char_mask
