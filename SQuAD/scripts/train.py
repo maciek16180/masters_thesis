@@ -13,7 +13,7 @@ parser.add_argument('-lr', '--learning_rate', default=0.001, type=float)
 parser.add_argument('-cp', '--checkpoint_examples', default=64000, type=int)
 parser.add_argument('--squad_subdir', default='')
 parser.add_argument('--unk', default='mean', choices=['mean', 'zero', 'train'])
-parser.add_argument('-n', '--negative', default='')
+parser.add_argument('-n', '--negative', nargs='+', default=[])
 
 args = parser.parse_args()
 
@@ -66,12 +66,12 @@ glove_words = np.load(glove_words_path)
 NAW_token = glove_words.index('<not_a_word>')
 
 train_data = load_squad_train(squad_path,
-    negative_path=args.negative or None, NAW_token=NAW_token)
+    negative_paths=args.negative, NAW_token=NAW_token)
 train_data = filter_empty_answers(train_data)
 train_data = trim_data(train_data, args.trim)
 
 dev_data = load_squad_dev(squad_base_path, squad_path,
-    make_negative=bool(args.negative), NAW_token=NAW_token)
+    lower_raw=args.glove_version=='6B', make_negative=bool(args.negative), NAW_token=NAW_token)
 
 net = QANet(voc_size=voc_size,
             emb_init=glove_embs,

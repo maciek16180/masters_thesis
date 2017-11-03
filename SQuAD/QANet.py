@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 import numpy as np
-import theano, json, time, os
+import theano, json, time, os, re
 import theano.tensor as T
 
 import lasagne as L
@@ -26,23 +26,29 @@ from evaluate import evaluate
 print('floatX ==', theano.config.floatX)
 print('device ==', theano.config.device)
 
+NAW_token = '<not_a_word>'
+
 
 class QANet:
 
     def __init__(self, voc_size, emb_init, dev_data=None, alphabet_size=128, emb_size=300,
                  emb_char_size=20, num_emb_char_filters=200, rec_size=300,
                  checkpoint_examples=64000, init_lrate=0.001,
-                 predictions_path=None, train_unk=False, negative=False, **kwargs):
+                 predictions_path=None, train_unk=False, negative=False, debug=False, **kwargs):
+
+        self.debug = debug
 
         self.data_dev     = None
         self.data_dev_num = None
         self.dev_json     = None
+        self.dev_raw_pars = None
 
         if dev_data is not None:
-            assert len(dev_data) == 5
+            assert len(dev_data) == 6
             self.dev_json     = dev_data[0]
-            self.data_dev     = dev_data[1]
-            self.data_dev_num = dev_data[2:]
+            self.dev_raw_pars = dev_data[1]
+            self.data_dev     = dev_data[2]
+            self.data_dev_num = dev_data[3:]
 
         self.predictions_path = predictions_path
 
@@ -138,12 +144,12 @@ class QANet:
 
         print('    get_start_probs_fn...')
         self.get_start_probs_fn = theano.function(
-            [self.context_var, self.mask_context_var, self.aux1_var, self.aux2_var],
+            [self.mask_context_var, self.aux1_var, self.aux2_var],
             test_out[0])
 
         print('    get_end_probs_fn...')
         self.get_end_probs_fn = theano.function(
-            [self.context_var, self.mask_context_var, self.aux1_var, self.aux2_var, self.answer_starts_var],
+            [self.mask_context_var, self.aux1_var, self.aux2_var, self.answer_starts_var],
             test_out[1])
 
         print('Done')
@@ -153,12 +159,27 @@ class QANet:
         result = []
         intermediate_results = []
         for batch in self._iterate_minibatches(data, batch_size, with_answer_inds=False):
-            contexts     = batch[1]
             context_mask = batch[6]
-            inter_res = self.get_intermediate_results_fn(*batch)[:2]
-            out = self.get_start_probs_fn(contexts, context_mask, inter_res[0], inter_res[1])
+            all_inter_res = self.get_intermediate_results_fn(*batch)
+            inter_res = all_inter_res[:2]
+            out = self.get_start_probs_fn(context_mask, inter_res[0], inter_res[1])
             intermediate_results.append(inter_res)
             result.append(out)
+
+            if self.debug:
+                np.savez(open('test%i' % batch_size, 'w'), *batch)
+                np.save(open('test_embc%i' % batch_size, 'w'), all_inter_res[3])
+                np.save(open('test_embq%i' % batch_size, 'w'), all_inter_res[4])
+
+                print(all_inter_res[4][0])
+                print('\n')
+                print(all_inter_res[3][0])
+                print('\n')
+                print(all_inter_res[0][0])
+                print('\n')
+                print(all_inter_res[1][0])
+                print('\n')
+                print(out[0])
 
         return np.vstack(result), intermediate_results
 
@@ -173,11 +194,10 @@ class QANet:
         result = []
         idx = 0
         for i, batch in enumerate(self._iterate_minibatches(data, batch_size, with_answer_inds=False)):
-            contexts     = batch[1]
             context_mask = batch[6]
             inter_res = intermediate_results[i]
             start_inds = answer_start_inds[idx : idx + batch_size]
-            out = self.get_end_probs_fn(contexts, context_mask, inter_res[0], inter_res[1], start_inds)
+            out = self.get_end_probs_fn(context_mask, inter_res[0], inter_res[1], start_inds)
             result.append(out)
             idx += batch_size
 
@@ -189,7 +209,7 @@ class QANet:
         train_batches = 0
         start_time    = time.time()
 
-        for batch in self._iterate_minibatches(train_data, batch_size, shuffle=True):
+        for batch in self._iterate_minibatches(train_data, batch_size, shuffle=True, train=True):
             answer_inds = batch[-1]
             params = list(batch[:-1]) + [answer_inds[:,0], answer_inds[:,1], self.learning_rate]
 
@@ -261,6 +281,10 @@ class QANet:
         assert self.data_dev     is not None
         assert self.data_dev_num is not None
         assert self.dev_json     is not None
+        assert self.dev_raw_pars is not None
+
+        if self.debug:
+            print("data_dev size:", len(self.data_dev))
 
         predicted_spans = []
 
@@ -268,7 +292,7 @@ class QANet:
         idx = 0
         while idx < len(self.data_dev):
             data_dev_batch = [d[idx:idx + batch_size] for d in self.data_dev_num]
-            spans = self._predict_spans(data_dev_batch, beam=1, batch_size=batch_size)[:2]
+            spans = self._predict_spans(data_dev_batch, beam=1, batch_size=len(data_dev_batch[0]))[:2]
             predicted_spans.append(np.vstack(spans))
             idx += batch_size
             if not idx % 2500 and verbose:
@@ -279,11 +303,45 @@ class QANet:
 
         predicted_spans = np.hstack(predicted_spans).T
 
+        if self.debug:
+            for x in predicted_spans:
+                print(x)
+
+        def find_answer(par, ans_tokens):
+            if not ans_tokens:
+                return ""
+
+            # don't screw up NAW_token, it's not in self.dev_raw_pars
+            if ans_tokens[-1] == NAW_token:
+                return ' '.join(ans_tokens)
+
+            possible_starts = [m.start() for m in re.finditer(re.escape(ans_tokens[0]), par)]
+            max_ans_len = sum(map(len, ans_tokens)) + 3 * len(ans_tokens)
+
+            for start in possible_starts:
+                idx = start
+                ans = ''
+                for tok in ans_tokens:
+                    while not ans.endswith(tok) and \
+                          (idx - start < max_ans_len) and \
+                          (idx < len(par)):
+                        ans += par[idx]
+                        idx += 1
+                if ''.join(ans.split()) == ''.join(''.join(ans_tokens).split()):
+                    break
+            return ans
+
+        if verbose:
+            print("Getting answers...")
         prediction_dict = {}
         for i in range(len(self.data_dev)):
-            ans = u' '.join(self.data_dev[i][2][predicted_spans[i][0]:predicted_spans[i][1] + 1])
+            ans_tokens = self.data_dev[i][2][predicted_spans[i][0]:predicted_spans[i][1] + 1]
             Id = self.data_dev[i][3]
+            par = self.dev_raw_pars[Id]
+            ans = find_answer(par, ans_tokens)
             prediction_dict[Id] = ans
+        if verbose:
+            print("Done")
 
         result = evaluate(self.dev_json['data'], prediction_dict)
         print("F1: ", result['f1'])
@@ -300,8 +358,8 @@ class QANet:
 
     def _build_net(self, emb_char_filter_size=5, emb_dropout=True, **kwargs):
 
-        batch_size        = self.context_var.shape[0]
-        context_len       = self.context_var.shape[1]
+        batch_size        = self.mask_context_var.shape[0]
+        context_len       = self.mask_context_var.shape[1]
         question_len      = self.question_var.shape[1]
         context_word_len  = self.context_char_var.shape[2]
         question_word_len = self.question_char_var.shape[2]
@@ -356,6 +414,10 @@ class QANet:
         l_c_char_mask = ForgetSizeLayer(LL.dimshuffle(l_c_char_mask, (0, 1, 2, 'x')))
         l_q_char_mask = ForgetSizeLayer(LL.dimshuffle(l_q_char_mask, (0, 1, 2, 'x')))
 
+        # debug:
+        # l_q_char_mask = LL.ExpressionLayer(l_q_char_mask, lambda X: X>-1)
+        # l_c_char_mask = LL.ExpressionLayer(l_c_char_mask, lambda X: X>-1)
+
         l_c_char_emb = LL.ElemwiseMergeLayer([l_c_char_emb, l_c_char_mask], T.mul)
         l_q_char_emb = LL.ElemwiseMergeLayer([l_q_char_emb, l_q_char_mask], T.mul)
 
@@ -366,8 +428,9 @@ class QANet:
         l_c_char_conv = LL.Conv1DLayer(l_c_char_emb,
                                        num_filters=self.num_emb_char_filters,
                                        filter_size=emb_char_filter_size,
-                                       nonlinearity=L.nonlinearities.tanh)
-        # (batch_size * context_len x num_filters x context_word_len - filter_size + 1)
+                                       nonlinearity=L.nonlinearities.tanh,
+                                       pad='full')
+        # (batch_size * context_len x num_filters x context_word_len + filter_size - 1)
 
         l_c_char_emb = LL.ExpressionLayer(l_c_char_conv, lambda X: X.max(2), output_shape='auto')
         l_c_char_emb = LL.reshape(l_c_char_emb, (batch_size, context_len, self.num_emb_char_filters))
@@ -379,11 +442,16 @@ class QANet:
                                        filter_size=emb_char_filter_size,
                                        nonlinearity=L.nonlinearities.tanh,
                                        W=l_c_char_conv.W,
-                                       b=l_c_char_conv.b)
-        # (batch_size * question_len x num_filters x question_word_len - filter_size + 1)
+                                       b=l_c_char_conv.b,
+                                       pad='full')
+        # (batch_size * question_len x num_filters x question_word_len + filter_size - 1)
 
         l_q_char_emb = LL.ExpressionLayer(l_q_char_conv, lambda X: X.max(2), output_shape='auto')
         l_q_char_emb = LL.reshape(l_q_char_emb, (batch_size, question_len, self.num_emb_char_filters))
+
+        # debug: char_emb=0
+        # l_q_char_emb = LL.ExpressionLayer(l_q_char_emb, lambda X: X * 0)
+        # l_c_char_emb = LL.ExpressionLayer(l_c_char_emb, lambda X: X * 0)
 
         ''' Concatenating both embeddings '''
 
@@ -434,6 +502,10 @@ class QANet:
 
         l_c_emb = LL.concat([l_c_emb, l_bin_feat, l_weighted_feat], axis=2) # both features are concatenated to the embeddings
         l_q_emb = LL.pad(l_q_emb, width=[(0, 2)], val=L.utils.floatX(1), batch_ndim=2) # for the question we fix the features to 1
+
+        # debug
+        # l_q_emb = LL.ExpressionLayer(l_q_emb, lambda X: X * 0)
+        # l_c_emb = LL.ExpressionLayer(l_c_emb, lambda X: X * 0)
 
         ''' Context and question encoding using the same BiLSTM for both '''
 
@@ -501,9 +573,12 @@ class QANet:
                                         b     =l_c_enc_back.b_cell,
                                         nonlinearity=L.nonlinearities.tanh))
 
-
         l_c_enc = LL.concat([l_c_enc_forw, l_c_enc_back], axis=2) # batch_size x context_len  x 2*rec_size
         l_q_enc = LL.concat([l_q_enc_forw, l_q_enc_back], axis=2) # batch_size x question_len x 2*rec_size
+
+        # debug
+        # l_q_enc = LL.ExpressionLayer(l_q_enc, lambda X: X * 0)
+        # l_c_enc = LL.ExpressionLayer(l_c_enc, lambda X: X * 0)
 
         # this is H from the paper, shape: (batch_size * context_len x rec_size)
         l_c_proj = LL.DenseLayer(LL.reshape(l_c_enc, (batch_size * context_len, 2 * self.rec_size)),
@@ -534,7 +609,7 @@ class QANet:
         # batch_size x rec_size
         l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, question_len, self.rec_size)), l_alpha])
 
-        return l_c_proj, l_z_hat, l_alpha
+        return l_c_proj, l_z_hat, l_alpha, l_c_enc, l_q_enc, l_c_emb, l_q_emb
 
 
     def _build_predictors(self, l_c_proj, l_z_hat):
@@ -638,7 +713,7 @@ class QANet:
         return l_start_soft, l_end_soft
 
 
-    def _iterate_minibatches(self, inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False):
+    def _iterate_minibatches(self, inputs, batch_size, pad=-1, with_answer_inds=True, shuffle=False, train=False):
 
         assert len(inputs) == 3
         inputs, inputs_char, inputs_bin_feats = inputs
@@ -649,7 +724,11 @@ class QANet:
             inputs_char      = np.array(inputs_char)
             inputs_bin_feats = np.array(inputs_bin_feats)
 
-        for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
+        n = len(inputs)
+        if train:
+            n = n - batch_size + 1
+
+        for start_idx in range(0, n, batch_size):
             if shuffle:
                 excerpt = indices[start_idx:start_idx + batch_size]
             else:
@@ -661,8 +740,11 @@ class QANet:
 
             question_len = max(len(e[1]) for e in examples)
             context_len  = max(len(e[2]) for e in examples)
-            q_word_len   = max(len(w)    for e in examples_char for w in e[0])
-            c_word_len   = max(len(w)    for e in examples_char for w in e[1])
+
+            # +1 hack helps in full max pooling along the word
+            # this way it can't vary for different batch sizes
+            q_word_len   = max(len(w) for e in examples_char for w in e[0]) + 1
+            c_word_len   = max(len(w) for e in examples_char for w in e[1]) + 1
 
             questions      = []
             contexts       = []

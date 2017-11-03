@@ -4,33 +4,42 @@ import numpy as np
 import os, json
 
 
-def load_squad_train(path, negative_path=None, NAW_token=None, NAW_char=3):
+def load_squad_train(path, negative_paths=[], NAW_token=None, NAW_char=3):
     train_words     = np.load(os.path.join(path, 'train_words.pkl'))
     train_char      = np.load(os.path.join(path, 'train_char_ascii.pkl'))
     train_bin_feats = np.load(os.path.join(path, 'train_bin_feats.pkl'))
 
-    if negative_path is None:
+    if not negative_paths:
         print("Only positive samples.")
     else:
         print("Using negative samples.")
+        train_words, train_char, train_bin_feats = \
+                add_NAW_token([train_words, train_char, train_bin_feats], NAW_token)
 
-        train_words_pos, train_char_pos, train_bin_feats_pos = \
-            add_NAW_token([train_words, train_char, train_bin_feats], NAW_token)
+        for negative_path in negative_paths:
+            train_words_neg     = np.load(os.path.join(path, negative_path, 'train_words.pkl'))
+            train_char_neg      = np.load(os.path.join(path, negative_path, 'train_char_ascii.pkl'))
+            train_bin_feats_neg = np.load(os.path.join(path, negative_path, 'train_bin_feats.pkl'))
 
-        train_words_neg     = np.load(os.path.join(path, negative_path, 'train_neg_words.pkl'))
-        train_char_neg      = np.load(os.path.join(path, negative_path, 'train_neg_char_ascii.pkl'))
-        train_bin_feats_neg = np.load(os.path.join(path, negative_path, 'train_neg_bin_feats.pkl'))
-
-        train_words     = train_words_pos     + train_words_neg
-        train_char      = train_char_pos      + train_char_neg
-        train_bin_feats = train_bin_feats_pos + train_bin_feats_neg
+            train_words     += train_words_neg
+            train_char      += train_char_neg
+            train_bin_feats += train_bin_feats_neg
 
     return train_words, train_char, train_bin_feats
 
 
-def load_squad_dev(squad_path, pkls_path, make_negative=False, NAW_token=None, NAW_char=3):
+def load_squad_dev(squad_path, pkls_path, lower_raw, make_negative=False, NAW_token=None, NAW_char=3):
     with open(os.path.join(squad_path, 'dev-v1.1.json')) as f:
         json_dev = json.load(f)
+
+    dev_pars_raw = {}
+    for par in json_dev['data']:
+        for con in par['paragraphs']:
+            for q in con['qas']:
+                context = con['context']
+                if lower_raw:
+                    context = context.lower()
+                dev_pars_raw[q['id']] = context
 
     dev           = np.load(os.path.join(pkls_path, 'dev.pkl'))
     dev_words     = np.load(os.path.join(pkls_path, 'dev_words.pkl'))
@@ -42,7 +51,7 @@ def load_squad_dev(squad_path, pkls_path, make_negative=False, NAW_token=None, N
         dev, dev_words, dev_char, dev_bin_feats = \
             add_NAW_token([dev, dev_words, dev_char, dev_bin_feats], NAW_token)
 
-    return json_dev, dev, dev_words, dev_char, dev_bin_feats
+    return json_dev, dev_pars_raw, dev, dev_words, dev_char, dev_bin_feats
 
 
 def add_NAW_token(data, NAW_token, NAW_word=u'<not_a_word>'):
