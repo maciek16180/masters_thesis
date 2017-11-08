@@ -11,9 +11,10 @@ parser.add_argument('--save_preds', action='store_true')
 parser.add_argument('-bs', '--batch_size', default=30, type=int)
 parser.add_argument('-lr', '--learning_rate', default=0.001, type=float)
 parser.add_argument('-cp', '--checkpoint_examples', default=64000, type=int)
-parser.add_argument('--squad_subdir', default='')
-parser.add_argument('--unk', default='mean', choices=['mean', 'zero', 'train'])
+parser.add_argument('--squad_subdir', default='careful_prep')
+parser.add_argument('--unk', default='train', choices=['mean', 'zero', 'train'])
 parser.add_argument('-n', '--negative', nargs='+', default=[])
+parser.add_argument('--conv', choices=['full', 'valid'], default='valid')
 
 args = parser.parse_args()
 
@@ -80,7 +81,8 @@ net = QANet(voc_size=voc_size,
             train_unk=args.unk=='train',
             negative=bool(args.negative),
             init_lrate=args.learning_rate,
-            checkpoint_examples=args.checkpoint_examples)
+            checkpoint_examples=args.checkpoint_examples,
+            conv=args.conv)
 
 model_filename = os.path.join(output_path, 'model')
 

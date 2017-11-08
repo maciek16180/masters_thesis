@@ -11,8 +11,9 @@ not_a_word_Str = '<not_a_word>'
 
 class AnswerBot:
 
-    def __init__(self, model_file, glove_embs, glove_dict, glove_ver, **kwargs):
+    def __init__(self, model_file, glove_embs, glove_dict, glove_ver, negative, **kwargs):
 
+        self.negative = negative
         self.model_file = model_file
         self.glove_ver = glove_ver
 
@@ -30,12 +31,13 @@ class AnswerBot:
         self.qa_net = QANet(self.voc_size,
                             emb_init=self.glove_embs,
                             skip_train_fn=True,
+                            negative=self.negative,
                             **kwargs)
 
         self.qa_net.load_params(self.model_file)
 
 
-    def prepare_question(self, q, x, neg=False):
+    def prepare_question(self, q, x):
         assert type(q) is type(x)
         assert type(q) in [str, unicode, list]
 
@@ -62,6 +64,7 @@ class AnswerBot:
             q = lower_if_needed(tokenize(q))
             x = lower_if_needed(tokenize(x))
 
+        neg = self.negative
         if neg and x[-1] == not_a_word_Str:
             neg = False
 
@@ -76,7 +79,7 @@ class AnswerBot:
         return (q, x) + data
 
 
-    def get_answers(self, questions, contexts, beam=1, neg=False):
+    def get_answers(self, questions, contexts, beam=1):
         num_contexts = len(contexts)
         assert len(questions) == num_contexts
 

@@ -33,10 +33,11 @@ class QANet:
 
     def __init__(self, voc_size, emb_init, dev_data=None, alphabet_size=128, emb_size=300,
                  emb_char_size=20, num_emb_char_filters=200, rec_size=300,
-                 checkpoint_examples=64000, init_lrate=0.001,
+                 checkpoint_examples=64000, init_lrate=0.001, conv='valid',
                  predictions_path=None, train_unk=False, negative=False, debug=False, **kwargs):
 
         self.debug = debug
+        self.conv = conv
 
         self.data_dev     = None
         self.data_dev_num = None
@@ -166,20 +167,20 @@ class QANet:
             intermediate_results.append(inter_res)
             result.append(out)
 
-            if self.debug:
-                np.savez(open('test%i' % batch_size, 'w'), *batch)
-                np.save(open('test_embc%i' % batch_size, 'w'), all_inter_res[3])
-                np.save(open('test_embq%i' % batch_size, 'w'), all_inter_res[4])
+            # if self.debug:
+            #     np.savez(open('test%i' % batch_size, 'w'), *batch)
+            #     np.save(open('test_embc%i' % batch_size, 'w'), all_inter_res[3])
+            #     np.save(open('test_embq%i' % batch_size, 'w'), all_inter_res[4])
 
-                print(all_inter_res[4][0])
-                print('\n')
-                print(all_inter_res[3][0])
-                print('\n')
-                print(all_inter_res[0][0])
-                print('\n')
-                print(all_inter_res[1][0])
-                print('\n')
-                print(out[0])
+            #     print(all_inter_res[4][0])
+            #     print('\n')
+            #     print(all_inter_res[3][0])
+            #     print('\n')
+            #     print(all_inter_res[0][0])
+            #     print('\n')
+            #     print(all_inter_res[1][0])
+            #     print('\n')
+            #     print(out[0])
 
         return np.vstack(result), intermediate_results
 
@@ -208,6 +209,10 @@ class QANet:
         train_err     = 0.
         train_batches = 0
         start_time    = time.time()
+
+        if self.checkpoint_examples == 0:
+            self.checkpoint_examples = len(train_data[0])
+            print('Setting checkpoint_examples to', self.checkpoint_examples)
 
         for batch in self._iterate_minibatches(train_data, batch_size, shuffle=True, train=True):
             answer_inds = batch[-1]
@@ -429,7 +434,7 @@ class QANet:
                                        num_filters=self.num_emb_char_filters,
                                        filter_size=emb_char_filter_size,
                                        nonlinearity=L.nonlinearities.tanh,
-                                       pad='full')
+                                       pad=self.conv)
         # (batch_size * context_len x num_filters x context_word_len + filter_size - 1)
 
         l_c_char_emb = LL.ExpressionLayer(l_c_char_conv, lambda X: X.max(2), output_shape='auto')
@@ -443,7 +448,7 @@ class QANet:
                                        nonlinearity=L.nonlinearities.tanh,
                                        W=l_c_char_conv.W,
                                        b=l_c_char_conv.b,
-                                       pad='full')
+                                       pad=self.conv)
         # (batch_size * question_len x num_filters x question_word_len + filter_size - 1)
 
         l_q_char_emb = LL.ExpressionLayer(l_q_char_conv, lambda X: X.max(2), output_shape='auto')
@@ -609,7 +614,7 @@ class QANet:
         # batch_size x rec_size
         l_z_hat = BatchedDotLayer([LL.reshape(l_q_proj, (batch_size, question_len, self.rec_size)), l_alpha])
 
-        return l_c_proj, l_z_hat, l_alpha, l_c_enc, l_q_enc, l_c_emb, l_q_emb
+        return l_c_proj, l_z_hat#, l_alpha, l_c_enc, l_q_enc, l_c_emb, l_q_emb
 
 
     def _build_predictors(self, l_c_proj, l_z_hat):
@@ -743,8 +748,12 @@ class QANet:
 
             # +1 hack helps in full max pooling along the word
             # this way it can't vary for different batch sizes
-            q_word_len   = max(len(w) for e in examples_char for w in e[0]) + 1
-            c_word_len   = max(len(w) for e in examples_char for w in e[1]) + 1
+            q_word_len   = max(len(w) for e in examples_char for w in e[0])
+            c_word_len   = max(len(w) for e in examples_char for w in e[1])
+
+            if self.conv == 'full':
+                q_word_len += 1
+                c_word_len += 1
 
             questions      = []
             contexts       = []
