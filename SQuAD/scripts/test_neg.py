@@ -1,16 +1,22 @@
 from __future__ import print_function
 
-import json, cPickle, argparse, os, sys
+import json
+import cPickle
+import argparse
+import os
+import sys
 import numpy as np
 
 
 parser = argparse.ArgumentParser(description='Train script for QANet.')
-parser.add_argument('-g', '--glove_version', choices=['6B', '840B'], default='6B')
+parser.add_argument('-g', '--glove_version', choices=['6B', '840B'],
+                    default='6B')
 parser.add_argument('--save_preds', action='store_true')
 parser.add_argument('-bs', '--batch_size', default=10, type=int)
 parser.add_argument('-m', '--model')
 parser.add_argument('--conv', choices=['full', 'valid'], default='valid')
-parser.add_argument('--unk', default='train', choices=['mean', 'zero', 'train'])
+parser.add_argument('--unk', choices=['mean', 'zero', 'train'],
+                    default='train')
 
 args = parser.parse_args()
 
@@ -30,10 +36,12 @@ for arg in vars(args):
     print(arg.ljust(25), getattr(args, arg))
 print("\n")
 
+
 def iterate_minibatches(data):
     for start_idx in range(0, len(data), args.batch_size):
         excerpt = slice(start_idx, start_idx + args.batch_size)
         yield zip(*data[excerpt])
+
 
 def calc_naws(data):
     naws = 0
@@ -50,12 +58,13 @@ glove_path = '/pio/data/data/glove_vec/' + glove_ver + '/glove/'
 glove_embs = np.load(glove_path + 'glove.' + glove_ver + '.300d.npy')
 if args.unk == 'zero':
     glove_embs[0] = 0
-glove_dict = cPickle.load(open(glove_path + 'glove.' + glove_ver + '.wordlist.pkl'))
+glove_dict = cPickle.load(
+    open(glove_path + 'glove.' + glove_ver + '.wordlist.pkl'))
 
 abot = AnswerBot(args.model, glove_embs, glove_dict, glove_ver,
-    train_unk=args.unk=='train',
-    negative=True,
-    conv=args.conv)
+                 train_unk=args.unk == 'train',
+                 negative=True,
+                 conv=args.conv)
 
 print('\nDiscarded paragraphs:\n')
 

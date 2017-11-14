@@ -38,12 +38,15 @@ class WeightedFeatureLayer(MergeLayer):
         context, question, c_mask, q_mask = inputs
         batch_size, question_len, emb_size = question.shape
 
-        question = question.reshape((batch_size * question_len, emb_size)) * self.V
+        question = question.reshape(
+            (batch_size * question_len, emb_size)) * self.V
         question = question.reshape((batch_size, question_len, emb_size))
 
-        context = context.dimshuffle(0, 2, 1) # batch_size x emb_size x context_len
+        # batch_size x emb_size x context_len
+        context = context.dimshuffle(0, 2, 1)
 
-        x = T.batched_dot(question, context) # batch_size x question_len x context_len
+        # batch_size x question_len x context_len
+        x = T.batched_dot(question, context)
         x_max = x.max(axis=2).dimshuffle(0, 1, 'x')
         esim = T.exp(x - x_max)
         esim *= c_mask.reshape((batch_size, 1, -1))
@@ -53,10 +56,8 @@ class WeightedFeatureLayer(MergeLayer):
 
         esim *= q_mask.reshape((batch_size, -1, 1))
 
-        return esim.sum(axis=1) # batch_size x context_len
+        return esim.sum(axis=1)  # batch_size x context_len
 
     def get_output_shape_for(self, input_shapes, **kwargs):
         assert len(input_shapes) == 4
         return input_shapes[0][:2]
-
-

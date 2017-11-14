@@ -11,14 +11,15 @@ not_a_word_Str = '<not_a_word>'
 
 class AnswerBot:
 
-    def __init__(self, model_file, glove_embs, glove_dict, glove_ver, negative, **kwargs):
+    def __init__(self, model_file, glove_embs, glove_dict,
+                 glove_ver, negative, **kwargs):
 
         self.negative = negative
         self.model_file = model_file
         self.glove_ver = glove_ver
 
         self.words = glove_dict
-        self.w_to_i = {v:k for (k,v) in enumerate(self.words)}
+        self.w_to_i = {v: k for (k, v) in enumerate(self.words)}
 
         self.not_a_word_Word = self.w_to_i[not_a_word_Str]
 
@@ -26,7 +27,7 @@ class AnswerBot:
         self.voc_size = self.glove_embs.shape[0]
 
         self.chars = [unichr(i) for i in range(128)]
-        self.c_to_i = {v:k for (k,v) in list(enumerate(self.chars))}
+        self.c_to_i = {v: k for (k, v) in list(enumerate(self.chars))}
 
         self.qa_net = QANet(self.voc_size,
                             emb_init=self.glove_embs,
@@ -36,20 +37,21 @@ class AnswerBot:
 
         self.qa_net.load_params(self.model_file)
 
-
     def prepare_question(self, q, x):
         assert type(q) is type(x)
         assert type(q) in [str, unicode, list]
 
+        def to_nums(ws):
+            return [self.w_to_i.get(w, 0) for w in ws]
+
+        def to_chars(w):
+            return [1] + [self.c_to_i.get(c, 0) for c in w] + [2]
+
         def make_words(q, x):
-            q_num = [self.w_to_i.get(w, 0) for w in q]
-            x_num = [self.w_to_i.get(w, 0) for w in x]
-            return [[], q_num, x_num]
+            return [[], to_nums(q), to_nums(x)]
 
         def make_chars(q, x):
-            q_char = [[1] + [self.c_to_i.get(c, 0) for c in w] + [2] for w in q]
-            x_char = [[1] + [self.c_to_i.get(c, 0) for c in w] + [2] for w in x]
-            return [q_char, x_char]
+            return [map(to_chars, q), map(to_chars, x)]
 
         def make_bin_feats(q, x):
             qset = set(q)
@@ -78,7 +80,6 @@ class AnswerBot:
 
         return (q, x) + data
 
-
     def get_answers(self, questions, contexts, beam=1):
         num_contexts = len(contexts)
         assert len(questions) == num_contexts
@@ -95,7 +96,8 @@ class AnswerBot:
             data[1].append(chars)
             data[2].append(bin_feats)
 
-        l, r, scr = self.qa_net._predict_spans(data, beam=beam, batch_size=num_contexts)
+        l, r, scr = self.qa_net._predict_spans(
+            data, beam=beam, batch_size=num_contexts)
 
         answers = []
         for i in range(num_contexts):

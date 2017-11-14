@@ -6,6 +6,7 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 
 class WordDropoutLayer(MergeLayer):
+
     def __init__(self, incoming, v, drop_rate=.25, **kwargs):
         self.rng = RandomStreams(get_rng().randint(1, 2147462579))
         self.drop_rate = drop_rate
@@ -21,5 +22,5 @@ class WordDropoutLayer(MergeLayer):
             return input_
         input_ = input_.reshape((bs * seq_len, emb_size))
         idx = self.rng.binomial((bs * seq_len,), p=self.drop_rate).nonzero()
-        
+
         return T.set_subtensor(input_[idx], v).reshape((bs, seq_len, emb_size))

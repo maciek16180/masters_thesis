@@ -1,11 +1,10 @@
-
 import numpy as np
 from itertools import chain
 
 
 def get_reddit_voc(path):
     words = np.load(path + 'wordlist.pkl')
-    w_to_i = {v:k for (k,v) in enumerate(words)}
+    w_to_i = {v: k for (k, v) in enumerate(words)}
     return words, w_to_i, len(words), np.load(path + 'freqs.pkl')
 
 

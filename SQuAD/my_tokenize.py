@@ -7,6 +7,7 @@ Two versions:
     - tokenize_with_ans_idx keeps track of answer index
 '''
 
+
 def tokenize_with_ans_idx(s, ans_idx):
     if type(s) is not unicode:
         s = s.decode('utf8')

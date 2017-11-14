@@ -26,7 +26,7 @@ def get_redditv3_voc(path, train_len, pad_value=-1):
     total_count = float(freqs.sum())
 
     idx_to_w = [w[0] for w in word_list]
-    w_to_idx = {idx_to_w[i] : i for i in range(len(idx_to_w))}
+    w_to_idx = {idx_to_w[i]: i for i in range(len(idx_to_w))}
 
     w_to_idx[u'<utt_end>'] = pad_value
     idx_to_w.append(u'<utt_end>')

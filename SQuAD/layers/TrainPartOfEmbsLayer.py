@@ -27,14 +27,16 @@ class TrainPartOfEmbsLayer(Layer):
         super(TrainPartOfEmbsLayer, self).__init__(incoming, **kwargs)
 
         self.output_size = output_size
-        self.input_size  = input_size
-        self.train_inds  = train_inds
+        self.input_size = input_size
+        self.train_inds = train_inds
 
-        self.E = self.add_param(E, (self.input_size, self.output_size), name="E", trainable=False)
+        self.E = self.add_param(
+            E, (self.input_size, self.output_size), name="E", trainable=False)
 
         self.W = None
         if self.train_inds:
-            self.W = self.add_param(W, (len(self.train_inds), output_size), name="W")
+            self.W = self.add_param(
+                W, (len(self.train_inds), output_size), name="W")
 
     def get_output_for(self, input_, **kwargs):
         E = self.E

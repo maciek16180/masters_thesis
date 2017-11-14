@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import numpy as np
 import lasagne as L
 import sys
@@ -19,24 +21,32 @@ hred_net = HRED(voc_size=voc_size,
                 num_sampled=200,
                 skip_train=True)
 
-hred_net.load_params('trained_models/pretrained_subtle_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200.npz')
-# hred_net.load_params('../trained_models/subtleFixed_300_300_300_300_ssoft200unigr_bs30_cut200_early5.npz')
+hred_net.load_params('trained_models/pretrained_subtle_GaussInit_'
+                     '300_300_300_300_ssoft200unigr_bs30_cut200.npz')
+# hred_net.load_params('../trained_models/subtleFixed_300_300_300_300_'
+#                      'ssoft200unigr_bs30_cut200_early5.npz')
+
 
 def print_utt(utt):
     return ' '.join([idx_to_w[x] for x in utt])
 
+
 def utt_to_array(utt):
-    arr = np.array([w_to_idx.get(w, w_to_idx['<unk>']) for w in utt])[np.newaxis].astype(np.int32)
+    arr = np.array([w_to_idx.get(w, w_to_idx['<unk>']) for w in utt])[
+        np.newaxis].astype(np.int32)
     arr[arr == -voc_size] = -1
     return arr
+
 
 def context_summary(context, lookup=True):
     con_init = np.zeros((1, hred_net.lv2_rec_size), dtype=np.float32)
     for utt in context:
-        con_init = hred_net.get_new_con_init_fn(utt_to_array(utt) if lookup else utt, con_init)
+        con_init = hred_net.get_new_con_init_fn(
+            utt_to_array(utt) if lookup else utt, con_init)
     return con_init
 
 ###################
+
 
 def go_down_trie(trie, seq):
     for x in seq:
@@ -45,7 +55,7 @@ def go_down_trie(trie, seq):
         trie = trie[x]
     return trie
 
-print "Loading whitelist..."
+print("Loading whitelist...")
 
 mt = np.load('/pio/data/data/mtriples/Training.triples.pkl')
 
@@ -63,21 +73,25 @@ for a in answers:
             dic[w] = {}
         dic = dic[w]
 
-print "Done"
+print("Done")
 
 ###################
 
-def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1,
-         short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None):
 
-    beamsearch = DiverseBeamSearch(idx_to_w, hred_net, beam_size, group_size,
-                                   rank_penalty=rank_penalty,
-                                   group_diversity_penalty=group_diversity_penalty,
-                                   seq_diversity_penalty=seq_diversity_penalty,
-                                   unk_penalty=100,
-                                   sharpen_probs=sharpen_bs_probs,
-                                   random_sample=bs_random,
-                                   whitelist=whitelist)
+def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0,
+         group_diversity_penalty=1, seq_diversity_penalty=1,
+         short_context=False, random=False, sharpen_probs=None,
+         bs_random=False, sharpen_bs_probs=None):
+
+    beamsearch = DiverseBeamSearch(
+        idx_to_w, hred_net, beam_size, group_size,
+        rank_penalty=rank_penalty,
+        group_diversity_penalty=group_diversity_penalty,
+        seq_diversity_penalty=seq_diversity_penalty,
+        unk_penalty=100,
+        sharpen_probs=sharpen_bs_probs,
+        random_sample=bs_random,
+        whitelist=whitelist)
 
     user_input = sys.stdin.readline()
 
@@ -87,7 +101,7 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
     b = L.layers.get_all_param_values(hred_net.train_net)[32]
     dec_init = np.repeat(np.tanh(con_init.dot(W) + b), beam_size, axis=0)
 
-    len_bonus = lambda size: 0 #np.log(size)**2
+    len_bonus = lambda size: 0  # np.log(size)**2
 
     def fn_score(x, y, mean=mean, len_bonus=len_bonus):
         denom = (x.size - 1) if mean else 1
@@ -96,29 +110,35 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
     while True:
         candidates = beamsearch.search(dec_init)
 
-        score_order = sorted(candidates, key=lambda (x,y): fn_score(x, y), reverse=True)
-    #     alphabetic_order = sorted(candidates, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
+        score_order = sorted(
+            candidates, key=lambda (x, y): fn_score(x, y), reverse=True)
+        # alphabetic_order = sorted(
+        #     candidates, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
 
         if not random:
             bot_response = print_utt(score_order[0][0])
         else:
             scr = np.array([[fn_score(x, y) for x, y in score_order]])
-            p = softmax(scr if sharpen_probs is None else -(-scr)**sharpen_probs)[0]
-            bot_response = print_utt(score_order[np.random.choice(len(score_order), p=p)][0])
+            p = softmax(
+                scr if sharpen_probs is None else -(-scr)**sharpen_probs)[0]
+            bot_response = print_utt(
+                score_order[np.random.choice(len(score_order), p=p)][0])
 
-        print '######################'
+        print('######################')
         for x, y in score_order[:10]:
-            print '{:.3f}'.format(fn_score(x, y)), '  ', print_utt(x)
-        print '######################'
+            print('{:.3f}'.format(fn_score(x, y)), '  ', print_utt(x))
+        print('######################')
 
-        print ' '.join(bot_response.split()[1:-1])
+        print(' '.join(bot_response.split()[1:-1]))
 
         user_input = sys.stdin.readline()
         user_input = ('<s> ' + user_input + ' </s>').split()
 
         if not short_context:
-            con_init = hred_net.get_new_con_init_fn(utt_to_array(bot_response), con_init)
-            con_init = hred_net.get_new_con_init_fn(utt_to_array(user_input), con_init)
+            con_init = hred_net.get_new_con_init_fn(
+                utt_to_array(bot_response), con_init)
+            con_init = hred_net.get_new_con_init_fn(
+                utt_to_array(user_input), con_init)
         else:
             context = [bot_response.split(), user_input]
             con_init = context_summary(context, lookup=True)
