@@ -14,7 +14,6 @@ parser.add_argument('--save_preds', action='store_true')
 parser.add_argument('-bs', '--batch_size', default=30, type=int)
 parser.add_argument('-lr', '--learning_rate', default=0.001, type=float)
 parser.add_argument('-cp', '--checkpoint_examples', default=64000, type=int)
-parser.add_argument('--squad_subdir', default='careful_prep')
 parser.add_argument('--unk', choices=['mean', 'zero', 'train'],
                     default='train')
 parser.add_argument('-n', '--negative', nargs='+', default=[])
@@ -24,18 +23,18 @@ args = parser.parse_args()
 
 # set paths
 squad_base_path = '/pio/data/data/squad'
+glove_base_path = '/pio/data/data/glove_vec'
 
 output_path = os.path.join('../models', args.glove_version, args.output_dir)
-squad_path = os.path.join(
-    squad_base_path, 'glove' + args.glove_version, args.squad_subdir)
-glove_fname = 'glove.' + args.glove_version + '.300d.npy'
+squad_path = os.path.join(squad_base_path, 'glove' + args.glove_version)
+glove_vecs_fname = 'glove.' + args.glove_version + '.300d.npy'
 glove_path = os.path.join(
-    '/pio/data/data/glove_vec', args.glove_version, 'glove', glove_fname)
+    glove_base_path, args.glove_version, 'glove', glove_vecs_fname)
 preds_path = os.path.join(output_path, 'pred') if args.save_preds else None
 
-glove_words_fname = 'glove.' + args.glove_version + '.wordlist.pkl'
-glove_words_path = os.path.join(
-    '/pio/data/data/glove_vec', args.glove_version, 'glove', glove_words_fname)
+glove_fname = os.path.join(
+    glove_base_path, args.glove_version,
+    'glove.' + args.glove_version + '.300d.txt')
 
 if not os.path.exists(output_path):
     os.makedirs(output_path)
@@ -55,7 +54,7 @@ sys.stdout = log
 sys.path.append('../')
 from QANet import QANet
 from squad_tools import load_squad_train, load_squad_dev, \
-    filter_empty_answers, trim_data, train_QANet
+    filter_empty_answers, trim_data, train_QANet, load_dict
 
 print("\nRun params:")
 for arg in vars(args):
@@ -71,7 +70,7 @@ voc_size = glove_embs.shape[0]
 if args.unk == 'zero':
     glove_embs[0] = 0
 
-glove_words = np.load(glove_words_path)
+glove_words = load_dict(glove_fname)
 NAW_token = glove_words.index('<not_a_word>')
 
 train_data = load_squad_train(squad_path, negative_paths=args.negative,

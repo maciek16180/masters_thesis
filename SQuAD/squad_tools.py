@@ -3,12 +3,25 @@ from __future__ import print_function
 import numpy as np
 import os
 import json
+import io
+
+
+def load_dict(glove_fname):
+    with io.open(glove_fname, encoding='utf8') as f:
+        wordlist = ['<unk>']
+        for line in f:
+            wordlist.append(line.split(' ', 1)[0])
+        wordlist.append('<not_a_word>')
+    return wordlist
 
 
 def load_squad_train(path, negative_paths=[], NAW_token=None, NAW_char=3):
-    train_words = np.load(os.path.join(path, 'train_words.pkl'))
-    train_char = np.load(os.path.join(path, 'train_char_ascii.pkl'))
-    train_bin_feats = np.load(os.path.join(path, 'train_bin_feats.pkl'))
+    with open(os.path.join(path, 'train_words.json')) as f:
+        train_words = json.load(f)
+    with open(os.path.join(path, 'train_char_ascii.json')) as f:
+        train_char = json.load(f)
+    with open(os.path.join(path, 'train_bin_feats.json')) as f:
+        train_bin_feats = json.load(f)
 
     if not negative_paths:
         print("Only positive samples.")
@@ -18,12 +31,15 @@ def load_squad_train(path, negative_paths=[], NAW_token=None, NAW_char=3):
             [train_words, train_char, train_bin_feats], NAW_token)
 
         for negative_path in negative_paths:
-            train_words_neg = np.load(
-                os.path.join(path, negative_path, 'train_words.pkl'))
-            train_char_neg = np.load(
-                os.path.join(path, negative_path, 'train_char_ascii.pkl'))
-            train_bin_feats_neg = np.load(
-                os.path.join(path, negative_path, 'train_bin_feats.pkl'))
+            with open(os.path.join(
+                    path, negative_path, 'train_words.json')) as f:
+                train_words_neg = json.load(f)
+            with open(os.path.join(
+                    path, negative_path, 'train_char_ascii.json')) as f:
+                train_char_neg = json.load(f)
+            with open(os.path.join(
+                    path, negative_path, 'train_bin_feats.json')) as f:
+                train_bin_feats_neg = json.load(f)
 
             train_words += train_words_neg
             train_char += train_char_neg
@@ -46,10 +62,14 @@ def load_squad_dev(squad_path, pkls_path, lower_raw, make_negative=False,
                     context = context.lower()
                 dev_pars_raw[q['id']] = context
 
-    dev = np.load(os.path.join(pkls_path, 'dev.pkl'))
-    dev_words = np.load(os.path.join(pkls_path, 'dev_words.pkl'))
-    dev_char = np.load(os.path.join(pkls_path, 'dev_char_ascii.pkl'))
-    dev_bin_feats = np.load(os.path.join(pkls_path, 'dev_bin_feats.pkl'))
+    with open(os.path.join(pkls_path, 'dev.json')) as f:
+        dev = json.load(f)
+    with open(os.path.join(pkls_path, 'dev_words.json')) as f:
+        dev_words = json.load(f)
+    with open(os.path.join(pkls_path, 'dev_char_ascii.json')) as f:
+        dev_char = json.load(f)
+    with open(os.path.join(pkls_path, 'dev_bin_feats.json')) as f:
+        dev_bin_feats = json.load(f)
 
     if make_negative:
         print("Adding NAW token to dev set.")
