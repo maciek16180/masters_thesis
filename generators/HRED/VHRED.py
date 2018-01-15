@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 # <unk> token is assumed to be at index 0!
 
 import numpy as np
@@ -24,8 +26,9 @@ from layers import WordDropoutLayer
 
 class VHRED(SimpleRNNLM):
 
-    def __init__(self, voc_size, emb_size, lv1_rec_size, lv2_rec_size, out_emb_size, latent_size,
-                 mode='ssoft', n=3, pad_value=-1, **kwargs):
+    def __init__(self, voc_size, emb_size, lv1_rec_size, lv2_rec_size,
+                 out_emb_size, latent_size, mode='ssoft', n=3, pad_value=-1,
+                 **kwargs):
 
         self.pad_value = pad_value
         self.voc_size = voc_size
@@ -36,7 +39,7 @@ class VHRED(SimpleRNNLM):
         self.latent_size = latent_size
 
         self.input_var = T.imatrix('inputs')
-        self.target_var = T.imatrix('targets')  # these will be inputs shifted by 1
+        self.target_var = T.imatrix('targets')  # inputs shifted by 1
         self.mask_input_var = T.matrix('input_mask')
         mask_idx = self.mask_input_var.nonzero()
 
@@ -46,49 +49,61 @@ class VHRED(SimpleRNNLM):
         decoder_init = T.matrix('decoder_init')
 
         # BUILD THE MODEL
-        print 'Building the model...'
+        print('Building the model...')
 
         assert mode in ['ssoft']
 
         self.kl_annealing = kwargs.get('kl_annealing', True)
-        self.kl_annealing_max_examples = kwargs.get('kl_annealing_max_examples', 500000)
+        self.kl_annealing_max_examples = kwargs.get(
+            'kl_annealing_max_examples', 500000)
 
-        self.train_net = self._build_vhred(target_var=self.target_var, n=n, **kwargs)
+        self.train_net = self._build_vhred(
+            target_var=self.target_var, n=n, **kwargs)
 
         # CALCULATE THE LOSS
 
         train_out, train_kl = LL.get_output(self.train_net)
         test_out, test_kl = LL.get_output(self.train_net, deterministic=True)
 
-        train_loss = (-T.log(train_out[mask_idx]).sum() + train_kl.sum()) / mask_idx[0].size
-        test_loss = (-T.log(test_out[mask_idx]).sum() + test_kl.sum()) / mask_idx[0].size
+        train_loss = (-T.log(train_out[mask_idx]).sum() + train_kl.sum()
+                      ) / mask_idx[0].size
+        test_loss = (-T.log(test_out[mask_idx]).sum() + test_kl.sum()
+                     ) / mask_idx[0].size
 
         # MAKE TRAIN AND VALIDATION FUNCTIONS
-        print 'Compiling theano functions...'
+        print('Compiling theano functions...')
 
         params = LL.get_all_params(self.train_net, trainable=True)
 
-        update_fn = kwargs.get('update_fn', lambda l, p: L.updates.adam(l, p, learning_rate=.0001))
+        update_fn = kwargs.get('update_fn', lambda l, p: L.updates.adam(
+            l, p, learning_rate=.0001))
         updates = update_fn(train_loss, params)
 
-        self.train_fn = theano.function([self.input_var, self.target_var, self.mask_input_var], train_loss, updates=updates)
-        self.val_fn = theano.function([self.input_var, self.target_var, self.mask_input_var], test_loss)
+        self.train_fn = theano.function(
+            [self.input_var, self.target_var, self.mask_input_var],
+            train_loss, updates=updates)
+        self.val_fn = theano.function(
+            [self.input_var, self.target_var, self.mask_input_var], test_loss)
 
         # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
-        print 'Building a network for generating...'
+        print('Building a network for generating...')
 
-        all_params = {x.name : x for x in LL.get_all_params(self.train_net)}
+        all_params = {x.name: x for x in LL.get_all_params(self.train_net)}
 
-        self.context_net = self._build_context_net_with_params(context_init, all_params)
-        self.decoder_net = self._build_decoder_net_with_params(decoder_init, all_params)
+        self.context_net = self._build_context_net_with_params(
+            context_init, all_params)
+        self.decoder_net = self._build_decoder_net_with_params(
+            decoder_init, all_params)
 
         dec_net_out = LL.get_output(self.decoder_net, deterministic=True)
         new_con_init, z_prior = LL.get_output(self.context_net)
 
-        self.get_probs_and_new_dec_init_fn = theano.function([self.input_var, decoder_init], dec_net_out)
-        self.get_new_con_init_fn = theano.function([self.input_var, context_init], [new_con_init, z_prior])
+        self.get_probs_and_new_dec_init_fn = theano.function(
+            [self.input_var, decoder_init], dec_net_out)
+        self.get_new_con_init_fn = theano.function(
+            [self.input_var, context_init], [new_con_init, z_prior])
 
-        print 'Done'
+        print('Done')
 
     def train_one_epoch(self, train_data, batch_size, log_interval=10):
         train_err = 0.
@@ -96,7 +111,8 @@ class VHRED(SimpleRNNLM):
         num_training_words = 0
         start_time = time.time()
 
-        for batch in self.iterate_minibatches(train_data, batch_size, self.pad_value):
+        for batch in self.iterate_minibatches(train_data, batch_size,
+                                              self.pad_value):
             inputs, targets, mask = batch
 
             num_batch_words = mask.sum()
@@ -105,18 +121,24 @@ class VHRED(SimpleRNNLM):
             num_training_words += num_batch_words
 
             if not train_batches % log_interval:
-                print "Done {} batches in {:.2f}s\ttraining loss:\t{:.6f}".format(
-                    train_batches, time.time() - start_time, train_err / num_training_words)
+                print("Done {} batches in {:.2f}s\ttraining loss:\t{:.6f}".
+                      format(train_batches, time.time() - start_time,
+                             train_err / num_training_words))
 
             if self.kl_annealing:
-                kl_annealing_param = [x for x in LL.get_all_params(self.train_net) if x.name == 'kl_annealing.scales'][0]
+                kl_annealing_param = [
+                    x for x in LL.get_all_params(self.train_net)
+                    if x.name == 'kl_annealing.scales'][0]
                 val = np.array(kl_annealing_param.eval())
                 if val < 1:
-                    new_val = np.array(val + 1. / int(self.kl_annealing_max_examples / batch_size), dtype=theano.config.floatX)
-                    new_val = min(new_val, np.array(1, dtype=theano.config.floatX))
+                    new_val = val + 1. / int(
+                        self.kl_annealing_max_examples / batch_size)
+                    new_val = np.array(new_val, dtype=theano.config.floatX)
+                    new_val = min(
+                        new_val, np.array(1, dtype=theano.config.floatX))
                     kl_annealing_param.set_value(new_val)
 
-        return  train_err / num_training_words
+        return train_err / num_training_words
 
     def validate(self, val_data, batch_size):
         val_err = 0.
@@ -124,7 +146,8 @@ class VHRED(SimpleRNNLM):
         num_validate_words = 0
         start_time = time.time()
 
-        for batch in self.iterate_minibatches(val_data, batch_size, self.pad_value):
+        for batch in self.iterate_minibatches(val_data, batch_size,
+                                              self.pad_value):
             inputs, targets, mask = batch
 
             num_batch_words = mask.sum()
@@ -133,19 +156,19 @@ class VHRED(SimpleRNNLM):
             num_validate_words += num_batch_words
 
             if not val_batches % 100:
-                print "Done {} batches in {:.2f}s".format(val_batches, time.time() - start_time)
+                print("Done {} batches in {:.2f}s".format(
+                    val_batches, time.time() - start_time))
 
         return val_err / num_validate_words
 
     def load_params_from_HRED(self, hred_model_path, use_hred_emb=True):
         with np.load(hred_model_path) as f:
-            param_values = [f['arr_%d' % i] for i in xrange(31)]
+            param_values = [f['arr_%d' % i] for i in range(31)]
             params = LL.get_all_params(self.train_net)
-            for i in xrange(1, 31):
+            for i in range(1, 31):
                 params[i].set_value(param_values[i])
             if use_hred_emb:
                 params[0].set_value(param_values[0])
-
 
     '''
     MODEL PARAMETERS (as in LL.get_params(train_net))
@@ -188,7 +211,8 @@ class VHRED(SimpleRNNLM):
     # TODO: make it so we don't have to rebuild the net to feed in context with different n.
     #       the input shape will be (batch_size x n x sequence_len)
 
-    def _build_vhred(self, num_sampled, ssoft_probs=None, train_emb=True, n=3, kl_annealing=True, **kwargs):
+    def _build_vhred(self, num_sampled, ssoft_probs=None, train_emb=True, n=3,
+                     kl_annealing=True, **kwargs):
 
         batch_size = self.input_var.shape[0]
         sequence_len = self.input_var.shape[1]
@@ -197,7 +221,8 @@ class VHRED(SimpleRNNLM):
 
         l_in = LL.InputLayer(shape=(None, None), input_var=self.input_var)
 
-        l_mask = LL.InputLayer(shape=(None, None), input_var=self.mask_input_var)
+        l_mask = LL.InputLayer(shape=(None, None),
+                               input_var=self.mask_input_var)
 
         ''' Word embeddings '''
 
@@ -217,13 +242,15 @@ class VHRED(SimpleRNNLM):
 
         ''' Level 1 (sentence) BiGRU encoding with L2-pooling '''
 
-        l_lv1_enc_forw = LL.GRULayer(l_emb, # we process all utts in parallel, out_shape is batch_size x lv1_rec_size
+        # batch_size x lv1_rec_size
+        l_lv1_enc_forw = LL.GRULayer(l_emb,
                                      num_units=self.lv1_rec_size,
                                      grad_clipping=100,
                                      mask_input=l_mask,
                                      name='GRU1forw')
 
-        l_lv1_enc_back = LL.GRULayer(l_emb, # backward pass of encoder rnn, out_shape is batch_size x lv1_rec_size
+        # backward pass of encoder rnn, (batch_size x lv1_rec_size)
+        l_lv1_enc_back = LL.GRULayer(l_emb,
                                      num_units=self.lv1_rec_size,
                                      grad_clipping=100,
                                      mask_input=l_mask,
@@ -233,21 +260,26 @@ class VHRED(SimpleRNNLM):
         l2_pooled_forw = L2PoolingLayer(l_lv1_enc_forw)
         l2_pooled_back = L2PoolingLayer(l_lv1_enc_back)
 
-        l_lv1_enc = LL.ConcatLayer([l2_pooled_forw, l2_pooled_back], axis=1) # concatenation of L2-pooled states
+        # concatenation of L2-pooled states
+        l_lv1_enc = LL.ConcatLayer([l2_pooled_forw, l2_pooled_back], axis=1)
 
         ''' Level 2 (context) encoding '''
 
-        l_resh = LL.ReshapeLayer(l_lv1_enc, shape=(batch_size / n, n, 2 * self.lv1_rec_size))
+        l_resh = LL.ReshapeLayer(l_lv1_enc, (
+            batch_size / n, n, 2 * self.lv1_rec_size))
 
-        l_lv2_enc = LL.GRULayer(l_resh, # out_shape is batch_size/n x n x lv2_rec_size
+        # batch_size / n x n x lv2_rec_size
+        l_lv2_enc = LL.GRULayer(l_resh,
                                 num_units=self.lv2_rec_size,
                                 grad_clipping=100,
                                 name='GRU2')
 
         ''' Prior and posterior probs calculation '''
 
-        l_shift = ShiftLayer(l_lv2_enc) # we want to use i-th utterance summary as an init for decoding (i+1)-th
-        l_resh_shifted = LL.ReshapeLayer(l_shift, shape=(batch_size, self.lv2_rec_size))
+        # we want to use i-th utterance summary as an init for decoding (i+1)th
+        l_shift = ShiftLayer(l_lv2_enc)
+        l_resh_shifted = LL.ReshapeLayer(l_shift, (
+            batch_size, self.lv2_rec_size))
 
         # prior
 
@@ -265,14 +297,16 @@ class VHRED(SimpleRNNLM):
                                    self.latent_size,
                                    nonlinearity=None,
                                    name='mupr')
-        # each row of l_sigma_prior is a 1D representation of a diagonal covariance matrix
+        # Each row of l_sigma_prior is a 1D representation
+        # of a diagonal covariance matrix.
         l_sigma_prior = LL.DenseLayer(l_dense2prior,
                                       self.latent_size,
                                       nonlinearity=L.nonlinearities.softplus,
                                       name='sigpr')
-        l_sigma_prior = LL.ScaleLayer(l_sigma_prior, L.init.Constant(.1), name='scalepr')
+        l_sigma_prior = LL.ScaleLayer(
+            l_sigma_prior, L.init.Constant(.1), name='scalepr')
         l_sigma_prior.params[l_sigma_prior.scales].remove('trainable')
-        # mu and sigma shape is batch_size x latent_size
+        # mu and sigma shape is (batch_size x latent_size)
 
         # posterior
 
@@ -296,50 +330,61 @@ class VHRED(SimpleRNNLM):
                                      self.latent_size,
                                      nonlinearity=L.nonlinearities.softplus,
                                      name='sigpo')
-        l_sigma_post = LL.ScaleLayer(l_sigma_post, L.init.Constant(.1), name='scalepo')
+        l_sigma_post = LL.ScaleLayer(l_sigma_post,
+                                     L.init.Constant(.1), name='scalepo')
         l_sigma_post.params[l_sigma_post.scales].remove('trainable')
 
         l_z = GaussianSampleLayer(l_mu_post, l_sigma_post)
         # sample from N(mu, sigma) (train: post, test: prior)
         # l_z size: batch_size x latent_size
 
-        l_kl_div = MultNormKLDivLayer([l_mu_post, l_sigma_post, l_mu_prior, l_sigma_prior])
+        l_kl_div = MultNormKLDivLayer(
+            [l_mu_post, l_sigma_post, l_mu_prior, l_sigma_prior])
         # KL annealing, as in https://arxiv.org/pdf/1511.06349.pdf
         # multiplier is slowly raising until it reaches 1 after specified number of samples
-        # TODO: this as a custom layer, when deterministic=True no scaling is applied
+        # TODO: this as a custom layer, when deterministic=True no scaling is
+        # applied
         if kl_annealing:
-            l_kl_div = LL.ScaleLayer(l_kl_div, L.init.Constant(0), name='kl_annealing')
+            l_kl_div = LL.ScaleLayer(l_kl_div,
+                                     L.init.Constant(0), name='kl_annealing')
             l_kl_div.params[l_kl_div.scales].remove('trainable')
 
         ''' Decoder '''
 
         l_dec_init_base = LL.ConcatLayer([l_resh_shifted, l_z], axis=1)
 
-        l_dec_inits = LL.DenseLayer(l_dec_init_base, # out_shape is batch_size x lv1_rec_size
+        # batch_size x lv1_rec_size
+        l_dec_inits = LL.DenseLayer(l_dec_init_base,
                                     num_units=self.lv1_rec_size,
                                     nonlinearity=L.nonlinearities.tanh,
                                     name='dec_init')
 
         # word dropout layer, as proposed in https://arxiv.org/pdf/1511.06349.pdf
-        # The layer randomly chooses some fraction of embeddings and replaces them with <unk>
-        l_unk_emb = LL.InputLayer(shape=(self.emb_size,), input_var=l_emb.W[0]) # <unk> is assumed to be at index 0
+        # The layer randomly chooses some fraction of embeddings and replaces
+        # them with <unk>
+
+        # <unk> is assumed to be at index 0
+        l_unk_emb = LL.InputLayer(shape=(self.emb_size,), input_var=l_emb.W[0])
         l_drop = WordDropoutLayer(l_emb, l_unk_emb, drop_rate=.25)
 
-        l_dec = LL.GRULayer(l_drop, # out_shape is batch_size x sequence_len x lv1_rec_size
+        # batch_size x sequence_len x lv1_rec_size
+        l_dec = LL.GRULayer(l_drop,
                             num_units=self.lv1_rec_size,
                             grad_clipping=100,
                             mask_input=l_mask,
                             hid_init=l_dec_inits,
                             name='GRUdec')
 
-        l_resh3 = LL.ReshapeLayer(l_dec, shape=(batch_size * sequence_len, self.lv1_rec_size))
+        l_resh3 = LL.ReshapeLayer(l_dec, (
+            batch_size * sequence_len, self.lv1_rec_size))
 
         l_H0 = LL.DenseLayer(l_resh3,
                              num_units=self.out_emb_size,
                              nonlinearity=None,
                              name='h0')
 
-        l_resh4 = LL.ReshapeLayer(l_emb, shape=(batch_size * sequence_len, self.emb_size))
+        l_resh4 = LL.ReshapeLayer(l_emb, (
+            batch_size * sequence_len, self.emb_size))
 
         l_E0 = LL.DenseLayer(l_resh4,
                              num_units=self.out_emb_size,
@@ -349,7 +394,9 @@ class VHRED(SimpleRNNLM):
 
         l_soft_in = LL.ElemwiseSumLayer([l_H0, l_E0])
 
-        l_ssoft = SampledSoftmaxDenseLayer(l_soft_in, num_sampled, self.voc_size,
+        l_ssoft = SampledSoftmaxDenseLayer(l_soft_in,
+                                           num_sampled,
+                                           self.voc_size,
                                            targets=self.target_var.ravel(),
                                            probs=ssoft_probs,
                                            sample_unique=False,
@@ -359,78 +406,91 @@ class VHRED(SimpleRNNLM):
 
         return l_out, l_kl_div
 
-
     def _build_context_net_with_params(self, context_init, params):
 
-        l_in = LL.InputLayer(shape=(1,None), input_var=self.input_var)
+        l_in = LL.InputLayer(shape=(1, None), input_var=self.input_var)
 
         l_emb = LL.EmbeddingLayer(l_in,
                                   input_size=self.voc_size,
                                   output_size=self.emb_size,
                                   W=params['emb.W'])
 
-        l_lv1_enc_forw = LL.GRULayer(l_emb,
-                                     num_units=self.lv1_rec_size,
-                                     grad_clipping=100,
-                                     resetgate=LL.Gate(W_in=params['GRU1forw.W_in_to_resetgate'],
-                                                       W_hid=params['GRU1forw.W_hid_to_resetgate'],
-                                                       W_cell=None,
-                                                       b=params['GRU1forw.b_resetgate']),
-                                     updategate=LL.Gate(W_in=params['GRU1forw.W_in_to_updategate'],
-                                                        W_hid=params['GRU1forw.W_hid_to_updategate'],
-                                                        W_cell=None,
-                                                        b=params['GRU1forw.b_updategate']),
-                                     hidden_update=LL.Gate(W_in=params['GRU1forw.W_in_to_hidden_update'],
-                                                           W_hid=params['GRU1forw.W_hid_to_hidden_update'],
-                                                           W_cell=None,
-                                                           b=params['GRU1forw.b_hidden_update'],
-                                                           nonlinearity=L.nonlinearities.tanh),
-                                     hid_init=params['GRU1forw.hid_init'])
+        l_lv1_enc_forw = LL.GRULayer(
+            l_emb,
+            num_units=self.lv1_rec_size,
+            grad_clipping=100,
+            resetgate=LL.Gate(
+                W_in=params['GRU1forw.W_in_to_resetgate'],
+                W_hid=params['GRU1forw.W_hid_to_resetgate'],
+                W_cell=None,
+                b=params['GRU1forw.b_resetgate']),
+            updategate=LL.Gate(
+                W_in=params['GRU1forw.W_in_to_updategate'],
+                W_hid=params['GRU1forw.W_hid_to_updategate'],
+                W_cell=None,
+                b=params['GRU1forw.b_updategate']),
+            hidden_update=LL.Gate(
+                W_in=params['GRU1forw.W_in_to_hidden_update'],
+                W_hid=params['GRU1forw.W_hid_to_hidden_update'],
+                W_cell=None,
+                b=params['GRU1forw.b_hidden_update'],
+                nonlinearity=L.nonlinearities.tanh),
+            hid_init=params['GRU1forw.hid_init'])
 
-        l_lv1_enc_back = LL.GRULayer(l_emb, # backward pass of encoder rnn
-                                     num_units=self.lv1_rec_size,
-                                     grad_clipping=100,
-                                     backwards=True,
-                                     resetgate=LL.Gate(W_in=params['GRU1back.W_in_to_resetgate'],
-                                                       W_hid=params['GRU1back.W_hid_to_resetgate'],
-                                                       W_cell=None,
-                                                       b=params['GRU1back.b_resetgate']),
-                                     updategate=LL.Gate(W_in=params['GRU1back.W_in_to_updategate'],
-                                                        W_hid=params['GRU1back.W_hid_to_updategate'],
-                                                        W_cell=None,
-                                                        b=params['GRU1back.b_updategate']),
-                                     hidden_update=LL.Gate(W_in=params['GRU1back.W_in_to_hidden_update'],
-                                                           W_hid=params['GRU1back.W_hid_to_hidden_update'],
-                                                           W_cell=None,
-                                                           b=params['GRU1back.b_hidden_update'],
-                                                           nonlinearity=L.nonlinearities.tanh),
-                                     hid_init=params['GRU1back.hid_init'])
+        # backward pass of encoder rnn
+        l_lv1_enc_back = LL.GRULayer(
+            l_emb,
+            num_units=self.lv1_rec_size,
+            grad_clipping=100,
+            backwards=True,
+            resetgate=LL.Gate(
+                W_in=params['GRU1back.W_in_to_resetgate'],
+                W_hid=params['GRU1back.W_hid_to_resetgate'],
+                W_cell=None,
+                b=params['GRU1back.b_resetgate']),
+            updategate=LL.Gate(
+                W_in=params['GRU1back.W_in_to_updategate'],
+                W_hid=params['GRU1back.W_hid_to_updategate'],
+                W_cell=None,
+                b=params['GRU1back.b_updategate']),
+            hidden_update=LL.Gate(
+                W_in=params['GRU1back.W_in_to_hidden_update'],
+                W_hid=params['GRU1back.W_hid_to_hidden_update'],
+                W_cell=None,
+                b=params['GRU1back.b_hidden_update'],
+                nonlinearity=L.nonlinearities.tanh),
+            hid_init=params['GRU1back.hid_init'])
 
         l2_pooled_forw = L2PoolingLayer(l_lv1_enc_forw)
         l2_pooled_back = L2PoolingLayer(l_lv1_enc_back)
 
-        l_lv1_enc = LL.ConcatLayer([l2_pooled_forw, l2_pooled_back]) # concatenation of L2-pooled states
+        # concatenation of L2-pooled states
+        l_lv1_enc = LL.ConcatLayer([l2_pooled_forw, l2_pooled_back])
 
-        l_resh = LL.ReshapeLayer(l_lv1_enc, shape=(1, 1, 2*self.lv1_rec_size))
+        l_resh = LL.ReshapeLayer(l_lv1_enc, (1, 1, 2 * self.lv1_rec_size))
 
-        l_lv2_enc = LL.GRULayer(l_resh,
-                                num_units=self.lv2_rec_size,
-                                hid_init=context_init,
-                                grad_clipping=100,
-                                only_return_final=True,
-                                resetgate=LL.Gate(W_in=params['GRU2.W_in_to_resetgate'],
-                                                  W_hid=params['GRU2.W_hid_to_resetgate'],
-                                                  W_cell=None,
-                                                  b=params['GRU2.b_resetgate']),
-                                updategate=LL.Gate(W_in=params['GRU2.W_in_to_updategate'],
-                                                   W_hid=params['GRU2.W_hid_to_updategate'],
-                                                   W_cell=None,
-                                                   b=params['GRU2.b_updategate']),
-                                hidden_update=LL.Gate(W_in=params['GRU2.W_in_to_hidden_update'],
-                                                      W_hid=params['GRU2.W_hid_to_hidden_update'],
-                                                      W_cell=None,
-                                                      b=params['GRU2.b_hidden_update'],
-                                                      nonlinearity=L.nonlinearities.tanh))
+        l_lv2_enc = LL.GRULayer(
+            l_resh,
+            num_units=self.lv2_rec_size,
+            hid_init=context_init,
+            grad_clipping=100,
+            only_return_final=True,
+            resetgate=LL.Gate(
+                W_in=params['GRU2.W_in_to_resetgate'],
+                W_hid=params['GRU2.W_hid_to_resetgate'],
+                W_cell=None,
+                b=params['GRU2.b_resetgate']),
+            updategate=LL.Gate(
+                W_in=params['GRU2.W_in_to_updategate'],
+                W_hid=params['GRU2.W_hid_to_updategate'],
+                W_cell=None,
+                b=params['GRU2.b_updategate']),
+            hidden_update=LL.Gate(
+                W_in=params['GRU2.W_in_to_hidden_update'],
+                W_hid=params['GRU2.W_hid_to_hidden_update'],
+                W_cell=None,
+                b=params['GRU2.b_hidden_update'],
+                nonlinearity=L.nonlinearities.tanh))
 
         l_dense1prior = LL.DenseLayer(l_lv2_enc,
                                       self.latent_size,
@@ -458,7 +518,6 @@ class VHRED(SimpleRNNLM):
 
         return l_lv2_enc, l_z
 
-
     def _build_decoder_net_with_params(self, decoder_init, params):
 
         l_in = LL.InputLayer(shape=(None, None), input_var=self.input_var)
@@ -468,26 +527,31 @@ class VHRED(SimpleRNNLM):
                                   output_size=self.emb_size,
                                   W=params['emb.W'])
 
-        l_dec_init = LL.InputLayer(shape=(None, self.lv1_rec_size), input_var=decoder_init)
+        l_dec_init = LL.InputLayer(shape=(None, self.lv1_rec_size),
+                                   input_var=decoder_init)
 
-        l_dec = LL.GRULayer(l_emb,
-                            num_units=self.lv1_rec_size,
-                            grad_clipping=100,
-                            hid_init=l_dec_init,
-                            only_return_final=True,
-                            resetgate=LL.Gate(W_in=params['GRUdec.W_in_to_resetgate'],
-                                              W_hid=params['GRUdec.W_hid_to_resetgate'],
-                                              W_cell=None,
-                                              b=params['GRUdec.b_resetgate']),
-                            updategate=LL.Gate(W_in=params['GRUdec.W_in_to_updategate'],
-                                               W_hid=params['GRUdec.W_hid_to_updategate'],
-                                               W_cell=None,
-                                               b=params['GRUdec.b_updategate']),
-                            hidden_update=LL.Gate(W_in=params['GRUdec.W_in_to_hidden_update'],
-                                                  W_hid=params['GRUdec.W_hid_to_hidden_update'],
-                                                  W_cell=None,
-                                                  b=params['GRUdec.b_hidden_update'],
-                                                  nonlinearity=L.nonlinearities.tanh))
+        l_dec = LL.GRULayer(
+            l_emb,
+            num_units=self.lv1_rec_size,
+            grad_clipping=100,
+            hid_init=l_dec_init,
+            only_return_final=True,
+            resetgate=LL.Gate(
+                W_in=params['GRUdec.W_in_to_resetgate'],
+                W_hid=params['GRUdec.W_hid_to_resetgate'],
+                W_cell=None,
+                b=params['GRUdec.b_resetgate']),
+            updategate=LL.Gate(
+                W_in=params['GRUdec.W_in_to_updategate'],
+                W_hid=params['GRUdec.W_hid_to_updategate'],
+                W_cell=None,
+                b=params['GRUdec.b_updategate']),
+            hidden_update=LL.Gate(
+                W_in=params['GRUdec.W_in_to_hidden_update'],
+                W_hid=params['GRUdec.W_hid_to_hidden_update'],
+                W_cell=None,
+                b=params['GRUdec.b_hidden_update'],
+                nonlinearity=L.nonlinearities.tanh))
 
         l_H0 = LL.DenseLayer(l_dec,
                              num_units=self.out_emb_size,
@@ -511,10 +575,10 @@ class VHRED(SimpleRNNLM):
                                W=params['soft.W'],
                                b=params['soft.b'])
 
-        l_out = LL.ReshapeLayer(l_soft, shape=(self.input_var.shape[0], self.voc_size))
+        l_out = LL.ReshapeLayer(l_soft, (
+            self.input_var.shape[0], self.voc_size))
 
-        return l_out, l_dec # l_out - probabilities, l_dec - new decoder init
-
+        return l_out, l_dec  # l_out - probabilities, l_dec - new decoder init
 
     def iterate_minibatches(self, inputs, batch_size, pad=-1):
         for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
@@ -524,7 +588,8 @@ class VHRED(SimpleRNNLM):
             inp_max_len = max(map(len, inp))
             inp = map(lambda l: l + [pad] * (inp_max_len - len(l)), inp)
             inp = np.asarray(inp, dtype=np.int32)
-            tar = np.hstack([inp[:, 1:], np.zeros((batch_size, 1), dtype=np.int32) + pad])
+            padding = np.zeros((batch_size, 1), dtype=np.int32) + pad
+            tar = np.hstack([inp[:, 1:], padding])
 
             mask = (inp != pad).astype(np.float32)
 

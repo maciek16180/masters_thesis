@@ -21,12 +21,13 @@ class TrainPartOfEmbsLayer(Layer):
         self.input_size = input_size
         self.train_inds = train_inds
 
-        self.E = self.add_param(E, (self.input_size, self.output_size), name="E", trainable=False)
+        self.E = self.add_param(E, (self.input_size, self.output_size),
+                                name="E", trainable=False)
 
         self.W = None
         if len(train_inds):
-            self.W = self.add_param(W, (len(self.train_inds), output_size), name="W")
-
+            self.W = self.add_param(W, (len(self.train_inds), output_size),
+                                    name="W")
 
     def get_output_for(self, input_, deterministic=False, **kwargs):
         W = self.E
@@ -36,13 +37,13 @@ class TrainPartOfEmbsLayer(Layer):
         res = W[input_]
 
         if self.keep_rate < 1 and not deterministic:
-            mask = self.rng.binomial((self.output_size,), p=self.keep_rate, dtype=theano.config.floatX)
+            mask = self.rng.binomial((self.output_size,), p=self.keep_rate,
+                                     dtype=theano.config.floatX)
             res_shape = res.shape
             res = res.reshape((-1, self.output_size))
             res = (res * mask).reshape(res_shape) / self.keep_rate
 
         return res
-
 
     def get_output_shape_for(self, input_shape):
         return input_shape + (self.output_size, )

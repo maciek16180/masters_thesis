@@ -4,7 +4,7 @@ import lasagne as L
 
 
 def split_utt(utt):
-    u1, u2, u3 = [i for i,j in enumerate(utt) if j == 1]
+    u1, u2, u3 = [i for i, j in enumerate(utt) if j == 1]
     return [utt[:u2], utt[u2:u3], utt[u3:]]
 
 
@@ -63,7 +63,8 @@ def get_mt_voc(path, train_len, pad_value=-1):
 
 def get_w2v_embs(path):
     word2vec_embs, word2vec_embs_mask = np.load(path + 'Word2Vec_WordEmb.pkl')
-    word2vec_embs = np.vstack([word2vec_embs, L.init.Normal()((1, 300))]).astype(np.float32)
+    word2vec_embs = np.vstack([word2vec_embs, L.init.Normal()((1, 300))]
+                              ).astype(np.float32)
     word2vec_embs_mask = np.vstack([word2vec_embs_mask, np.ones((1, 300))])
 
     return word2vec_embs, word2vec_embs_mask

@@ -25,7 +25,8 @@ class EndFeaturesLayer(MergeLayer):
         h_s = H[T.arange(H.shape[0]), start_inds]
         h_s_tiled = T.tile(h_s.dimshuffle(0, 'x', 1), (H.shape[1], 1))
 
-        return T.concatenate([H, h_s_tiled, z_tiled, H * z_tiled, H * h_s_tiled], axis=2)
+        return T.concatenate(
+            [H, h_s_tiled, z_tiled, H * z_tiled, H * h_s_tiled], axis=2)
 
     def get_output_shape_for(self, input_shapes, **kwargs):
         assert len(input_shapes) == 3

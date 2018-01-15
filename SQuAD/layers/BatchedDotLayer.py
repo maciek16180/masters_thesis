@@ -29,5 +29,3 @@ class BatchedDotLayer(MergeLayer):
     def get_output_shape_for(self, input_shapes, **kwargs):
         assert len(input_shapes) == 2
         return input_shapes[0][0], input_shapes[0][2]
-
-

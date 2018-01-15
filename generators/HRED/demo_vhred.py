@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import numpy as np
 import lasagne as L
 import sys
@@ -19,27 +21,32 @@ vhred_net = VHRED(voc_size=voc_size,
                   latent_size=20,
                   num_sampled=200)
 
-#vhred_net.load_params('../trained_models/vhred_hredEmbFixed_300_300_300_300_10_defAnneal_drop25_ssoft200unigr_bs30_cut200_early5.npz')
-vhred_net.load_params('../trained_models/vhred_hredEmbFixed_300_300_300_300_20_Anneal2M_drop25_ssoft200unigr_bs30_cut200_early5.npz')
+# vhred_net.load_params('../trained_models/vhred_hredEmbFixed_300_300_300_300_10'
+#                       '_defAnneal_drop25_ssoft200unigr_bs30_cut200_early5.npz')
+vhred_net.load_params('../trained_models/vhred_hredEmbFixed_300_300_300_300_20'
+                      '_Anneal2M_drop25_ssoft200unigr_bs30_cut200_early5.npz')
 
 
 def print_utt(utt):
     return ' '.join([idx_to_w[x] for x in utt])
 
 def utt_to_array(utt):
-    arr = np.array([w_to_idx.get(w, w_to_idx['<unk>']) for w in utt])[np.newaxis].astype(np.int32)
+    arr = np.array([w_to_idx.get(w, w_to_idx['<unk>']) for w in utt])[
+        np.newaxis].astype(np.int32)
     arr[arr == -voc_size] = -1
     return arr
 
 def context_summary(context, lookup=True):
     con_init = np.zeros((1, vhred_net.lv2_rec_size), dtype=np.float32)
     for utt in context:
-        con_init, z = vhred_net.get_new_con_init_fn(utt_to_array(utt) if lookup else utt, con_init)
+        con_init, z = vhred_net.get_new_con_init_fn(
+            utt_to_array(utt) if lookup else utt, con_init)
     return con_init, z
 
-def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_penalty=1, seq_diversity_penalty=1,
-         short_context=False, random=False, sharpen_probs=None , bs_random=False, sharpen_bs_probs=None,
-         only_last_groups=False):
+def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0,
+         group_diversity_penalty=1, seq_diversity_penalty=1,
+         short_context=False, random=False, sharpen_probs=None,
+         bs_random=False, sharpen_bs_probs=None, only_last_groups=False):
 
     user_input = sys.stdin.readline()
 
@@ -47,7 +54,8 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
     con_init, z = context_summary(context, lookup=True)
     W = L.layers.get_all_param_values(vhred_net.train_net)[40]
     b = L.layers.get_all_param_values(vhred_net.train_net)[41]
-    dec_init = np.repeat(np.tanh(np.hstack([con_init, z]).dot(W) + b), beam_size, axis=0)
+    dec_init = np.repeat(np.tanh(np.hstack([con_init, z]).dot(W) + b),
+                         beam_size, axis=0)
 
     len_bonus = lambda size: 0 #np.log(size)**2
 
@@ -56,37 +64,49 @@ def talk(beam_size=20, group_size=2, mean=True, rank_penalty=0, group_diversity_
         return (y + len_bonus(x.size)) / denom
 
     while True:
-        beamsearch = diverse_beam_search(beam_size, group_size, dec_init, voc_size, vhred_net,
-                                         init_seq=utt_to_array('<s> '.split()), rank_penalty=rank_penalty,
-                                         group_diversity_penalty=group_diversity_penalty,
-                                         seq_diversity_penalty=seq_diversity_penalty, verbose_log=False,
-                                         sample=bs_random, sharpen_probs=sharpen_bs_probs, only_last_groups=only_last_groups)
+        beamsearch = diverse_beam_search(
+            beam_size, group_size, dec_init, voc_size, vhred_net,
+            init_seq=utt_to_array('<s> '.split()),
+            rank_penalty=rank_penalty,
+            group_diversity_penalty=group_diversity_penalty,
+            seq_diversity_penalty=seq_diversity_penalty,
+            verbose_log=False,
+            sample=bs_random,
+            sharpen_probs=sharpen_bs_probs,
+            only_last_groups=only_last_groups)
 
-        score_order = sorted(beamsearch, key=lambda (x,y): fn_score(x, y), reverse=True)
-    #     alphabetic_order = sorted(beamsearch, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
+        score_order = sorted(
+            beamsearch, key=lambda (x,y): fn_score(x, y), reverse=True)
+        # alphabetic_order = sorted(
+        #     beamsearch, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
 
         if not random:
             bot_response = print_utt(score_order[0][0])
         else:
             scr = np.array([[fn_score(x, y) for x, y in score_order]])
-            p = softmax(scr if sharpen_probs is None else -(-scr)**sharpen_probs)[0]
-            bot_response = print_utt(score_order[np.random.choice(len(score_order), p=p)][0])
+            p = softmax(
+                scr if sharpen_probs is None else -(-scr)**sharpen_probs)[0]
+            bot_response = print_utt(
+                score_order[np.random.choice(len(score_order), p=p)][0])
 
-        print '######################'
+        print('######################')
         for x, y in score_order[:10]:
-            print '{:.3f}'.format(fn_score(x, y)), '  ', print_utt(x)
-        print '######################'
+            print('{:.3f}'.format(fn_score(x, y)), '  ', print_utt(x))
+        print('######################')
 
-        print ' '.join(bot_response.split()[1:-1])
+        print(' '.join(bot_response.split()[1:-1]))
 
         user_input = sys.stdin.readline()
         user_input = ('<s> ' + user_input + ' </s>').split()
 
         if not short_context:
-            con_init, z = vhred_net.get_new_con_init_fn(utt_to_array(bot_response), con_init)
-            con_init, z = vhred_net.get_new_con_init_fn(utt_to_array(user_input), con_init)
+            con_init, z = vhred_net.get_new_con_init_fn(
+                utt_to_array(bot_response), con_init)
+            con_init, z = vhred_net.get_new_con_init_fn(
+                utt_to_array(user_input), con_init)
         else:
             context = [bot_response.split(), user_input]
             con_init, z = context_summary(context, lookup=True)
 
-        dec_init = np.repeat(np.tanh(np.hstack([con_init, z]).dot(W) + b), beam_size, axis=0)
+        dec_init = np.repeat(np.tanh(np.hstack([con_init, z]).dot(W) + b),
+                             beam_size, axis=0)

@@ -29,7 +29,7 @@ class TrainUnkLayer(MergeLayer):
     def get_output_for(self, inputs, **kwargs):
         assert len(inputs) == 2
         input_, mask = inputs
-        return TT.set_subtensor(input_[(mask>0).nonzero()], self.W)
+        return TT.set_subtensor(input_[(mask > 0).nonzero()], self.W)
 
     def get_output_shape_for(self, input_shapes):
         assert len(input_shapes) == 2

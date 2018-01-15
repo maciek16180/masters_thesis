@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 sys.path.append('../')
 sys.path.append('../../')
@@ -14,7 +16,8 @@ mt_path = "/pio/data/data/mtriples/"
 # mt_path = "/home/maciek/Desktop/mgr/DATA/MovieTriples_Dataset/"
 
 train, valid, test = load_mt(path=mt_path, split=False, trim=200)
-idx_to_w, w_to_idx, voc_size, freqs = get_mt_voc(path=mt_path, train_len=len(train))
+idx_to_w, w_to_idx, voc_size, freqs = get_mt_voc(
+    path=mt_path, train_len=len(train))
 word2vec_embs, word2vec_embs_mask = get_w2v_embs(mt_path)
 
 
@@ -31,11 +34,10 @@ net = SimpleRNNLM(voc_size=voc_size,
                   # update_fn=update_fn,
                   # ssoft_probs=freqs,
                   noise_probs=freqs,
-                  train_emb=True
-                 )
+                  train_emb=True)
 
-# net.load_params('../trained_models/pretrained_subtle_GaussInit_300_300_ssoft200unigr_bs50_cut200_nosplit.npz')
-
+# net.load_params('../trained_models/pretrained_subtle_GaussInit_300_300_'
+#                 'ssoft200unigr_bs50_cut200_nosplit.npz')
 
 last_scores = [np.inf]
 max_epochs_wo_improvement = 5
@@ -44,20 +46,23 @@ epoch = 1
 best_epoch = None
 bs = 30
 
-model_filename = '../trained_models/final/w2vInit_300_300_nce200unigr_bs30_cut200_nosplit_early5.npz'
+model_filename = '../trained_models/final/w2vInit_300_300_nce200unigr_bs30' \
+    '_cut200_nosplit_early5.npz'
 
 t0 = time.time()
-while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last_scores) + tol:
-    print '\n\nStarting epoch {}...\n'.format(epoch)
-    train_error = net.train_one_epoch(train_data=train, batch_size=bs, log_interval=200)
+while len(last_scores) <= max_epochs_wo_improvement or \
+        last_scores[0] > min(last_scores) + tol:
+    print('\n\nStarting epoch {}...\n'.format(epoch))
+    train_error = net.train_one_epoch(
+        train_data=train, batch_size=bs, log_interval=200)
     val_error = net.validate(val_data=valid, batch_size=bs)
-    print '\nTraining loss:   {}'.format(train_error)
-    print 'Validation loss: {}'.format(val_error)
+    print('\nTraining loss:   {}'.format(train_error))
+    print('Validation loss: {}'.format(val_error))
 
     if val_error < min(last_scores):
-        print '\nSaving model...'
+        print('\nSaving model...')
         net.save_params(model_filename)
-        print 'Done saving.'
+        print('Done saving.')
         best_epoch = epoch
 
     last_scores.append(val_error)
@@ -70,10 +75,11 @@ while len(last_scores) <= max_epochs_wo_improvement or last_scores[0] > min(last
 net.load_params(model_filename)
 test_error = net.validate(val_data=test, batch_size=bs)
 
-print '\n\nTotal training time: {:.2f}s'.format(time.time() - t0)
-print 'Best model after {} epochs with loss {}'.format(best_epoch, min(last_scores))
-print 'Validation set perplexity: {}'.format(np.exp(min(last_scores)))
-print 'Model saved as ' + model_filename
+print('\n\nTotal training time: {:.2f}s'.format(time.time() - t0))
+print('Best model after {} epochs with loss {}'.format(
+    best_epoch, min(last_scores)))
+print('Validation set perplexity: {}'.format(np.exp(min(last_scores))))
+print('Model saved as ' + model_filename)
 
-print '\nTest loss: {}'.format(test_error)
-print 'Test set perplexity: {}'.format(np.exp(test_error))
+print('\nTest loss: {}'.format(test_error))
+print('Test set perplexity: {}'.format(np.exp(test_error)))

@@ -25,9 +25,11 @@ class HighwayLayer(Layer):
         n_inputs = incoming.output_shape[1]
 
         self.W1 = self.add_param(W1, (n_inputs, n_inputs), name="W1")
-        self.b1 = self.add_param(b1, (n_inputs,), name="b1", regularizable=False)
+        self.b1 = self.add_param(b1, (n_inputs,), name="b1",
+                                 regularizable=False)
         self.W2 = self.add_param(W2, (n_inputs, n_inputs), name="W2")
-        self.b2 = self.add_param(b2, (n_inputs,), name="b2", regularizable=False)
+        self.b2 = self.add_param(b2, (n_inputs,), name="b2",
+                                 regularizable=False)
 
     def get_output_for(self, input_, **kwargs):
         g = T.nnet.sigmoid(input_.dot(self.W1) + self.b1)

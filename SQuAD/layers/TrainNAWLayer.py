@@ -30,7 +30,8 @@ class TrainNAWLayer(MergeLayer):
         assert len(inputs) == 2
         input_, mask = inputs
         naw_positions = mask.astype('int32').sum(axis=1) - 1
-        return TT.set_subtensor(input_[TT.arange(input_.shape[0]), naw_positions], self.W)
+        return TT.set_subtensor(
+            input_[TT.arange(input_.shape[0]), naw_positions], self.W)
 
     def get_output_shape_for(self, input_shapes):
         assert len(input_shapes) == 2
