@@ -48,7 +48,7 @@ def load_squad_train(path, negative_paths=[], NAW_token=None, NAW_char=3):
     return train_words, train_char, train_bin_feats
 
 
-def load_squad_dev(squad_path, pkls_path, lower_raw, make_negative=False,
+def load_squad_dev(squad_path, preproc_path, lower_raw, make_negative=False,
                    NAW_token=None, NAW_char=3):
     with open(os.path.join(squad_path, 'dev-v1.1.json')) as f:
         json_dev = json.load(f)
@@ -62,13 +62,13 @@ def load_squad_dev(squad_path, pkls_path, lower_raw, make_negative=False,
                     context = context.lower()
                 dev_pars_raw[q['id']] = context
 
-    with open(os.path.join(pkls_path, 'dev.json')) as f:
+    with open(os.path.join(preproc_path, 'dev.json')) as f:
         dev = json.load(f)
-    with open(os.path.join(pkls_path, 'dev_words.json')) as f:
+    with open(os.path.join(preproc_path, 'dev_words.json')) as f:
         dev_words = json.load(f)
-    with open(os.path.join(pkls_path, 'dev_char_ascii.json')) as f:
+    with open(os.path.join(preproc_path, 'dev_char_ascii.json')) as f:
         dev_char = json.load(f)
-    with open(os.path.join(pkls_path, 'dev_bin_feats.json')) as f:
+    with open(os.path.join(preproc_path, 'dev_bin_feats.json')) as f:
         dev_bin_feats = json.load(f)
 
     if make_negative:

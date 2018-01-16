@@ -8,7 +8,7 @@ Two versions:
 '''
 
 
-def tokenize_with_ans_idx(s, ans_idx):
+def tokenize_with_ans_idx(s, ans_idx=0):
     if type(s) is not unicode:
         s = s.decode('utf8')
     tokens = []
