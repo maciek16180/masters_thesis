@@ -79,8 +79,9 @@ class SampledSoftmaxDenseLayer(MergeLayer):
                     raise NotImplementedError(
                         'Not implemented: computation of Q(y|x)')
                 else:
-                    true_logits -= T.log(self.p[targets] * self.num_sampled)
-                    sampled_logits -= T.log(self.p[samples] * self.num_sampled)
+                    true_logits -= T.log(self.p[targets])
+                    sampled_logits -= T.log(self.p[samples])
+                    # tu bedzie jeszcze jedno odejmowanie, patrz obliczenia
 
                 logits = T.concatenate(
                     [true_logits.dimshuffle((0, 'x')), sampled_logits], axis=1)
