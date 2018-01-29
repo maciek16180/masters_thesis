@@ -13,6 +13,7 @@ sys.path.append('../')
 from layers import HierarchicalSoftmaxDenseLayer
 from layers import SampledSoftmaxDenseLayer
 from layers import NCEDenseLayer
+from layers import ShiftLayer
 
 
 class SimpleRNNLM(object):
@@ -24,7 +25,6 @@ class SimpleRNNLM(object):
         self.rec_size = rec_size
 
         self.input_var = T.imatrix('inputs')
-        self.target_var = T.imatrix('targets')  # inputs shifted by 1
         self.mask_input_var = T.matrix('input_mask')
         mask_idx = self.mask_input_var.nonzero()
 
@@ -51,9 +51,9 @@ class SimpleRNNLM(object):
 
         if mode == 'full':
             train_loss = L.objectives.categorical_crossentropy(
-                train_out[mask_idx], self.target_var[mask_idx]).mean()
+                train_out[mask_idx], self.input_var[mask_idx]).mean()
             test_loss = L.objectives.categorical_crossentropy(
-                test_out[mask_idx], self.target_var[mask_idx]).mean()
+                test_out[mask_idx], self.input_var[mask_idx]).mean()
         elif mode in ['ssoft', 'hsoft']:
             train_loss = -T.log(train_out[mask_idx]).mean()
             test_loss = -T.log(test_out[mask_idx]).mean()
@@ -76,10 +76,10 @@ class SimpleRNNLM(object):
         updates = update_fn(train_loss, params)
 
         self.train_fn = theano.function(
-            [self.input_var, self.target_var, self.mask_input_var],
+            [self.input_var, self.mask_input_var],
             train_loss, updates=updates)
         self.val_fn = theano.function(
-            [self.input_var, self.target_var, self.mask_input_var], test_loss)
+            [self.input_var, self.mask_input_var], test_loss)
 
         # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
         print('Building a network for generating...')
@@ -105,10 +105,10 @@ class SimpleRNNLM(object):
         start_time = time.time()
 
         for batch in self.iterate_minibatches(train_data, batch_size):
-            inputs, targets, mask = batch
+            inputs, mask = batch
 
             num_batch_words = mask.sum()
-            train_err += self.train_fn(inputs, targets, mask) * num_batch_words
+            train_err += self.train_fn(inputs, mask) * num_batch_words
             train_batches += 1
             num_training_words += num_batch_words
 
@@ -126,10 +126,10 @@ class SimpleRNNLM(object):
         start_time = time.time()
 
         for batch in self.iterate_minibatches(val_data, batch_size):
-            inputs, targets, mask = batch
+            inputs, mask = batch
 
             num_batch_words = mask.sum()
-            val_err += self.val_fn(inputs, targets, mask) * num_batch_words
+            val_err += self.val_fn(inputs, mask) * num_batch_words
             val_batches += 1
             num_validate_words += num_batch_words
 
@@ -198,7 +198,8 @@ class SimpleRNNLM(object):
                                      mask_input=l_mask,
                                      name='LSTM1')
 
-        l_resh = L.layers.ReshapeLayer(l_lstm1, shape=(-1, self.rec_size))
+        l_resh = L.layers.ReshapeLayer(ShiftLayer(l_lstm1),
+                                       shape=(-1, self.rec_size))
 
         return l_resh
 
@@ -221,7 +222,7 @@ class SimpleRNNLM(object):
         l_resh = self._build_architecture(train_emb=train_emb)
 
         l_ssoft = SampledSoftmaxDenseLayer(l_resh, num_sampled, self.voc_size,
-                                           targets=self.target_var.ravel(),
+                                           targets=self.input_var.ravel(),
                                            probs=ssoft_probs,
                                            sample_unique=sample_unique,
                                            name='soft')
@@ -234,7 +235,7 @@ class SimpleRNNLM(object):
         l_resh = self._build_architecture(train_emb=train_emb)
 
         l_ssoft = NCEDenseLayer(l_resh, num_sampled, self.voc_size,
-                                targets=self.target_var.ravel(),
+                                targets=self.input_var.ravel(),
                                 probs=noise_probs,
                                 sample_unique=sample_unique,
                                 name='soft')
@@ -247,7 +248,7 @@ class SimpleRNNLM(object):
 
         l_hsoft = HierarchicalSoftmaxDenseLayer(l_resh,
                                                 num_units=self.voc_size,
-                                                target=self.target_var.ravel(),
+                                                target=self.input_var.ravel(),
                                                 name='soft')
 
         l_out = L.layers.ReshapeLayer(l_hsoft, tuple(self.input_var.shape))
@@ -336,9 +337,6 @@ class SimpleRNNLM(object):
             inp_max_len = max(map(len, inp))
             inp = map(lambda l: l + [pad] * (inp_max_len - len(l)), inp)
             inp = np.asarray(inp, dtype=np.int32)
-            padding = np.zeros((batch_size, 1), dtype=np.int32) + pad
-            tar = np.hstack([inp[:, 1:], padding])
-
             mask = (inp != pad).astype(np.float32)
 
-            yield inp, tar, mask
+            yield inp, mask
