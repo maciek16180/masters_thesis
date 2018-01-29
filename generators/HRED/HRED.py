@@ -33,7 +33,6 @@ class HRED():
 
         self.input_gen_var = T.imatrix('inputs_gen')
         self.input_var = T.itensor3('inputs')
-        self.target_var = T.itensor3('targets')  # inputs shifted by 1
         self.mask_input_var = T.tensor3('input_mask')
         mask_idx = self.mask_input_var.nonzero()
 
@@ -77,12 +76,12 @@ class HRED():
 
             print('    train_fn...')
             self.train_fn = theano.function(
-                [self.input_var, self.target_var, self.mask_input_var],
+                [self.input_var, self.mask_input_var],
                 train_loss, updates=updates)
 
             print('    val_fn...')
             self.val_fn = theano.function(
-                [self.input_var, self.target_var, self.mask_input_var],
+                [self.input_var, self.mask_input_var],
                 test_loss)
         else:
             print('Skipping training part...')
@@ -125,10 +124,10 @@ class HRED():
 
         for batch in self.iterate_minibatches(train_data, batch_size,
                                               shuffle=True):
-            inputs, targets, mask = batch
+            inputs, mask = batch
 
             num_batch_words = mask.sum()
-            train_err += self.train_fn(inputs, targets, mask) * num_batch_words
+            train_err += self.train_fn(inputs, mask) * num_batch_words
             train_batches += 1
             num_training_words += num_batch_words
 
@@ -146,10 +145,10 @@ class HRED():
         start_time = time.time()
 
         for batch in self.iterate_minibatches(val_data, batch_size):
-            inputs, targets, mask = batch
+            inputs, mask = batch
 
             num_batch_words = mask.sum()
-            val_err += self.val_fn(inputs, targets, mask) * num_batch_words
+            val_err += self.val_fn(inputs, mask) * num_batch_words
             val_batches += 1
             num_validate_words += num_batch_words
 
@@ -204,12 +203,12 @@ class HRED():
      21:30 - GRU session
      31:32 - dec init
      33:41 - GRU dec (without hid_init)
-     41:42 - H0
-        43 - E0
+     41:42 - Ho
+        43 - Eo
      44:46 - sampled softmax (p is unnecessary for generating)
 
      context_net: emb, GRUs lv1, GRU ses (no hid_init)
-     decoder_net: emb, GRU dec (no hid_init), H0, E0, softmax (full, no p from ssoft)
+     decoder_net: emb, GRU dec (no hid_init), Ho, Eo, softmax (full, no p from ssoft)
     '''
 
     # DONE: make it so we don't have to rebuild the net to feed in context with different n.
@@ -326,29 +325,29 @@ class HRED():
                                   hid_init=l_dec_inits,
                                   name='GRUdec')
 
-        l_resh3 = L.layers.ReshapeLayer(l_dec, (
+        l_resh3 = L.layers.ReshapeLayer(ShiftLayer(l_dec, pad=l_dec_inits), (
             batch_size * n * sequence_len, self.lv1_rec_size))
 
-        l_H0 = L.layers.DenseLayer(l_resh3,
+        l_Ho = L.layers.DenseLayer(l_resh3,
                                    num_units=self.out_emb_size,
                                    nonlinearity=None,
-                                   name='h0')
+                                   name='ho')
 
-        l_resh4 = L.layers.ReshapeLayer(l_emb, (
+        l_resh4 = L.layers.ReshapeLayer(ShiftLayer(l_emb), (
             batch_size * n * sequence_len, self.emb_size))
 
-        l_E0 = L.layers.DenseLayer(l_resh4,
+        l_Eo = L.layers.DenseLayer(l_resh4,
                                    num_units=self.out_emb_size,
                                    b=None,
                                    nonlinearity=None,
-                                   name='e0')
+                                   name='eo')
 
-        l_soft_in = L.layers.ElemwiseSumLayer([l_H0, l_E0])
+        l_soft_in = L.layers.ElemwiseSumLayer([l_Ho, l_Eo])
 
         l_ssoft = SampledSoftmaxDenseLayer(l_soft_in,
                                            num_sampled,
                                            self.voc_size,
-                                           targets=self.target_var.ravel(),
+                                           targets=self.input_var.ravel(),
                                            probs=ssoft_probs,
                                            sample_unique=False,
                                            name='soft')
@@ -500,21 +499,21 @@ class HRED():
                 b=params['GRUdec.b_hidden_update'],
                 nonlinearity=L.nonlinearities.tanh))
 
-        l_H0 = L.layers.DenseLayer(l_dec,
+        l_Ho = L.layers.DenseLayer(l_dec,
                                    num_units=self.out_emb_size,
                                    nonlinearity=None,
-                                   W=params['h0.W'],
-                                   b=params['h0.b'])
+                                   W=params['ho.W'],
+                                   b=params['ho.b'])
 
         l_slice = L.layers.SliceLayer(l_emb, indices=-1, axis=1)
 
-        l_E0 = L.layers.DenseLayer(l_slice,
+        l_Eo = L.layers.DenseLayer(l_slice,
                                    num_units=self.out_emb_size,
-                                   W=params['e0.W'],
+                                   W=params['eo.W'],
                                    b=None,
                                    nonlinearity=None)
 
-        l_soft_in = L.layers.ElemwiseSumLayer([l_H0, l_E0])
+        l_soft_in = L.layers.ElemwiseSumLayer([l_Ho, l_Eo])
 
         l_soft = L.layers.DenseLayer(l_soft_in,
                                      num_units=self.voc_size,
@@ -546,10 +545,6 @@ class HRED():
             inp = [
                 [s + [pad] * (inp_max_len - len(s)) for s in d] for d in inp]
             inp = np.asarray(inp, dtype=np.int32)
-            padding = np.zeros(
-                (batch_size, inp.shape[1], 1), dtype=np.int32) + pad
-            tar = np.concatenate([inp[:, :, 1:], padding], axis=2)
-
             mask = (inp != pad).astype(np.float32)
 
-            yield inp, tar, mask
+            yield inp, mask
