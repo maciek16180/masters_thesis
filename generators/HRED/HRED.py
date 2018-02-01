@@ -267,7 +267,7 @@ class HRED():
                                              name='emb')
 
         if emb_dropout:
-            print 'Using dropout.'
+            print('Using dropout.')
             l_emb = L.layers.dropout(l_emb)
 
         ''' Level 1 (sentence) BiGRU encoding with L2-pooling '''
