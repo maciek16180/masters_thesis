@@ -29,3 +29,7 @@ class ShiftLayer(MergeLayer):
         else:
             pad = T.zeros_like(input_[:, :1, :])
         return T.concatenate([pad, input_[:, :-1, :]], axis=1)
+
+    def get_output_shape_for(self, input_shapes, **kwargs):
+        assert len(input_shapes) in [1, 2]
+        return input_shapes[0]

@@ -30,7 +30,7 @@ model_filename = '../trained_models/test2/pretrained_subtle_fixed_GaussInit_300_
 t0 = time.time()
 for epoch in xrange(num_epochs):
     print '\n\nStarting epoch {}...\n'.format(epoch)
-    train_error = net.train_one_epoch(train_data=subtle_data, batch_size=30, log_interval=1000)
+    train_error = net.train_one_epoch(train_data=subtle_data, batch_size=30, log_interval=10)
     print '\nTraining loss:   {}'.format(train_error)
     net.save_params(model_filename + '_ep' + str(epoch + 1) + '.npz')
 
