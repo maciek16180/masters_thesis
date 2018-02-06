@@ -208,10 +208,12 @@ class HRED():
      44:46 - sampled softmax (p is unnecessary for generating)
 
      context_net: emb, GRUs lv1, GRU ses (no hid_init)
-     decoder_net: emb, GRU dec (no hid_init), Ho, Eo, softmax (full, no p from ssoft)
+     decoder_net: emb, GRU dec (no hid_init), Ho, Eo, softmax
+                                                      (full, no p from ssoft)
     '''
 
-    # DONE: make it so we don't have to rebuild the net to feed in context with different n.
+    # DONE: make it so we don't have to rebuild the net to feed in
+    #       context with different n.
     # NOTE: n has to remain constant throughout the batch (different batches
     # can have different ns though)
 
@@ -285,8 +287,8 @@ class HRED():
                                            backwards=True,
                                            name='GRU1back')
 
-        l2_pooled_forw = L2PoolingLayer(l_lv1_enc_forw)
-        l2_pooled_back = L2PoolingLayer(l_lv1_enc_back)
+        l2_pooled_forw = L2PoolingLayer(l_lv1_enc_forw, l_mask)
+        l2_pooled_back = L2PoolingLayer(l_lv1_enc_back, l_mask)
 
         # concatenation of L2-pooled states
         l_lv1_enc = L.layers.ConcatLayer(

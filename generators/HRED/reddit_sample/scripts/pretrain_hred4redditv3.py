@@ -1,4 +1,7 @@
-import time, sys
+from __future__ import print_function
+
+import time
+import sys
 sys.path.append('../../')
 sys.path.append('../../../')
 from HRED import HRED
@@ -10,8 +13,7 @@ subtle_fixed_path = "/pio/data/data/subtle/"
 redditv3_path = "/pio/data/data/reddit_sample/v3/"
 
 subtle_data = load_subtle_fixed(path=subtle_fixed_path, trim=200)
-train, _ = load_pairs(redditv3_path, threeD=False)
-_, _, voc_size, freqs = get_redditv3_voc(path=redditv3_path, train_len=len(train))
+_, _, voc_size, freqs = get_redditv3_voc(path=redditv3_path)
 
 
 net = HRED(voc_size=voc_size,
@@ -25,14 +27,16 @@ net = HRED(voc_size=voc_size,
 
 num_epochs = 10
 
-model_filename = '../trained_models/test2/pretrained_subtle_fixed_GaussInit_300_300_300_300_ssoft200unigr_bs30_cut200'
+model_filename = "../trained_models/test2/pretrained_subtle_fixed_GaussInit_" \
+                 "300_300_300_300_ssoft200unigr_bs30_cut200"
 
 t0 = time.time()
 for epoch in xrange(num_epochs):
-    print '\n\nStarting epoch {}...\n'.format(epoch)
-    train_error = net.train_one_epoch(train_data=subtle_data, batch_size=30, log_interval=10)
-    print '\nTraining loss:   {}'.format(train_error)
+    print('\n\nStarting epoch {}...\n'.format(epoch))
+    train_error = net.train_one_epoch(
+        train_data=subtle_data, batch_size=30, log_interval=10)
+    print('\nTraining loss:   {}'.format(train_error))
     net.save_params(model_filename + '_ep' + str(epoch + 1) + '.npz')
 
-print '\n\nTotal training time: {:.2f}s'.format(time.time() - t0)
-print 'Model saved as ' + model_filename
+print('\n\nTotal training time: {:.2f}s'.format(time.time() - t0))
+print('Model saved as ' + model_filename)

@@ -20,15 +20,12 @@ def load_pairs(path, threeD=True):
     return train, test
 
 
-def get_redditv3_voc(path, train_len, pad_value=-1):
+def get_redditv3_voc(path, pad_value=-1):
     word_list = np.load(path + 'training.dict.pkl')
-    freqs = np.array([x[1] for x in word_list] + [train_len])
+    freqs = np.array([x[1] for x in word_list])
     total_count = float(freqs.sum())
 
     idx_to_w = [w[0] for w in word_list]
     w_to_idx = {idx_to_w[i]: i for i in range(len(idx_to_w))}
-
-    w_to_idx[u'<utt_end>'] = pad_value
-    idx_to_w.append(u'<utt_end>')
 
     return idx_to_w, w_to_idx, len(w_to_idx), freqs / total_count
