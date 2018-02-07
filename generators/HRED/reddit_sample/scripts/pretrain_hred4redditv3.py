@@ -12,7 +12,6 @@ from data_load.subtle_fixed_load import load_subtle_fixed
 subtle_fixed_path = "/pio/data/data/subtle/"
 redditv3_path = "/pio/data/data/reddit_sample/v3/"
 
-subtle_data = load_subtle_fixed(path=subtle_fixed_path, trim=200)
 _, _, voc_size, freqs = get_redditv3_voc(path=redditv3_path)
 
 
@@ -25,13 +24,14 @@ net = HRED(voc_size=voc_size,
            ssoft_probs=freqs,
            skip_gen=True)
 
+subtle_data = load_subtle_fixed(path=subtle_fixed_path, trim=200)
 num_epochs = 10
 
 model_filename = "../trained_models/test2/pretrained_subtle_fixed_GaussInit_" \
                  "300_300_300_300_ssoft200unigr_bs30_cut200"
 
 t0 = time.time()
-for epoch in xrange(num_epochs):
+for epoch in range(num_epochs):
     print('\n\nStarting epoch {}...\n'.format(epoch))
     train_error = net.train_one_epoch(
         train_data=subtle_data, batch_size=30, log_interval=10)

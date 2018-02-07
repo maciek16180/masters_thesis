@@ -44,7 +44,7 @@ def load_mt(path, split=False, trim=200, threeD=True):
     return tr, vl, ts
 
 
-def get_mt_voc(path, train_len, pad_value=-1):
+def get_mt_voc(path, pad_value=-1):
     word_list = np.load(path + 'Training.dict.pkl')
     word_list.sort(key=lambda x: x[1])
     freqs = np.array([x[2] for x in word_list])

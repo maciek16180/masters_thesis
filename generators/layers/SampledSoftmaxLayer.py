@@ -64,10 +64,30 @@ class SampledSoftmaxDenseLayer(MergeLayer):
                     samples = self._srng.multinomial_wo_replacement(
                         n=self.num_sampled, pvals=[self.p]).ravel()
                 else:
+                    # bins: voc_size
                     bins = self._srng.multinomial(n=self.num_sampled,
                                                   pvals=[self.p]).ravel()
-                    samples = T.extra_ops.repeat(bins.nonzero()[0],
-                                                 bins.nonzero_values())
+                    samples = T.extra_ops.repeat(
+                        bins.nonzero()[0], bins.nonzero_values())
+
+                    # Dokladne obliczenia dzialaja bardzo wolno:
+                    #
+                    # tar_len = targets.shape[0]
+                    # all_bins = T.repeat(bins.dimshuffle(('x', 0)),
+                    #                     tar_len, axis=0)
+                    # bins_rep = all_bins.ravel()
+                    # all_bins = T.inc_subtensor(
+                    #     all_bins[T.arange(tar_len), targets], 1)
+                    # sampled_counts = T.extra_ops.repeat(
+                    #     all_bins.ravel(), bins_rep).reshape(
+                    #     (tar_len, self.num_sampled))
+                    #
+                    # Ponizej jest przyblizenie. Od dobrych targetow, ktore sie
+                    # wylosowaly odejmuje log(x_t-1) zamiast log(x_t).
+                    # sampled_counts = bins[samples]
+                    # true_counts = bins[targets] + 1
+                    #
+                    # Z jakies powodu to dziala gorzej...?
 
                 true_logits = (input_ * self.W[:, targets].T
                                ).sum(axis=1) + self.b[targets]
@@ -80,8 +100,9 @@ class SampledSoftmaxDenseLayer(MergeLayer):
                         'Not implemented: computation of Q(y|x)')
                 else:
                     true_logits -= T.log(self.p[targets])
+                    # true_logits += T.log(true_counts.astype('floatX'))
                     sampled_logits -= T.log(self.p[samples])
-                    # tu bedzie jeszcze jedno odejmowanie, patrz obliczenia
+                    # sampled_logits += T.log(sampled_counts.astype('floatX'))
 
                 logits = T.concatenate(
                     [true_logits.dimshuffle((0, 'x')), sampled_logits], axis=1)

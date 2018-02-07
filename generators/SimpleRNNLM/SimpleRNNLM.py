@@ -70,7 +70,6 @@ class SimpleRNNLM(object):
         if kwargs.has_key('update_fn'):
             update_fn = kwargs['update_fn']
         else:
-            # update_fn = lambda l, p: L.updates.adagrad(l, p, learning_rate=.01)
             update_fn = lambda l, p: L.updates.adam(l, p, learning_rate=.0001)
 
         updates = update_fn(train_loss, params)
