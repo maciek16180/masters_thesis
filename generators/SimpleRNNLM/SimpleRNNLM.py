@@ -30,10 +30,13 @@ class SimpleRNNLM(object):
 
         self.emb_init = kwargs.get('emb_init', None)
 
+        self.generator_init = T.matrix('generator_init')
+
         # BUILD THE MODEL
         print('Building the model...')
 
         assert mode in ['full', 'ssoft', 'hsoft', 'nce']
+        assert mode in ['full', 'ssoft']  # the other two didn't really work
 
         if mode == 'full':
             self.train_net = self._build_full_softmax_net(**kwargs)
@@ -92,8 +95,9 @@ class SimpleRNNLM(object):
             self.gen_net = self._build_hierarchical_softmax_net_with_params(
                 all_params)
 
-        probs = L.layers.get_output(self.gen_net)[:, -1, :]
-        self.get_probs_fn = theano.function([self.input_var], probs)
+        gen_net_out = L.layers.get_output(self.gen_net, deterministic=True)
+        self.get_probs_and_new_dec_init_fn = theano.function(
+            [self.input_var, self.generator_init], gen_net_out)
 
         print('Done')
 
@@ -263,11 +267,18 @@ class SimpleRNNLM(object):
                                         output_size=self.emb_size,
                                         W=params['emb.W'])
 
+        l_gen_init = L.layers.InputLayer(shape=(None, self.rec_size),
+                                         input_var=self.generator_init)
+
+        # todo: w inicie lstm trzeba podac tez cell, ale on nie jest zwracany
+        #   lepiej to przerobic na gru, bedzie prosciej
         l_lstm1 = L.layers.LSTMLayer(
             l_emb,
             num_units=self.rec_size,
             grad_clipping=100,
             mask_input=None,
+            only_return_final=True,
+            hid_init=l_gen_init,
             ingate=L.layers.Gate(
                 W_in=params['LSTM1.W_in_to_ingate'],
                 W_hid=params['LSTM1.W_hid_to_ingate'],
@@ -292,30 +303,25 @@ class SimpleRNNLM(object):
             cell_init=params['LSTM1.cell_init'],
             hid_init=params['LSTM1.hid_init'])
 
-        l_resh = L.layers.ReshapeLayer(l_lstm1, shape=(-1, self.rec_size))
-
-        return l_resh
+        return l_lstm1
 
     def _build_full_softmax_net_with_params(self, params):
 
-        l_resh = self._build_architecture_with_params(params)
+        l_gru = self._build_architecture_with_params(params)
 
-        l_soft = L.layers.DenseLayer(l_resh,
+        l_soft = L.layers.DenseLayer(l_gru,
                                      num_units=self.voc_size,
                                      nonlinearity=L.nonlinearities.softmax,
                                      W=params['soft.W'],
                                      b=params['soft.b'])
 
-        l_out = L.layers.ReshapeLayer(l_soft, tuple(
-            self.input_var.shape) + (self.voc_size,))
-
-        return l_out
+        return l_soft, l_gru
 
     def _build_hierarchical_softmax_net_with_params(self, params):
 
-        l_resh = self._build_architecture_with_params(params)
+        l_gru = self._build_architecture_with_params(params)
 
-        l_hsoft = HierarchicalSoftmaxDenseLayer(l_resh,
+        l_hsoft = HierarchicalSoftmaxDenseLayer(l_gru,
                                                 num_units=self.voc_size,
                                                 target=None,
                                                 W1=params['soft.W1'],
@@ -323,10 +329,7 @@ class SimpleRNNLM(object):
                                                 W2=params['soft.W2'],
                                                 b2=params['soft.b2'])
 
-        l_out = L.layers.ReshapeLayer(l_hsoft, tuple(
-            self.input_var.shape) + (self.voc_size,))
-
-        return l_out
+        return l_hsoft, l_gru
 
     def iterate_minibatches(self, inputs, batch_size, pad=-1):
         for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):

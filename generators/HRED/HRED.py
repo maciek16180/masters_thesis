@@ -38,8 +38,8 @@ class HRED():
 
         self.emb_init = kwargs.get('emb_init', None)
 
-        context_init = T.matrix('context_init')
-        decoder_init = T.matrix('decoder_init')
+        self.context_init = T.matrix('context_init')
+        self.decoder_init = T.matrix('decoder_init')
 
         assert mode in ['ssoft']
 
@@ -94,10 +94,8 @@ class HRED():
             all_params = {x.name: x
                           for x in L.layers.get_all_params(self.train_net)}
 
-            self.context_net = self._build_context_net_with_params(
-                context_init, all_params)
-            self.decoder_net = self._build_decoder_net_with_params(
-                decoder_init, all_params)
+            self.context_net = self._build_context_net_with_params(all_params)
+            self.decoder_net = self._build_decoder_net_with_params(all_params)
 
             dec_net_out = L.layers.get_output(self.decoder_net,
                                               deterministic=True)
@@ -106,11 +104,11 @@ class HRED():
 
             print('    get_probs_and_new_dec_init_fn...')
             self.get_probs_and_new_dec_init_fn = theano.function(
-                [self.input_gen_var, decoder_init], dec_net_out)
+                [self.input_gen_var, self.decoder_init], dec_net_out)
 
             print('    get_new_con_init_fn...')
             self.get_new_con_init_fn = theano.function(
-                [self.input_gen_var, context_init], new_con_init)
+                [self.input_gen_var, self.context_init], new_con_init)
         else:
             print('Skipping generating part...')
 
@@ -358,7 +356,7 @@ class HRED():
 
         return l_out
 
-    def _build_context_net_with_params(self, context_init, params):
+    def _build_context_net_with_params(self, params):
 
         l_in = L.layers.InputLayer(shape=(1, None),
                                    input_var=self.input_gen_var)
@@ -434,7 +432,7 @@ class HRED():
         l_lv2_enc = L.layers.GRULayer(
             l_resh,
             num_units=self.lv2_rec_size,
-            hid_init=context_init,
+            hid_init=self.context_init,
             grad_clipping=100,
             only_return_final=True,
             resetgate=L.layers.Gate(
@@ -456,7 +454,7 @@ class HRED():
 
         return l_lv2_enc
 
-    def _build_decoder_net_with_params(self, decoder_init, params):
+    def _build_decoder_net_with_params(self, params):
 
         l_in = L.layers.InputLayer(shape=(None, None),
                                    input_var=self.input_gen_var)
@@ -476,7 +474,7 @@ class HRED():
                                          train_inds=self.train_inds)
 
         l_dec_init = L.layers.InputLayer(shape=(None, self.lv1_rec_size),
-                                         input_var=decoder_init)
+                                         input_var=self.decoder_init)
 
         l_dec = L.layers.GRULayer(
             l_emb,
@@ -523,10 +521,7 @@ class HRED():
                                      W=params['soft.W'],
                                      b=params['soft.b'])
 
-        l_out = L.layers.ReshapeLayer(l_soft, (
-            self.input_gen_var.shape[0], self.voc_size))
-
-        return l_out, l_dec  # l_out - probabilities, l_dec - new decoder init
+        return l_soft, l_dec  # l_out - probabilities, l_dec - new decoder init
 
     def iterate_minibatches(self, inputs, batch_size, pad=-1, shuffle=False):
 
