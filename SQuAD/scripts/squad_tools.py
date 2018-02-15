@@ -6,13 +6,25 @@ import json
 import io
 
 
-def load_dict(glove_fname):
+def load_glove(glove_fname, only_words=False):
+    words = ['<unk>']
+    if not only_words:
+        vecs = []
     with io.open(glove_fname, encoding='utf8') as f:
-        wordlist = ['<unk>']
         for line in f:
-            wordlist.append(line.split(' ', 1)[0])
-        wordlist.append('<not_a_word>')
-    return wordlist
+            l = line[:-1].split(' ', 1)
+            words.append(l[0])
+            if not only_words:
+                vecs.append(np.fromstring(l[1], sep=' ', dtype=np.float32))
+    words.append('<not_a_word>')
+    if not only_words:
+        vecs = np.vstack(vecs)
+        vecs = np.concatenate([
+            [vecs.mean(axis=0)],
+            vecs,
+            np.random.normal(size=(1, 300)).astype(np.float32)])
+        return words, vecs
+    return words
 
 
 def load_squad_train(path, negative_paths=[], NAW_token=None, NAW_char=3):
@@ -138,9 +150,13 @@ def trim_data(data, trim):
     return words_new, char_new, bin_feats_new
 
 
-def train_QANet(net, train_data, model_filename, batch_size, num_epochs=100,
+def train_QANet(net, train_data, model_path, batch_size, num_epochs=20,
                 log_interval=200):
     best = 0
+    model_filename = os.path.join(model_path, 'model')
+    best_name = os.path.join(model_path, '6B.best')
+    if net.negative:
+        best_name += '.neg'
     for epoch in range(1, num_epochs + 1):
         print('\n\nStarting epoch {}...\n'.format(epoch))
         train_error = net.train_one_epoch(train_data=train_data,
@@ -157,6 +173,7 @@ def train_QANet(net, train_data, model_filename, batch_size, num_epochs=100,
 
         if f1 > best:
             net.save_params(model_filename + '.ep{:02d}'.format(epoch))
+            net.save_params(best_name)
             best = f1
             print('Best F1 so far, model saved.')
 

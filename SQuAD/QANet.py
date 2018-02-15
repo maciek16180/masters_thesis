@@ -21,7 +21,6 @@ from layers import StartFeaturesLayer
 from layers import EndFeaturesLayer
 from layers import HighwayLayer
 from layers import ForgetSizeLayer
-from layers import TrainPartOfEmbsLayer
 from layers import TrainUnkLayer
 from layers import TrainNAWLayer
 
