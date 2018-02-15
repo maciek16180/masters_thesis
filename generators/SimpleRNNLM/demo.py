@@ -5,26 +5,23 @@ import lasagne as L
 import sys
 sys.path.append('../')
 
-from HRED import HRED
+from SimpleRNNLN import SimpleRNNLN
 from diverse_beam_search import DiverseBeamSearch, softmax
 from data_load.mt_load import load_mt, get_mt_voc
+
+
+use_whitelist = False
 
 
 mt_path = "/pio/data/data/mtriples/"
 idx_to_w, w_to_idx, voc_size, _ = get_mt_voc(path=mt_path)
 
-hred_net = HRED(voc_size=voc_size,
-                emb_size=300,
-                lv1_rec_size=300,
-                lv2_rec_size=300,
-                out_emb_size=300,
-                num_sampled=200,
-                skip_train=True)
+rnnlm_net = SimpleRNNLN(voc_size=voc_size,
+                        emb_size=300,
+                        rec_size=300,
+                        skip_train=True)
 
-hred_net.load_params('trained_models/pretrained_subtle_GaussInit_'
-                     '300_300_300_300_ssoft200unigr_bs30_cut200.npz')
-# hred_net.load_params('../trained_models/subtleFixed_300_300_300_300_'
-#                      'ssoft200unigr_bs30_cut200_early5.npz')
+rnnlm_net.load_params('path_to_model')
 
 
 def print_utt(utt):
@@ -39,41 +36,37 @@ def utt_to_array(utt):
 
 
 def context_summary(context, lookup=True):
-    con_init = np.zeros((1, hred_net.lv2_rec_size), dtype=np.float32)
+    con_init = np.zeros((1, rnnlm_net.lv2_rec_size), dtype=np.float32)
     for utt in context:
-        con_init = hred_net.get_new_con_init_fn(
+        con_init = rnnlm_net.get_new_con_init_fn(
             utt_to_array(utt) if lookup else utt, con_init)
     return con_init
 
+
 ###################
 
+if use_whitelist:
+    print("Loading whitelist...")
 
-def go_down_trie(trie, seq):
-    for x in seq:
-        if x not in trie:
-            raise KeyError("Sequence is not in trie.")
-        trie = trie[x]
-    return trie
+    mt = np.load('/pio/data/data/mtriples/Training.triples.pkl')
 
-print("Loading whitelist...")
+    answers = []
+    for s in mt:
+        answers.append(s[:s.index(2) + 1])
+    answers = answers[:5000]
 
-mt = np.load('/pio/data/data/mtriples/Training.triples.pkl')
+    whitelist = {}
 
-answers = []
-for s in mt:
-    answers.append(s[:s.index(2)+1])
-answers = answers[:5000]
+    for a in answers:
+        dic = whitelist
+        for w in a:
+            if w not in dic:
+                dic[w] = {}
+            dic = dic[w]
 
-whitelist = {}
-
-for a in answers:
-    dic = whitelist
-    for w in a:
-        if w not in dic:
-            dic[w] = {}
-        dic = dic[w]
-
-print("Done")
+    print("Done")
+else:
+    whitelist = None
 
 ###################
 
@@ -92,7 +85,7 @@ def talk(
     sharpen_bs_probs=None):
 
     beamsearch = DiverseBeamSearch(
-        idx_to_w, hred_net, beam_size, group_size,
+        idx_to_w, rnnlm_net, beam_size, group_size,
         rank_penalty=rank_penalty,
         group_diversity_penalty=group_diversity_penalty,
         seq_diversity_penalty=seq_diversity_penalty,
@@ -104,33 +97,38 @@ def talk(
     user_input = sys.stdin.readline()
 
     context = [('<s> ' + user_input + ' </s>').split()]
-    con_init = context_summary(context, lookup=True)
-    W = L.layers.get_all_param_values(hred_net.train_net)[31]
-    b = L.layers.get_all_param_values(hred_net.train_net)[32]
-    dec_init = np.repeat(np.tanh(con_init.dot(W) + b), beam_size, axis=0)
 
-    len_bonus = lambda size: 0  # np.log(size)**2
+    gen_init = rnnlm_net.get_probs_and_new_dec_init_fn(
+        utt_to_array(context),
+        np.zeros((1, rnnlm_net.rec_size), dtype=np.float32))[1]
+    gen_init = np.repeat(gen_init, beam_size, axis=0)
+
+    def len_bonus(size): return 0  # np.log(size)**2
 
     def fn_score(x, y, mean=mean, len_bonus=len_bonus):
         denom = (x.size - 1) if mean else 1
         return (y + len_bonus(x.size)) / denom
 
     while True:
-        candidates = beamsearch.search(dec_init)[0]
+        candidates, gen_inits = beamsearch.search(gen_init)
 
-        score_order = sorted(
-            candidates, key=lambda (x, y): fn_score(x, y), reverse=True)
+        score_order, inits = zip(*sorted(
+            zip(candidates, gen_inits),
+            key=lambda ((x1, x2), y): fn_score(x1, x2), reverse=True))
         # alphabetic_order = sorted(
         #     candidates, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
 
         if not random:
             bot_response = print_utt(score_order[0][0])
+            gen_init = inits[0]
         else:
             scr = np.array([[fn_score(x, y) for x, y in score_order]])
             p = softmax(
                 scr if sharpen_probs is None else -(-scr)**sharpen_probs)[0]
+            index = np.random.choice(len(score_order), p=p)
             bot_response = print_utt(
-                score_order[np.random.choice(len(score_order), p=p)][0])
+                score_order[index][0])
+            gen_init = inits[index]
 
         print('######################')
         for x, y in score_order[:10]:
@@ -143,12 +141,13 @@ def talk(
         user_input = ('<s> ' + user_input + ' </s>').split()
 
         if not short_context:
-            con_init = hred_net.get_new_con_init_fn(
-                utt_to_array(bot_response), con_init)
-            con_init = hred_net.get_new_con_init_fn(
-                utt_to_array(user_input), con_init)
+            gen_init = rnnlm_net.get_probs_and_new_dec_init_fn(
+                utt_to_array(user_input),
+                np.repeat(gen_init, beam_size, axis=0))[1]
         else:
-            context = [bot_response.split(), user_input]
-            con_init = context_summary(context, lookup=True)
+            context = bot_response.split() + user_input
+            get_init = rnnlm_net.get_probs_and_new_dec_init_fn(
+                utt_to_array(context),
+                np.zeros((1, rnnlm_net.rec_size), dtype=np.float32))[1]
 
-        dec_init = np.repeat(np.tanh(con_init.dot(W) + b), beam_size, axis=0)
+        gen_init = np.repeat(gen_init, beam_size, axis=0)

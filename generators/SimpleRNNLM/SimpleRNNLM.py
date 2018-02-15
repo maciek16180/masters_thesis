@@ -47,57 +47,67 @@ class SimpleRNNLM(object):
         elif mode == 'nce':
             self.train_net = self._build_nce_net(**kwargs)
 
+
+        skip_train = kwargs.get('skip_train', False)
+        skip_gen = kwargs.get('skip_gen', False)
+
         # CALCULATE THE LOSS
 
-        train_out = L.layers.get_output(self.train_net)
-        test_out = L.layers.get_output(self.train_net, deterministic=True)
+        if not skip_train:
+            train_out = L.layers.get_output(self.train_net)
+            test_out = L.layers.get_output(self.train_net, deterministic=True)
 
-        if mode == 'full':
-            train_loss = L.objectives.categorical_crossentropy(
-                train_out[mask_idx], self.input_var[mask_idx]).mean()
-            test_loss = L.objectives.categorical_crossentropy(
-                test_out[mask_idx], self.input_var[mask_idx]).mean()
-        elif mode in ['ssoft', 'hsoft']:
-            train_loss = -T.log(train_out[mask_idx]).mean()
-            test_loss = -T.log(test_out[mask_idx]).mean()
-        elif mode == 'nce':
-            # NCEDenseLayer uses logreg loss, so we don't -T.log here
-            train_loss = train_out[mask_idx].mean()
-            test_loss = -T.log(test_out[mask_idx]).mean()
+            if mode == 'full':
+                train_loss = L.objectives.categorical_crossentropy(
+                    train_out[mask_idx], self.input_var[mask_idx]).mean()
+                test_loss = L.objectives.categorical_crossentropy(
+                    test_out[mask_idx], self.input_var[mask_idx]).mean()
+            elif mode in ['ssoft', 'hsoft']:
+                train_loss = -T.log(train_out[mask_idx]).mean()
+                test_loss = -T.log(test_out[mask_idx]).mean()
+            elif mode == 'nce':
+                # NCEDenseLayer uses logreg loss, so we don't -T.log here
+                train_loss = train_out[mask_idx].mean()
+                test_loss = -T.log(test_out[mask_idx]).mean()
 
-        # MAKE TRAIN AND VALIDATION FUNCTIONS
-        print('Compiling theano functions...')
+            # MAKE TRAIN AND VALIDATION FUNCTIONS
+            print('Compiling theano functions...')
 
-        params = L.layers.get_all_params(self.train_net, trainable=True)
+            params = L.layers.get_all_params(self.train_net, trainable=True)
 
-        if kwargs.has_key('update_fn'):
-            update_fn = kwargs['update_fn']
+            if kwargs.has_key('update_fn'):
+                update_fn = kwargs['update_fn']
+            else:
+                update_fn = lambda l, p: L.updates.adam(l, p, learning_rate=.001)
+
+            updates = update_fn(train_loss, params)
+
+            self.train_fn = theano.function(
+                [self.input_var, self.mask_input_var],
+                train_loss, updates=updates)
+            self.val_fn = theano.function(
+                [self.input_var, self.mask_input_var], test_loss)
         else:
-            update_fn = lambda l, p: L.updates.adam(l, p, learning_rate=.0001)
+            print('Skipping training part...')
 
-        updates = update_fn(train_loss, params)
+        if not skip_gen:
+            # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
+            print('Building a network for generating...')
 
-        self.train_fn = theano.function(
-            [self.input_var, self.mask_input_var],
-            train_loss, updates=updates)
-        self.val_fn = theano.function(
-            [self.input_var, self.mask_input_var], test_loss)
+            all_params = {x.name: x
+                          for x in L.layers.get_all_params(self.train_net)}
 
-        # BUILD NET FOR GENERATING, WITH SHARED PARAMETERS
-        print('Building a network for generating...')
+            if mode in ['full', 'ssoft', 'nce']:
+                self.gen_net = self._build_full_softmax_net_with_params(all_params)
+            elif mode == 'hsoft':
+                self.gen_net = self._build_hierarchical_softmax_net_with_params(
+                    all_params)
 
-        all_params = {x.name: x
-                      for x in L.layers.get_all_params(self.train_net)}
-
-        if mode in ['full', 'ssoft', 'nce']:
-            self.gen_net = self._build_full_softmax_net_with_params(all_params)
-        elif mode == 'hsoft':
-            self.gen_net = self._build_hierarchical_softmax_net_with_params(
-                all_params)
-
-        gen_net_out = L.layers.get_output(self.gen_net, deterministic=True)
-        self.get_probs_and_new_dec_init_fn = theano.function(
-            [self.input_var, self.generator_init], gen_net_out)
+            gen_net_out = L.layers.get_output(self.gen_net, deterministic=True)
+            self.get_probs_and_new_dec_init_fn = theano.function(
+                [self.input_var, self.generator_init], gen_net_out)
+        else:
+            print('Skipping generating part...')
 
         print('Done')
 

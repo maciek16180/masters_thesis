@@ -41,7 +41,7 @@ class DiverseBeamSearch(object):
         self.model = model
         self.idx_to_w = words
         self.voc_size = len(words)
-        self.w_to_idx = {words[i]: i for i in xrange(self.voc_size)}
+        self.w_to_idx = {words[i]: i for i in range(self.voc_size)}
         self.forbidden_words = [
             w for w in forbidden_words if w in self.w_to_idx]
 
@@ -71,6 +71,7 @@ class DiverseBeamSearch(object):
         scores = np.zeros(self.beam_size)
 
         finished = []
+        finished_dec_inits = []
 
         if self.whitelist is not None:
             trie_positions = [
@@ -84,7 +85,7 @@ class DiverseBeamSearch(object):
             new_dec_inits = []
             next_scores = []
 
-            for g in xrange(num_groups):
+            for g in range(num_groups):
                 g_idx = slice(self.group_size * g, self.group_size * (g + 1))
                 log_probs = np.log(all_probs[g_idx])
 
@@ -119,14 +120,14 @@ class DiverseBeamSearch(object):
 
                 if self.whitelist is not None:
                     cands = []
-                    for i in xrange(self.group_size):
+                    for i in range(self.group_size):
                         cands.append(
                             trie_positions[self.group_size * g + i].keys())
 
                     # print(cands)
 
                     cand_scores = []
-                    for i in xrange(self.group_size):
+                    for i in range(self.group_size):
                         for c in cands[i]:
                             cand_scores.append((new_scores[i, c], i, c))
 
@@ -197,6 +198,7 @@ class DiverseBeamSearch(object):
 
                     if extended_seq[-1] == self.w_to_idx['</s>']:
                         finished.append((extended_seq, scr))
+                        finished_dec_inits.append(dec_init[seq_in_group])
                     elif scr > -np.inf:
                         if self.whitelist is not None:
                             index_in_group = new_seq.shape[0] % self.group_size
@@ -235,4 +237,4 @@ class DiverseBeamSearch(object):
     #     final_scores = np.array(map(lambda x: x[1], finished))
     #     finished = map(lambda x: x[0], finished)
 
-        return finished  # [final_scores.argmax()]
+        return finished, finished_dec_inits  # [final_scores.argmax()]
