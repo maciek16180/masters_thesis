@@ -190,26 +190,6 @@ class HRED():
                 param_values.insert(0, E)
             L.layers.set_all_param_values(self.train_net, param_values)
 
-    '''
-    MODEL PARAMETERS (as in L.layers.get_params(train_net))
-
-     index - description
-
-         0 - emb
-      1:10 - GRU forward lv1
-     11:20 - GRU backward lv1
-     21:30 - GRU session
-     31:32 - dec init
-     33:41 - GRU dec (without hid_init)
-     41:42 - Ho
-        43 - Eo
-     44:46 - sampled softmax (p is unnecessary for generating)
-
-     context_net: emb, GRUs lv1, GRU ses (no hid_init)
-     decoder_net: emb, GRU dec (no hid_init), Ho, Eo, softmax
-                                                      (full, no p from ssoft)
-    '''
-
     # DONE: make it so we don't have to rebuild the net to feed in
     #       context with different n.
     # NOTE: n has to remain constant throughout the batch (different batches

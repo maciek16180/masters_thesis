@@ -189,14 +189,13 @@ class SimpleRNNLM(object):
         if not train_emb:
             l_emb.params[l_emb.W].remove('trainable')
 
-        l_lstm1 = L.layers.LSTMLayer(l_emb,
-                                     num_units=self.rec_size,
-                                     nonlinearity=L.nonlinearities.tanh,
-                                     grad_clipping=100,
-                                     mask_input=l_mask,
-                                     name='LSTM1')
+        l_gru = L.layers.GRULayer(l_emb,
+                                  num_units=self.rec_size,
+                                  grad_clipping=100,
+                                  mask_input=l_mask,
+                                  name='GRU')
 
-        l_resh = L.layers.ReshapeLayer(ShiftLayer(l_lstm1),
+        l_resh = L.layers.ReshapeLayer(ShiftLayer(l_gru),
                                        shape=(-1, self.rec_size))
 
         return l_resh
@@ -241,40 +240,31 @@ class SimpleRNNLM(object):
         l_gen_init = L.layers.InputLayer(shape=(None, self.rec_size),
                                          input_var=self.generator_init)
 
-        # todo: w inicie lstm trzeba podac tez cell, ale on nie jest zwracany
-        #   lepiej to przerobic na gru, bedzie prosciej
-        l_lstm1 = L.layers.LSTMLayer(
+        l_gru = L.layers.GRULayer(
             l_emb,
             num_units=self.rec_size,
-            grad_clipping=100,
-            mask_input=None,
-            only_return_final=True,
             hid_init=l_gen_init,
-            ingate=L.layers.Gate(
-                W_in=params['LSTM1.W_in_to_ingate'],
-                W_hid=params['LSTM1.W_hid_to_ingate'],
-                W_cell=params['LSTM1.W_cell_to_ingate'],
-                b=params['LSTM1.b_ingate']),
-            forgetgate=L.layers.Gate(
-                W_in=params['LSTM1.W_in_to_forgetgate'],
-                W_hid=params['LSTM1.W_hid_to_forgetgate'],
-                W_cell=params['LSTM1.W_cell_to_forgetgate'],
-                b=params['LSTM1.b_forgetgate']),
-            cell=L.layers.Gate(
-                W_in=params['LSTM1.W_in_to_cell'],
-                W_hid=params['LSTM1.W_hid_to_cell'],
+            grad_clipping=100,
+            only_return_final=True,
+            resetgate=L.layers.Gate(
+                W_in=params['GRU.W_in_to_resetgate'],
+                W_hid=params['GRU.W_hid_to_resetgate'],
                 W_cell=None,
-                b=params['LSTM1.b_cell'],
+                b=params['GRU.b_resetgate']),
+            updategate=L.layers.Gate(
+                W_in=params['GRU.W_in_to_updategate'],
+                W_hid=params['GRU.W_hid_to_updategate'],
+                W_cell=None,
+                b=params['GRU.b_updategate']),
+            hidden_update=L.layers.Gate(
+                W_in=params['GRU.W_in_to_hidden_update'],
+                W_hid=params['GRU.W_hid_to_hidden_update'],
+                W_cell=None,
+                b=params['GRU.b_hidden_update'],
                 nonlinearity=L.nonlinearities.tanh),
-            outgate=L.layers.Gate(
-                W_in=params['LSTM1.W_in_to_outgate'],
-                W_hid=params['LSTM1.W_hid_to_outgate'],
-                W_cell=params['LSTM1.W_cell_to_outgate'],
-                b=params['LSTM1.b_outgate']),
-            cell_init=params['LSTM1.cell_init'],
-            hid_init=params['LSTM1.hid_init'])
+            hid_init=params['GRU.hid_init'])
 
-        return l_lstm1
+        return l_gru
 
     def _build_full_softmax_net_with_params(self, params):
 
