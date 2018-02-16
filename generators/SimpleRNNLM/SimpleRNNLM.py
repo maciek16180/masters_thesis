@@ -10,9 +10,7 @@ import lasagne as L
 import sys
 sys.path.append('../')
 
-from layers import HierarchicalSoftmaxDenseLayer
 from layers import SampledSoftmaxDenseLayer
-from layers import NCEDenseLayer
 from layers import ShiftLayer
 
 
@@ -35,18 +33,12 @@ class SimpleRNNLM(object):
         # BUILD THE MODEL
         print('Building the model...')
 
-        assert mode in ['full', 'ssoft', 'hsoft', 'nce']
-        assert mode in ['full', 'ssoft']  # the other two didn't really work
+        assert mode in ['full', 'ssoft']
 
         if mode == 'full':
             self.train_net = self._build_full_softmax_net(**kwargs)
         elif mode == 'ssoft':
             self.train_net = self._build_sampled_softmax_net(**kwargs)
-        elif mode == 'hsoft':
-            self.train_net = self._build_hierarchical_softmax_net(**kwargs)
-        elif mode == 'nce':
-            self.train_net = self._build_nce_net(**kwargs)
-
 
         skip_train = kwargs.get('skip_train', False)
         skip_gen = kwargs.get('skip_gen', False)
@@ -62,12 +54,8 @@ class SimpleRNNLM(object):
                     train_out[mask_idx], self.input_var[mask_idx]).mean()
                 test_loss = L.objectives.categorical_crossentropy(
                     test_out[mask_idx], self.input_var[mask_idx]).mean()
-            elif mode in ['ssoft', 'hsoft']:
+            else:
                 train_loss = -T.log(train_out[mask_idx]).mean()
-                test_loss = -T.log(test_out[mask_idx]).mean()
-            elif mode == 'nce':
-                # NCEDenseLayer uses logreg loss, so we don't -T.log here
-                train_loss = train_out[mask_idx].mean()
                 test_loss = -T.log(test_out[mask_idx]).mean()
 
             # MAKE TRAIN AND VALIDATION FUNCTIONS
@@ -78,7 +66,8 @@ class SimpleRNNLM(object):
             if kwargs.has_key('update_fn'):
                 update_fn = kwargs['update_fn']
             else:
-                update_fn = lambda l, p: L.updates.adam(l, p, learning_rate=.001)
+                def update_fn(l, p): return L.updates.adam(
+                    l, p, learning_rate=.001)
 
             updates = update_fn(train_loss, params)
 
@@ -97,11 +86,7 @@ class SimpleRNNLM(object):
             all_params = {x.name: x
                           for x in L.layers.get_all_params(self.train_net)}
 
-            if mode in ['full', 'ssoft', 'nce']:
-                self.gen_net = self._build_full_softmax_net_with_params(all_params)
-            elif mode == 'hsoft':
-                self.gen_net = self._build_hierarchical_softmax_net_with_params(
-                    all_params)
+            self.gen_net = self._build_full_softmax_net_with_params(all_params)
 
             gen_net_out = L.layers.get_output(self.gen_net, deterministic=True)
             self.get_probs_and_new_dec_init_fn = theano.function(
@@ -243,30 +228,6 @@ class SimpleRNNLM(object):
         l_out = L.layers.ReshapeLayer(l_ssoft, tuple(self.input_var.shape))
         return l_out
 
-    def _build_nce_net(self, num_sampled, train_emb=True, noise_probs=None,
-                       sample_unique=False, **kwargs):
-        l_resh = self._build_architecture(train_emb=train_emb)
-
-        l_ssoft = NCEDenseLayer(l_resh, num_sampled, self.voc_size,
-                                targets=self.input_var.ravel(),
-                                probs=noise_probs,
-                                sample_unique=sample_unique,
-                                name='soft')
-
-        l_out = L.layers.ReshapeLayer(l_ssoft, tuple(self.input_var.shape))
-        return l_out
-
-    def _build_hierarchical_softmax_net(self, train_emb=True, **kwargs):
-        l_resh = self._build_architecture(train_emb=train_emb)
-
-        l_hsoft = HierarchicalSoftmaxDenseLayer(l_resh,
-                                                num_units=self.voc_size,
-                                                target=self.input_var.ravel(),
-                                                name='soft')
-
-        l_out = L.layers.ReshapeLayer(l_hsoft, tuple(self.input_var.shape))
-        return l_out
-
     def _build_architecture_with_params(self, params):
 
         l_in = L.layers.InputLayer(shape=(None, None),
@@ -326,20 +287,6 @@ class SimpleRNNLM(object):
                                      b=params['soft.b'])
 
         return l_soft, l_gru
-
-    def _build_hierarchical_softmax_net_with_params(self, params):
-
-        l_gru = self._build_architecture_with_params(params)
-
-        l_hsoft = HierarchicalSoftmaxDenseLayer(l_gru,
-                                                num_units=self.voc_size,
-                                                target=None,
-                                                W1=params['soft.W1'],
-                                                b1=params['soft.b1'],
-                                                W2=params['soft.W2'],
-                                                b2=params['soft.b2'])
-
-        return l_hsoft, l_gru
 
     def iterate_minibatches(self, inputs, batch_size, pad=-1):
         for start_idx in range(0, len(inputs) - batch_size + 1, batch_size):
