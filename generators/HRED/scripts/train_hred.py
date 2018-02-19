@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 
-parser = argparse.ArgumentParser(description='Pre-train script for HRED.')
+parser = argparse.ArgumentParser(description='Train script for HRED.')
 parser.add_argument('-mt', '--mt_path', default='data/mtriples')
 parser.add_argument('-o', '--output_dir', default='output')
 parser.add_argument('-p', '--pretrained_model', default=None)
@@ -40,6 +40,7 @@ sys.stdout = log
 sys.path.append('../../')
 from HRED import HRED
 from data_load.mt_load import load_mt, get_mt_voc, get_w2v_embs
+from training_tools import train
 
 print("\nRun params:")
 for arg in vars(args):
@@ -60,66 +61,29 @@ else:
     emb_init = None
     train_inds = []
 
-net = HRED(voc_size=voc_size,
-           emb_size=300,
-           lv1_rec_size=300,
-           lv2_rec_size=300,
-           out_emb_size=300,
-           num_sampled=args.samples,
-           ssoft_probs=freqs,
-           mode=args.mode,
-           learning_rate=args.learning_rate,
-           emb_init=emb_init,
-           train_emb=not args.fix_emb,
-           train_inds=train_inds,
-           skip_gen=True)
+net = HRED(
+    voc_size=voc_size,
+    emb_size=300,
+    lv1_rec_size=300,
+    lv2_rec_size=300,
+    out_emb_size=300,
+    num_sampled=args.samples,
+    ssoft_probs=freqs,
+    mode=args.mode,
+    learning_rate=args.learning_rate,
+    emb_init=emb_init,
+    train_emb=not args.fix_emb,
+    train_inds=train_inds,
+    skip_gen=True)
 
 if args.pretrained_model is not None:
     net.load_params(args.pretrained_model)
 
-
-last_scores = [np.inf]
-patience = 5
-tol = 0.00001
-epoch = 1
-best_epoch = None
-
-model_filename = os.path.join(args.output_dir, 'model')
-
-t0 = time.time()
-while len(last_scores) <= patience or \
-        last_scores[0] > min(last_scores) + tol:
-    print('\n\nStarting epoch {}...\n'.format(epoch))
-    train_error = net.train_one_epoch(
-        train_data=train,
-        batch_size=args.batch_size,
-        log_interval=args.log_interval)
-    val_error = net.validate(
-        val_data=valid,
-        batch_size=args.batch_size)
-    print('\nTraining loss:   {}'.format(train_error))
-    print('Validation loss: {}'.format(val_error))
-
-    if val_error < min(last_scores):
-        net.save_params(model_filename)
-        best_epoch = epoch
-        print('\nBest score so far, model saved.')
-
-    last_scores.append(val_error)
-
-    if len(last_scores) > patience + 1:
-        del last_scores[0]
-    epoch += 1
-
-test_error = net.validate(
-    val_data=test,
-    batch_size=args.batch_size)
-
-print('\n\nTotal training time: {:.2f}s'.format(time.time() - t0))
-print('Best model after {} epochs with loss {}'.format(
-    best_epoch, min(last_scores)))
-print('Validation set perplexity: {}'.format(np.exp(min(last_scores))))
-print('Model saved as ' + model_filename)
-
-print('\nTest loss: {}'.format(test_error))
-print('Test set perplexity: {}'.format(np.exp(test_error)))
+def train(
+    net=net,
+    output_path=args.output_dir,
+    train=train,
+    valid=valid,
+    test=test,
+    bs=args.batch_size,
+    log_interval=args.log_interval)

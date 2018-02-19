@@ -74,8 +74,6 @@ class HRED():
             if kwargs.has_key('update_fn'):
                 update_fn = kwargs['update_fn']
             else:
-#                update_fn = lambda l, p: L.updates.adagrad(
-#                    l, p, learning_rate=.01)
                  update_fn = lambda l, p: L.updates.adam(
                     l, p, learning_rate=self.learning_rate)
 
@@ -163,17 +161,12 @@ class HRED():
 
         return val_err / num_validate_words
 
-    def save_params(self, fname):  # without the fixed word embeddings matrix
-        params = L.layers.get_all_param_values(self.train_net)
-        if not self.train_emb:
-            params = params[1:]
-        np.savez(fname, *params)
+    def save_params(self, fname):
+        np.savez(fname, *L.layers.get_all_param_values(self.train_net))
 
-    def load_params(self, fname, E=None):  # E is the fixed embeddings matrix
+    def load_params(self, fname, E=None):
         with np.load(fname) as f:
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
-            if not self.train_emb and E is not None:
-                param_values.insert(0, E)
             L.layers.set_all_param_values(self.train_net, param_values)
 
     # DONE: make it so we don't have to rebuild the net to feed in
@@ -491,7 +484,6 @@ class HRED():
         return l_soft, l_dec  # l_out - probabilities, l_dec - new decoder init
 
     def iterate_minibatches(self, inputs, batch_size, pad=-1, shuffle=False):
-
         if shuffle:
             indices = np.arange(len(inputs))
             np.random.shuffle(indices)

@@ -6,7 +6,7 @@ import argparse
 import os
 
 
-parser = argparse.ArgumentParser(description='Pre-train script for HRED.')
+parser = argparse.ArgumentParser(description='Pre-train script for RNNLM.')
 parser.add_argument('-mt', '--mt_path', default='data/mtriples')
 parser.add_argument('-o', '--output_dir', default='output')
 parser.add_argument('-bs', '--batch_size', default=30, type=int)
@@ -34,7 +34,7 @@ sys.stderr = log
 sys.stdout = log
 
 sys.path.append('../../')
-from HRED import HRED
+from SimpleRNNLM import SimpleRNNLM
 from data_load.mt_load import load_mt, get_mt_voc
 from data_load.subtle_load import load_subtle
 from training_tools import pretrain
@@ -48,20 +48,18 @@ print("\n")
 
 print("Loading data...")
 
-_, valid, _ = load_mt(path=args.mt_path, split=True)
+_, valid, _ = load_mt(path=args.mt_path, split=False)
 _, _, voc_size, freqs = get_mt_voc(path=args.mt_path)
-subtle_data = load_subtle(path=args.mt_path, split=True)
+subtle_data = load_subtle(path=args.mt_path, split=False)
 
-net = HRED(
+net = SimpleRNNLM(
     voc_size=voc_size,
     emb_size=300,
-    lv1_rec_size=300,
-    lv2_rec_size=300,
-    out_emb_size=300,
+    rec_size=300,
     num_sampled=args.samples,
     ssoft_probs=freqs,
     mode=args.mode,
-    learning_rate=args.learning_rate,
+    learning_rate=learning_rate,
     skip_gen=True)
 
 pretrain(

@@ -8,10 +8,8 @@ def split_utt(utt):
         return []
     return [utt[:idx[1]], utt[idx[1]:]]
 
-n = 2
 
-
-def load_subtle(path, split=False, trim=200, threeD=True):
+def load_subtle(path, split=False, trim=200, threeD=True, n=2):
     data = np.load(path + 'Subtle_Dataset.triples.pkl')
 
     if split:

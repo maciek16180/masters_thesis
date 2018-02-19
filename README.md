@@ -1,1 +1,1 @@
-# master
+Source code for my master's thesis *Neural Networks in Dialogue Systems* at University of Wrocław, Poland.
