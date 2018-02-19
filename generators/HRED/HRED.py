@@ -15,12 +15,15 @@ from layers import ShiftLayer
 from layers import L2PoolingLayer
 from layers import TrainPartOfEmbsLayer
 
+print('floatX ==', theano.config.floatX)
+print('device ==', theano.config.device)
+
 
 class HRED():
 
     def __init__(self, voc_size, emb_size, lv1_rec_size, lv2_rec_size,
                  out_emb_size, train_emb=True, train_inds=[], mode='ssoft',
-                 **kwargs):
+                 learning_rate=.0002, **kwargs):
 
         self.voc_size = voc_size
         self.emb_size = emb_size
@@ -30,6 +33,8 @@ class HRED():
 
         self.train_inds = train_inds
         self.train_emb = train_emb
+        self.learning_rate = learning_rate
+        self.mode = mode
 
         self.input_gen_var = T.imatrix('inputs_gen')
         self.input_var = T.itensor3('inputs')
@@ -41,7 +46,7 @@ class HRED():
         self.context_init = T.matrix('context_init')
         self.decoder_init = T.matrix('decoder_init')
 
-        assert mode in ['ssoft']
+        assert mode in ['ssoft', 'full']
 
         skip_train = kwargs.get('skip_train', False)
         skip_gen = kwargs.get('skip_gen', False)
@@ -69,8 +74,10 @@ class HRED():
             if kwargs.has_key('update_fn'):
                 update_fn = kwargs['update_fn']
             else:
-                update_fn = lambda l, p: L.updates.adagrad(
-                    l, p, learning_rate=.01)
+#                update_fn = lambda l, p: L.updates.adagrad(
+#                    l, p, learning_rate=.01)
+                 update_fn = lambda l, p: L.updates.adam(
+                    l, p, learning_rate=self.learning_rate)
 
             updates = update_fn(train_loss, params)
 
@@ -155,27 +162,6 @@ class HRED():
                     val_batches, time.time() - start_time))
 
         return val_err / num_validate_words
-
-    def train_model(self, train_data, val_data, train_batch_size,
-                    val_batch_size, num_epochs, save_params=False, path=None,
-                    log_interval=10):
-        if save_params:
-            open(path, 'w').close()
-
-        for epoch in range(num_epochs):
-            start_time = time.time()
-
-            train_err = self.train_one_epoch(
-                train_data, train_batch_size, log_interval)
-            val_err = self.validate(val_data, val_batch_size)
-
-            print("Epoch {} of {} took {:.2f}s".format(
-                epoch + 1, num_epochs, time.time() - start_time))
-            print("  training loss:\t\t{:.6f}".format(train_err))
-            print("  validation loss:\t\t{:.6f}".format(val_err))
-
-        if save_params:
-            self.save_params(path)
 
     def save_params(self, fname):  # without the fixed word embeddings matrix
         params = L.layers.get_all_param_values(self.train_net)
@@ -330,6 +316,7 @@ class HRED():
                                            targets=self.input_var.ravel(),
                                            probs=ssoft_probs,
                                            sample_unique=False,
+                                           mode=self.mode,
                                            name='soft')
 
         l_out = L.layers.ReshapeLayer(l_ssoft, (batch_size, n, sequence_len))

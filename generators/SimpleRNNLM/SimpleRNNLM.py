@@ -13,6 +13,9 @@ sys.path.append('../')
 from layers import SampledSoftmaxDenseLayer
 from layers import ShiftLayer
 
+print('floatX ==', theano.config.floatX)
+print('device ==', theano.config.device)
+
 
 class SimpleRNNLM(object):
 

@@ -13,11 +13,13 @@ class SampledSoftmaxDenseLayer(MergeLayer):
                  targets=None,
                  sample_unique=False,
                  probs=None,
+                 mode='ssoft',
                  W=init.GlorotUniform(),
                  b=init.Constant(0),
                  **kwargs):
 
         assert len(incoming.output_shape) == 2
+        assert mode in ['ssoft', 'full']
 
         incomings = [incoming]
 
@@ -34,19 +36,22 @@ class SampledSoftmaxDenseLayer(MergeLayer):
         super(SampledSoftmaxDenseLayer, self).__init__(incomings, **kwargs)
 
         self.voc_size = voc_size
-        self.num_sampled = num_sampled
-        self.sample_unique = sample_unique
-        self._srng = RandomStreams(get_rng().randint(1, 2147462579))
+        self.mode = mode
 
-        if probs is None:
-            probs = np.ones(voc_size) / float(voc_size)
+        if self.mode == 'ssoft':
+            self.num_sampled = num_sampled
+            self.sample_unique = sample_unique
+            self._srng = RandomStreams(get_rng().randint(1, 2147462579))
+
+            if probs is None:
+                probs = np.ones(voc_size) / float(voc_size)
+            self.p = self.add_param(probs, (self.voc_size,), name="p",
+                                    trainable=False)
 
         n_inputs = incoming.output_shape[1]
         self.W = self.add_param(W, (n_inputs, self.voc_size), name="W")
         self.b = self.add_param(b, (self.voc_size,), name="b",
                                 regularizable=False)
-        self.p = self.add_param(probs, (self.voc_size,), name="p",
-                                trainable=False)
 
     def get_output_for(self, inputs, deterministic=False, **kwargs):
 
@@ -58,7 +63,7 @@ class SampledSoftmaxDenseLayer(MergeLayer):
             targets = inputs[1]
 
             # here we sample num_sampled negative classes for softmax
-            if not deterministic:
+            if not deterministic and self.mode == 'ssoft':
 
                 if self.sample_unique:
                     samples = self._srng.multinomial_wo_replacement(
