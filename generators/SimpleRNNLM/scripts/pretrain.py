@@ -5,6 +5,21 @@ import time
 import argparse
 import os
 
+'''
+    Pre-training script for SimpleRNNLM.
+
+        --mt_path           Path to MovieTriples data set
+        --output-dir        Output directory, default is 'output.pretrain'
+        --batch_size        Default is 30
+        --num_epochs        Number of epochs (default 4)
+        --samples           Number of targets in sampled softmax (default 200)
+        --log_interval      Every log_interval batches a log entry is made
+        --mode              'full' (softmax) or 'ssoft' (sampled softmax)
+                                (default 'ssoft')
+        --learning_rate     Default is 0.0002 (ADAM)
+
+    Models are saved as <output_dir>/model.epXX.npz.
+'''
 
 parser = argparse.ArgumentParser(description='Pre-train script for RNNLM.')
 parser.add_argument('-mt', '--mt_path', default='data/mtriples')

@@ -4,8 +4,8 @@ I used Theano 0.9 with device=cuda (there were some major problems with new back
 
 To train the models you need MovieTriples and SubTle data sets, which aren't publicly available. See these papers for details:
 
-* [1] [Magarreiro et al. - Using subtitles to deal with Out-of-Domain interactions](http://www.inesc-id.pt/publications/10328/pdf)
-* [2] [Serban et al. - Building End-To-End Dialogue Systems Using Generative Hierarchical Neural Networks](https://arxiv.org/pdf/1507.04808.pdf)
+* [1] Magarreiro et al. - [Using subtitles to deal with Out-of-Domain interactions](http://www.inesc-id.pt/publications/10328/pdf)
+* [2] Serban et al. - [Building End-To-End Dialogue Systems Using Generative Hierarchical Neural Networks](https://arxiv.org/pdf/1507.04808.pdf)
 
 Training procedure HRED and SimpleRNNLM is the same. This example is for HRED. Run
 
@@ -20,7 +20,7 @@ and after it finishes
 python -u train.py -mt <mt_path> -p <model> --fix_emb
 ```
 
-This trains the sampled softmax model using SubTle bootstrapping described in [2]. To use full softmax instead, add `-m full` to script calls. Adjust batch size if needed: `-bs NUMBER`. Note that the model might perform differently.
+This trains the sampled softmax model using SubTle bootstrapping described in [2]. To use full softmax instead, add `-m full` to script calls. Adjust batch size if needed: `-bs NUMBER`. Note that the model might perform differently. See the respective scripts for the detailed description of other parameters.
 
 `<mt_path>` should be a directory containing preprocessed MovieTriples and SubTle data sets:
 
