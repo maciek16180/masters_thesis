@@ -8,7 +8,7 @@ import os
 
 parser = argparse.ArgumentParser(description='Pre-train script for RNNLM.')
 parser.add_argument('-mt', '--mt_path', default='data/mtriples')
-parser.add_argument('-o', '--output_dir', default='output')
+parser.add_argument('-o', '--output_dir', default='output.pretrain')
 parser.add_argument('-bs', '--batch_size', default=30, type=int)
 parser.add_argument('-e', '--num_epochs', default=4, type=int)
 parser.add_argument('-s', '--samples', default=200, type=int)

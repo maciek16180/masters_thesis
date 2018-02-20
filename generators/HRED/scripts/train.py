@@ -4,12 +4,11 @@ import sys
 import time
 import argparse
 import os
-import numpy as np
 
 
 parser = argparse.ArgumentParser(description='Train script for HRED.')
 parser.add_argument('-mt', '--mt_path', default='data/mtriples')
-parser.add_argument('-o', '--output_dir', default='output')
+parser.add_argument('-o', '--output_dir', default='output.train')
 parser.add_argument('-p', '--pretrained_model', default=None)
 parser.add_argument('-bs', '--batch_size', default=30, type=int)
 parser.add_argument('-s', '--samples', default=200, type=int)

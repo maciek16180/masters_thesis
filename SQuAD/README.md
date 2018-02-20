@@ -4,7 +4,10 @@ I used Theano 0.9 with device=cuda, cuda 8.0, cudnn 5.1, and lasagne 0.2.
 
 To train the model from scratch, run from this directory
 
-`./train.sh <glove_path> <squad_path>`
+```
+cd scripts
+./train.sh <glove_path> <squad_path>
+```
 
 Edit BATH_SIZE inside a script if needed. `<squad_path>` should be a directory containing `dev-v1.1.json` and `train-v1.1.json` from https://rajpurkar.github.io/SQuAD-explorer/. `<glove_path>` should point to `glove.6B.300d.txt` from http://nlp.stanford.edu/data/glove.6B.zip. It's needed to create vocabulary.
 
@@ -30,6 +33,7 @@ To recreate negative answers experiment, download negative data sets from the da
 Run
 
 ```
+cd scripts
 python -u prep_squad.py --glove=<glove_path> --squad=<squad_path>
 python -u prep_squad_neg.py --glove=<glove_path> --squad=<squad_path>
 python -u train.py --glove=<glove_path> --squad=<squad_path> --negative <list_of_negative_data_sets>
@@ -50,6 +54,9 @@ Model is saved as `output/6B.best.neg.npz`.
 
 To test a negative model, run:
 
-`python -u test_neg.py --glove=<glove_path> --squad=<squad_path> --model=<path_to_model.npz>`
+```
+cd scripts
+python -u test_neg.py --glove=<glove_path> --squad=<squad_path> --model=<path_to_model.npz>
+```
 
 Result is saved in `output/neg_test`.
