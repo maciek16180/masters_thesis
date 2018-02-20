@@ -38,7 +38,7 @@ sys.stdout = log
 sys.path.append('../../')
 from HRED import HRED
 from data_load.mt_load import load_mt, get_mt_voc
-from training_tools import train
+from training_tools import train as train_fn
 
 print("\nRun params:")
 for arg in vars(args):
@@ -68,7 +68,7 @@ net = HRED(
 if args.pretrained_model is not None:
     net.load_params(args.pretrained_model)
 
-train(
+train_fn(
     net=net,
     output_path=args.output_dir,
     train=train,

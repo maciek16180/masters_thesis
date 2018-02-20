@@ -38,7 +38,7 @@ sys.stdout = log
 sys.path.append('../../')
 from SimpleRNNLM import SimpleRNNLM
 from data_load.mt_load import load_mt, get_mt_voc, get_w2v_embs
-from training_tools import train
+from training_tools import train as train_fn
 
 print("\nRun params:")
 for arg in vars(args):
@@ -66,7 +66,7 @@ net = SimpleRNNLM(
 if args.pretrained_model is not None:
     net.load_params(args.pretrained_model)
 
-train(
+train_fn(
     net=net,
     output_path=args.output_dir,
     train=train,
