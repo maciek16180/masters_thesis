@@ -1,30 +1,42 @@
 from __future__ import print_function
 
+import os
+import sys
 import numpy as np
 import lasagne as L
-import sys
-sys.path.append('../')
 
+sys.path.append('../')
 from HRED import HRED
 from diverse_beam_search import DiverseBeamSearch, softmax
-from data_load.mt_load import load_mt, get_mt_voc
+from data_load.mt_load import get_mt_voc
 
 
-mt_path = "/pio/data/data/mtriples/"
-idx_to_w, w_to_idx, voc_size, _ = get_mt_voc(path=mt_path)
+parser = argparse.ArgumentParser(description='HRED demo.')
+parser.add_argument('-m', '--model', default=None)
+parser.add_argument('-mt', '--mt_path', default='data/mtriples')
 
-hred_net = HRED(voc_size=voc_size,
-                emb_size=300,
-                lv1_rec_size=300,
-                lv2_rec_size=300,
-                out_emb_size=300,
-                num_sampled=200,
-                skip_train=True)
+args = parser.parse_args()
 
-hred_net.load_params('trained_models/pretrained_subtle_GaussInit_'
-                     '300_300_300_300_ssoft200unigr_bs30_cut200.npz')
-# hred_net.load_params('../trained_models/subtleFixed_300_300_300_300_'
-#                      'ssoft200unigr_bs30_cut200_early5.npz')
+
+if args.model is None:
+    sys.exit("Please provide a model file: -m path/to/model.npz. Aborting.")
+
+idx_to_w, w_to_idx, voc_size, _ = get_mt_voc(path=args.mt_path)
+
+net = HRED(
+    voc_size=voc_size,
+    emb_size=300,
+    lv1_rec_size=300,
+    lv2_rec_size=300,
+    out_emb_size=300,
+    num_sampled=200,
+    skip_train=True)
+
+net.load_params(args.model)
+
+all_params = [x.name for x in L.layers.get_all_params(net.train_net)]
+all_params = dict(
+    zip(all_params, L.layers.get_all_param_values(net.train_net)))
 
 
 def print_utt(utt):
@@ -39,25 +51,15 @@ def utt_to_array(utt):
 
 
 def context_summary(context, lookup=True):
-    con_init = np.zeros((1, hred_net.lv2_rec_size), dtype=np.float32)
+    con_init = np.zeros((1, net.lv2_rec_size), dtype=np.float32)
     for utt in context:
-        con_init = hred_net.get_new_con_init_fn(
+        con_init = net.get_new_con_init_fn(
             utt_to_array(utt) if lookup else utt, con_init)
     return con_init
 
-###################
-
-
-def go_down_trie(trie, seq):
-    for x in seq:
-        if x not in trie:
-            raise KeyError("Sequence is not in trie.")
-        trie = trie[x]
-    return trie
-
+''' Optional whitelist of answers '''
 print("Loading whitelist...")
-
-mt = np.load('/pio/data/data/mtriples/Training.triples.pkl')
+mt = np.load(os.path.join(mt_path, 'Training.triples.pkl'))
 
 answers = []
 for s in mt:
@@ -65,7 +67,6 @@ for s in mt:
 answers = answers[:5000]
 
 whitelist = {}
-
 for a in answers:
     dic = whitelist
     for w in a:
@@ -89,24 +90,25 @@ def talk(
     random=False,
     sharpen_probs=None,
     bs_random=False,
-    sharpen_bs_probs=None):
+    sharpen_bs_probs=None,
+    use_whitelist=False):
 
     beamsearch = DiverseBeamSearch(
-        idx_to_w, hred_net, beam_size, group_size,
+        idx_to_w, net, beam_size, group_size,
         rank_penalty=rank_penalty,
         group_diversity_penalty=group_diversity_penalty,
         seq_diversity_penalty=seq_diversity_penalty,
         unk_penalty=100,
         sharpen_probs=sharpen_bs_probs,
         random_sample=bs_random,
-        whitelist=whitelist)
+        whitelist=whitelist if use_whitelist else None)
 
     user_input = sys.stdin.readline()
 
     context = [('<s> ' + user_input + ' </s>').split()]
     con_init = context_summary(context, lookup=True)
-    W = L.layers.get_all_param_values(hred_net.train_net)[31]
-    b = L.layers.get_all_param_values(hred_net.train_net)[32]
+    W = all_params['dec_init.W']
+    b = all_params['dec_init.b']
     dec_init = np.repeat(np.tanh(con_init.dot(W) + b), beam_size, axis=0)
 
     len_bonus = lambda size: 0  # np.log(size)**2
@@ -119,7 +121,7 @@ def talk(
         candidates = beamsearch.search(dec_init)[0]
 
         score_order = sorted(
-            candidates, key=lambda (x, y): fn_score(x, y), reverse=True)
+            candidates, key=lambda (x,y): fn_score(x, y), reverse=True)
         # alphabetic_order = sorted(
         #     candidates, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
 
@@ -143,9 +145,9 @@ def talk(
         user_input = ('<s> ' + user_input + ' </s>').split()
 
         if not short_context:
-            con_init = hred_net.get_new_con_init_fn(
+            con_init = net.get_new_con_init_fn(
                 utt_to_array(bot_response), con_init)
-            con_init = hred_net.get_new_con_init_fn(
+            con_init = net.get_new_con_init_fn(
                 utt_to_array(user_input), con_init)
         else:
             context = [bot_response.split(), user_input]

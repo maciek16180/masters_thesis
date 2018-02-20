@@ -1,27 +1,35 @@
 from __future__ import print_function
 
+import os
+import sys
 import numpy as np
 import lasagne as L
-import sys
-sys.path.append('../')
 
+sys.path.append('../')
 from SimpleRNNLN import SimpleRNNLN
 from diverse_beam_search import DiverseBeamSearch, softmax
-from data_load.mt_load import load_mt, get_mt_voc
+from data_load.mt_load import get_mt_voc
 
 
-use_whitelist = False
+parser = argparse.ArgumentParser(description='HRED demo.')
+parser.add_argument('-m', '--model', default=None)
+parser.add_argument('-mt', '--mt_path', default='data/mtriples')
+
+args = parser.parse_args()
 
 
-mt_path = "/pio/data/data/mtriples/"
-idx_to_w, w_to_idx, voc_size, _ = get_mt_voc(path=mt_path)
+if args.model is None:
+    sys.exit("Please provide a model file: -m path/to/model.npz. Aborting.")
 
-rnnlm_net = SimpleRNNLN(voc_size=voc_size,
-                        emb_size=300,
-                        rec_size=300,
-                        skip_train=True)
+idx_to_w, w_to_idx, voc_size, _ = get_mt_voc(path=args.mt_path)
 
-rnnlm_net.load_params('path_to_model')
+net = SimpleRNNLN(
+    voc_size=voc_size,
+    emb_size=300,
+    rec_size=300,
+    skip_train=True)
+
+net.load_params(args.model)
 
 
 def print_utt(utt):
@@ -36,37 +44,30 @@ def utt_to_array(utt):
 
 
 def context_summary(context, lookup=True):
-    con_init = np.zeros((1, rnnlm_net.lv2_rec_size), dtype=np.float32)
+    con_init = np.zeros((1, net.rec_size), dtype=np.float32)
     for utt in context:
-        con_init = rnnlm_net.get_new_con_init_fn(
+        con_init = net.get_new_con_init_fn(
             utt_to_array(utt) if lookup else utt, con_init)
     return con_init
 
+''' Optional whitelist of answers '''
+print("Loading whitelist...")
+mt = np.load(os.path.join(mt_path, 'Training.triples.pkl'))
 
-###################
+answers = []
+for s in mt:
+    answers.append(s[:s.index(2)+1])
+answers = answers[:5000]
 
-if use_whitelist:
-    print("Loading whitelist...")
+whitelist = {}
+for a in answers:
+    dic = whitelist
+    for w in a:
+        if w not in dic:
+            dic[w] = {}
+        dic = dic[w]
 
-    mt = np.load('/pio/data/data/mtriples/Training.triples.pkl')
-
-    answers = []
-    for s in mt:
-        answers.append(s[:s.index(2) + 1])
-    answers = answers[:5000]
-
-    whitelist = {}
-
-    for a in answers:
-        dic = whitelist
-        for w in a:
-            if w not in dic:
-                dic[w] = {}
-            dic = dic[w]
-
-    print("Done")
-else:
-    whitelist = None
+print("Done")
 
 ###################
 
@@ -82,25 +83,26 @@ def talk(
     random=False,
     sharpen_probs=None,
     bs_random=False,
-    sharpen_bs_probs=None):
+    sharpen_bs_probs=None,
+    use_whitelist=False):
 
     beamsearch = DiverseBeamSearch(
-        idx_to_w, rnnlm_net, beam_size, group_size,
+        idx_to_w, net, beam_size, group_size,
         rank_penalty=rank_penalty,
         group_diversity_penalty=group_diversity_penalty,
         seq_diversity_penalty=seq_diversity_penalty,
         unk_penalty=100,
         sharpen_probs=sharpen_bs_probs,
         random_sample=bs_random,
-        whitelist=whitelist)
+        whitelist=whitelist if use_whitelist else None)
 
     user_input = sys.stdin.readline()
 
     context = [('<s> ' + user_input + ' </s>').split()]
 
-    gen_init = rnnlm_net.get_probs_and_new_dec_init_fn(
+    gen_init = net.get_probs_and_new_dec_init_fn(
         utt_to_array(context),
-        np.zeros((1, rnnlm_net.rec_size), dtype=np.float32))[1]
+        np.zeros((1, net.rec_size), dtype=np.float32))[1]
     gen_init = np.repeat(gen_init, beam_size, axis=0)
 
     def len_bonus(size): return 0  # np.log(size)**2
@@ -141,13 +143,13 @@ def talk(
         user_input = ('<s> ' + user_input + ' </s>').split()
 
         if not short_context:
-            gen_init = rnnlm_net.get_probs_and_new_dec_init_fn(
+            gen_init = net.get_probs_and_new_dec_init_fn(
                 utt_to_array(user_input),
                 np.repeat(gen_init, beam_size, axis=0))[1]
         else:
             context = bot_response.split() + user_input
-            get_init = rnnlm_net.get_probs_and_new_dec_init_fn(
+            get_init = net.get_probs_and_new_dec_init_fn(
                 utt_to_array(context),
-                np.zeros((1, rnnlm_net.rec_size), dtype=np.float32))[1]
+                np.zeros((1, net.rec_size), dtype=np.float32))[1]
 
         gen_init = np.repeat(gen_init, beam_size, axis=0)

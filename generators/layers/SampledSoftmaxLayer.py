@@ -38,6 +38,10 @@ class SampledSoftmaxDenseLayer(MergeLayer):
         self.voc_size = voc_size
         self.mode = mode
 
+        n_inputs = incoming.output_shape[1]
+        self.W = self.add_param(W, (n_inputs, self.voc_size), name="W")
+        self.b = self.add_param(b, (self.voc_size,), name="b",
+                                regularizable=False)
         if self.mode == 'ssoft':
             self.num_sampled = num_sampled
             self.sample_unique = sample_unique
@@ -47,11 +51,6 @@ class SampledSoftmaxDenseLayer(MergeLayer):
                 probs = np.ones(voc_size) / float(voc_size)
             self.p = self.add_param(probs, (self.voc_size,), name="p",
                                     trainable=False)
-
-        n_inputs = incoming.output_shape[1]
-        self.W = self.add_param(W, (n_inputs, self.voc_size), name="W")
-        self.b = self.add_param(b, (self.voc_size,), name="b",
-                                regularizable=False)
 
     def get_output_for(self, inputs, deterministic=False, **kwargs):
 

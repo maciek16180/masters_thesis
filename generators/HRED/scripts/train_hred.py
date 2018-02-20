@@ -15,10 +15,8 @@ parser.add_argument('-bs', '--batch_size', default=30, type=int)
 parser.add_argument('-s', '--samples', default=200, type=int)
 parser.add_argument('-li', '--log_interval', default=5000, type=int)
 parser.add_argument('-m', '--mode', choices=['ssoft', 'full'], default='ssoft')
-parser.add_argument('-e', '--emb_init', choices=['random', 'w2v'],
-                    default='random')
 parser.add_argument('-lr', '--learning_rate', default=0.0002, type=float)
-parser.add_argument('--fix_emb', action='store_false')
+parser.add_argument('--fix_emb', action='store_true')
 
 
 args = parser.parse_args()
@@ -39,7 +37,7 @@ sys.stdout = log
 
 sys.path.append('../../')
 from HRED import HRED
-from data_load.mt_load import load_mt, get_mt_voc, get_w2v_embs
+from data_load.mt_load import load_mt, get_mt_voc
 from training_tools import train
 
 print("\nRun params:")
@@ -54,13 +52,6 @@ print("Loading data...")
 train, valid, test = load_mt(path=args.mt_path, split=True)
 _, _, voc_size, freqs = get_mt_voc(path=args.mt_path)
 
-if args.emb_init == 'w2v':
-    emb_init, _ = get_w2v_embs(args.mt_path)
-    train_inds = [0, 1, 2]
-else:
-    emb_init = None
-    train_inds = []
-
 net = HRED(
     voc_size=voc_size,
     emb_size=300,
@@ -71,15 +62,13 @@ net = HRED(
     ssoft_probs=freqs,
     mode=args.mode,
     learning_rate=args.learning_rate,
-    emb_init=emb_init,
     train_emb=not args.fix_emb,
-    train_inds=train_inds,
     skip_gen=True)
 
 if args.pretrained_model is not None:
     net.load_params(args.pretrained_model)
 
-def train(
+train(
     net=net,
     output_path=args.output_dir,
     train=train,

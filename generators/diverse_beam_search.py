@@ -6,7 +6,12 @@ import numpy as np
 import sys
 
 
-forbidden_words = ['<unk>', '<number>', '<person>', '<continued_utterance>']
+forbidden_words = [
+    '<unk>',
+    '<number>',
+    '<person>',
+    '<continued_utterance>'
+]
 
 
 def softmax(x):
@@ -39,11 +44,10 @@ class DiverseBeamSearch(object):
         assert not beam_size % group_size
 
         self.model = model
-        self.idx_to_w = words
         self.voc_size = len(words)
         self.w_to_idx = {words[i]: i for i in range(self.voc_size)}
         self.forbidden_words = [
-            w for w in forbidden_words if w in self.w_to_idx]
+            self.w_to_idx[w] for w in forbidden_words if w in self.w_to_idx]
 
         self.beam_size = beam_size
         self.group_size = group_size
@@ -91,7 +95,7 @@ class DiverseBeamSearch(object):
 
                 if self.unk_penalty is not None:
                     for w in self.forbidden_words:
-                        log_probs[:, self.w_to_idx[w]] -= self.unk_penalty
+                        log_probs[:, w] -= self.unk_penalty
 
                 dec_init = all_dec_init[g_idx]
 
