@@ -40,7 +40,7 @@ After every epoch of pre-training, a model is saved to `output.pretrain/model.ep
 
 This example is for HRED. SimpleRNNLM demo has the same interface.
 
-To run dialogue demo, you need interactive Python. Run
+To run dialogue demo, you need [interactive Python](https://ipython.org/). Run
 
 ```
 cd HRED
@@ -54,4 +54,4 @@ ipython
 talk()
 ```
 
-This allows you to talk to a bot. To reset a conversation, press ctrl+c and run the talk() function again. All conversations are saved to `log` directory. Look up `demo.py` for the parameters' descriptions.
+This allows you to talk to a bot. To reset a conversation, press ctrl+c and run the `talk()` function again. All conversations are saved to `log` directory. Look up `demo.py` for the parameters' descriptions.

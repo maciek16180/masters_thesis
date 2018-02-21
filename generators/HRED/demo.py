@@ -38,7 +38,7 @@ from data_load.mt_load import get_mt_voc
         group_diversity_penalty   1      DBS parameter
         seq_diversity_penalty     1      Penalizes repeating tokens in a single
                                          sentence
-        short_context             False  Use only the last two sentences as
+        short_context             True   Use only the last two sentences as
                                          a context
         random                    False  Sample from DBS results based on
                                          their softened scores
@@ -139,7 +139,7 @@ def talk(
         rank_penalty=0,
         group_diversity_penalty=1,
         seq_diversity_penalty=1,
-        short_context=False,
+        short_context=True,
         random=False,
         sharpen_probs=None,
         bs_random=False,
@@ -155,7 +155,7 @@ def talk(
         whitelist=whitelist if use_whitelist else None)
 
     sys.stdout.write('ME : ')
-    user_input = ['<s>'] + tokenize(sys.stdin.readline()) + ['</s>']
+    user_input = ['<s>'] + tokenize(sys.stdin.readline().lower()) + ['</s>']
 
     context = [user_input]
     con_init = context_summary(context, lookup=True)
@@ -218,7 +218,8 @@ def talk(
             flog.write(u'BOT: ' + response + '\n')
 
         sys.stdout.write('ME : ')
-        user_input = ['<s>'] + tokenize(sys.stdin.readline()) + ['</s>']
+        user_input = \
+            ['<s>'] + tokenize(sys.stdin.readline().lower()) + ['</s>']
 
         if not short_context:
             con_init = net.get_new_con_init_fn(
