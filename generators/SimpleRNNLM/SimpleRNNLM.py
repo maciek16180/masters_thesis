@@ -265,8 +265,7 @@ class SimpleRNNLM(object):
                 W_hid=params['GRU.W_hid_to_hidden_update'],
                 W_cell=None,
                 b=params['GRU.b_hidden_update'],
-                nonlinearity=L.nonlinearities.tanh),
-            hid_init=params['GRU.hid_init'])
+                nonlinearity=L.nonlinearities.tanh))
 
         return l_gru
 

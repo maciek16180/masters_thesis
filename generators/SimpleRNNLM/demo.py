@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 import sys
+import argparse
 import numpy as np
 import lasagne as L
 
@@ -52,7 +53,7 @@ def context_summary(context, lookup=True):
 
 ''' Optional whitelist of answers '''
 print("Loading whitelist...")
-mt = np.load(os.path.join(mt_path, 'Training.triples.pkl'))
+mt = np.load(os.path.join(args.mt_path, 'Training.triples.pkl'))
 
 answers = []
 for s in mt:

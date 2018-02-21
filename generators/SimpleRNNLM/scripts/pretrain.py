@@ -63,9 +63,9 @@ print("\n")
 
 print("Loading data...")
 
-_, valid, _ = load_mt(path=args.mt_path, split=False)
+_, valid, _ = load_mt(path=args.mt_path, threeD=False)
 _, _, voc_size, freqs = get_mt_voc(path=args.mt_path)
-subtle_data = load_subtle(path=args.mt_path, split=False)
+subtle_data = load_subtle(path=args.mt_path, threeD=False)
 
 net = SimpleRNNLM(
     voc_size=voc_size,
@@ -74,7 +74,7 @@ net = SimpleRNNLM(
     num_sampled=args.samples,
     ssoft_probs=freqs,
     mode=args.mode,
-    learning_rate=learning_rate,
+    learning_rate=args.learning_rate,
     skip_gen=True)
 
 pretrain(

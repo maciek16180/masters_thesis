@@ -2,24 +2,69 @@ from __future__ import print_function
 
 import os
 import sys
+import io
+import argparse
+import inspect
 import numpy as np
 import lasagne as L
+from datetime import datetime
+from nltk.tokenize import regexp_tokenize
+
 
 sys.path.append('../')
 from HRED import HRED
 from diverse_beam_search import DiverseBeamSearch, softmax
 from data_load.mt_load import get_mt_voc
 
+'''
+    Demo for HRED. Run in interactive Python!
+    Uses Diverse Beam Search from https://arxiv.org/pdf/1610.02424.pdf
+
+        --model             Path to a npz model file
+        --mt_path           Path to MovieTriples data set
+        --log               Directory for conversation logs, default 'log'
+        --mode              'full' (softmax) or 'ssoft' (sampled softmax)
+                                (default 'ssoft'). It has to be the same as in
+                                traning.
+
+    Once the model is built, run talk() function for the interactive dialogue
+    demo. Arguments (with default values):
+
+        beam_size                 20     Beam size for DBS
+        group_size                2      Group size for DBS
+        mean                      True   Score for a sentence is an average
+                                         from all tokens
+        rank_penalty              0
+        group_diversity_penalty   1      DBS parameter
+        seq_diversity_penalty     1      Penalizes repeating tokens in a single
+                                         sentence
+        short_context             False  Use only the last two sentences as
+                                         a context
+        random                    False  Sample from DBS results based on
+                                         their softened scores
+        sharpen_probs             None   float > 1.0 Sharpens above
+                                         probabilities to better differentiate
+                                         between stronger and weaker choices
+        bs_random                 False  Use random sampling in DBS steps
+        use_whitelist             False  Force the model to choose a response
+                                         from top 5000 utterances from
+                                         MovieTriples
+'''
 
 parser = argparse.ArgumentParser(description='HRED demo.')
 parser.add_argument('-m', '--model', default=None)
 parser.add_argument('-mt', '--mt_path', default='data/mtriples')
+parser.add_argument('-l', '--log', default='log')
+parser.add_argument('-md', '--mode', default='ssoft')
 
 args = parser.parse_args()
 
 
 if args.model is None:
     sys.exit("Please provide a model file: -m path/to/model.npz. Aborting.")
+
+if not os.path.exists(args.log):
+    os.makedirs(args.log)
 
 idx_to_w, w_to_idx, voc_size, _ = get_mt_voc(path=args.mt_path)
 
@@ -30,6 +75,7 @@ net = HRED(
     lv2_rec_size=300,
     out_emb_size=300,
     num_sampled=200,
+    mode=args.mode,
     skip_train=True)
 
 net.load_params(args.model)
@@ -57,9 +103,16 @@ def context_summary(context, lookup=True):
             utt_to_array(utt) if lookup else utt, con_init)
     return con_init
 
+
+def tokenize(s):
+    if type(s) is not unicode:
+        s = s.decode('utf8')
+    return regexp_tokenize(s, pattern='[^\W_]+|\S')
+
+
 ''' Optional whitelist of answers '''
 print("Loading whitelist...")
-mt = np.load(os.path.join(mt_path, 'Training.triples.pkl'))
+mt = np.load(os.path.join(args.mt_path, 'Training.triples.pkl'))
 
 answers = []
 for s in mt:
@@ -80,18 +133,17 @@ print("Done")
 
 
 def talk(
-    beam_size=20,
-    group_size=2,
-    mean=True,
-    rank_penalty=0,
-    group_diversity_penalty=1,
-    seq_diversity_penalty=1,
-    short_context=False,
-    random=False,
-    sharpen_probs=None,
-    bs_random=False,
-    sharpen_bs_probs=None,
-    use_whitelist=False):
+        beam_size=20,
+        group_size=2,
+        mean=True,
+        rank_penalty=0,
+        group_diversity_penalty=1,
+        seq_diversity_penalty=1,
+        short_context=False,
+        random=False,
+        sharpen_probs=None,
+        bs_random=False,
+        use_whitelist=False):
 
     beamsearch = DiverseBeamSearch(
         idx_to_w, net, beam_size, group_size,
@@ -99,50 +151,74 @@ def talk(
         group_diversity_penalty=group_diversity_penalty,
         seq_diversity_penalty=seq_diversity_penalty,
         unk_penalty=100,
-        sharpen_probs=sharpen_bs_probs,
         random_sample=bs_random,
         whitelist=whitelist if use_whitelist else None)
 
-    user_input = sys.stdin.readline()
+    sys.stdout.write('ME : ')
+    user_input = ['<s>'] + tokenize(sys.stdin.readline()) + ['</s>']
 
-    context = [('<s> ' + user_input + ' </s>').split()]
+    context = [user_input]
     con_init = context_summary(context, lookup=True)
     W = all_params['dec_init.W']
     b = all_params['dec_init.b']
     dec_init = np.repeat(np.tanh(con_init.dot(W) + b), beam_size, axis=0)
 
-    len_bonus = lambda size: 0  # np.log(size)**2
+    def len_bonus(size): return 0  # np.log(size)**2
 
     def fn_score(x, y, mean=mean, len_bonus=len_bonus):
         denom = (x.size - 1) if mean else 1
         return (y + len_bonus(x.size)) / denom
 
+    flogname = os.path.join(args.log, str(datetime.now()))
+
+    with io.open(flogname, 'a', encoding='utf8') as flog:
+        flog.write(u"Run params:\n")
+        for arg in vars(args):
+            s = unicode(arg.ljust(25) + str(getattr(args, arg)), 'utf8')
+            flog.write(s + '\n')
+        flog.write(u'\n')
+
+        fargs, _, _, values = inspect.getargvalues(inspect.currentframe())
+        for argname in fargs:
+            flog.write(u'%s = %s\n' % (argname, values[argname]))
+        flog.write(u'\n\n######################\n\n')
+
     while True:
+        with io.open(flogname, 'a', encoding='utf8') as flog:
+            flog.write(u'ME : ' + u' '.join(user_input[1:-1]) + '\n')
+
         candidates = beamsearch.search(dec_init)[0]
 
-        score_order = sorted(
-            candidates, key=lambda (x,y): fn_score(x, y), reverse=True)
-        # alphabetic_order = sorted(
-        #     candidates, key=lambda x: ' '.join(print_utt(x[0][1:-1])))
+        order = sorted(
+            candidates, key=lambda (x, y): fn_score(x, y), reverse=True)
 
         if not random:
-            bot_response = print_utt(score_order[0][0])
+            bot_response = print_utt(order[0][0])
         else:
-            scr = np.array([[fn_score(x, y) for x, y in score_order]])
+            scr = np.array([[fn_score(x, y) for x, y in order]])
             p = softmax(
                 scr if sharpen_probs is None else -(-scr)**sharpen_probs)[0]
             bot_response = print_utt(
-                score_order[np.random.choice(len(score_order), p=p)][0])
+                order[np.random.choice(len(order), p=p)][0])
 
-        print('######################')
-        for x, y in score_order[:10]:
-            print('{:.3f}'.format(fn_score(x, y)), '  ', print_utt(x))
-        print('######################')
+        log_cands = u'\n######################\n'
+        for x, y in order[:10]:
+            log_cands += '{:.3f}'.format(fn_score(x, y)) + '  ' + \
+                print_utt(x[1:-1]) + '\n'
+        log_cands += '######################\n'
 
-        print(' '.join(bot_response.split()[1:-1]))
+        print(log_cands)
+        with io.open(flogname, 'a', encoding='utf8') as flog:
+            flog.write(log_cands + '\n')
 
-        user_input = sys.stdin.readline()
-        user_input = ('<s> ' + user_input + ' </s>').split()
+        response = u' '.join(bot_response.split()[1:-1])
+
+        print(u'BOT: ' + response)
+        with io.open(flogname, 'a', encoding='utf8') as flog:
+            flog.write(u'BOT: ' + response + '\n')
+
+        sys.stdout.write('ME : ')
+        user_input = ['<s>'] + tokenize(sys.stdin.readline()) + ['</s>']
 
         if not short_context:
             con_init = net.get_new_con_init_fn(

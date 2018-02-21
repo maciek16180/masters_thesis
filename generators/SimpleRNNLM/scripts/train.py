@@ -64,7 +64,7 @@ print("\n")
 
 print("Loading data...")
 
-train, valid, test = load_mt(path=args.mt_path, split=False)
+train, valid, test = load_mt(path=args.mt_path, threeD=False)
 _, _, voc_size, freqs = get_mt_voc(path=args.mt_path)
 
 net = SimpleRNNLM(
