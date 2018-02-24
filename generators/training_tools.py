@@ -58,15 +58,16 @@ def train(net, output_path, train, valid, test, bs, log_interval,
             del last_scores[0]
         epoch += 1
 
-    test_error = net.validate(
-        val_data=test,
-        batch_size=bs)
-
     print('\n\nTotal training time: {:.2f}s'.format(time.time() - t0))
     print('Best model after {} epochs with loss {}'.format(
         best_epoch, min(last_scores)))
     print('Validation set perplexity: {}'.format(np.exp(min(last_scores))))
     print('Model saved as ' + model_filename)
+
+    net.load_params(model_filename + '.ep{:02d}.npz'.format(best_epoch))
+    test_error = net.validate(
+        val_data=test,
+        batch_size=bs)
 
     print('\nTest loss: {}'.format(test_error))
     print('Test set perplexity: {}'.format(np.exp(test_error)))

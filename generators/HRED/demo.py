@@ -143,7 +143,8 @@ def talk(
         random=False,
         sharpen_probs=None,
         bs_random=False,
-        use_whitelist=False):
+        use_whitelist=False,
+        show_candidates=False):
 
     beamsearch = DiverseBeamSearch(
         idx_to_w, net, beam_size, group_size,
@@ -207,7 +208,8 @@ def talk(
                 print_utt(x[1:-1]) + '\n'
         log_cands += '######################\n'
 
-        print(log_cands)
+        if show_candidates:
+            print(log_cands)
         with io.open(flogname, 'a', encoding='utf8') as flog:
             flog.write(log_cands + '\n')
 

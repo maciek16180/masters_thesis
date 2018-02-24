@@ -12,6 +12,7 @@ sys.path.append('../')
 
 from layers import SampledSoftmaxDenseLayer
 from layers import ShiftLayer
+from layers import TrainPartOfEmbsLayer
 
 print('floatX ==', theano.config.floatX)
 print('device ==', theano.config.device)
@@ -44,12 +45,7 @@ class SimpleRNNLM(object):
 
         assert mode in ['ssoft', 'full']
 
-        if mode == 'full':
-            self.train_net = self._build_full_softmax_net(
-                train_emb=self.train_emb, **kwargs)
-        elif mode == 'ssoft':
-            self.train_net = self._build_sampled_softmax_net(
-                train_emb=self.train_emb, **kwargs)
+        self.train_net = self._build_net(train_emb=self.train_emb, **kwargs)
 
         skip_train = kwargs.get('skip_train', False)
         skip_gen = kwargs.get('skip_gen', False)
@@ -61,14 +57,8 @@ class SimpleRNNLM(object):
             train_out = L.layers.get_output(self.train_net)
             test_out = L.layers.get_output(self.train_net, deterministic=True)
 
-            if mode == 'full':
-                train_loss = L.objectives.categorical_crossentropy(
-                    train_out[mask_idx], self.input_var[mask_idx]).mean()
-                test_loss = L.objectives.categorical_crossentropy(
-                    test_out[mask_idx], self.input_var[mask_idx]).mean()
-            else:
-                train_loss = -T.log(train_out[mask_idx]).mean()
-                test_loss = -T.log(test_out[mask_idx]).mean()
+            train_loss = -T.log(train_out[mask_idx]).mean()
+            test_loss = -T.log(test_out[mask_idx]).mean()
 
             # MAKE TRAIN AND VALIDATION FUNCTIONS
             print('Compiling theano functions...')
@@ -98,7 +88,7 @@ class SimpleRNNLM(object):
             all_params = {x.name: x
                           for x in L.layers.get_all_params(self.train_net)}
 
-            self.gen_net = self._build_full_softmax_net_with_params(all_params)
+            self.gen_net = self._build_net_with_params(all_params)
 
             gen_net_out = L.layers.get_output(self.gen_net, deterministic=True)
             self.get_probs_and_new_dec_init_fn = theano.function(
@@ -158,7 +148,8 @@ class SimpleRNNLM(object):
             param_values = [f['arr_%d' % i] for i in range(len(f.files))]
             L.layers.set_all_param_values(self.train_net, param_values)
 
-    def _build_architecture(self, train_emb=True):
+    def _build_net(self, num_sampled, train_emb=True, ssoft_probs=None,
+                   sample_unique=False, **kwargs):
         l_in = L.layers.InputLayer(shape=(None, None),
                                    input_var=self.input_var)
 
@@ -202,36 +193,18 @@ class SimpleRNNLM(object):
         l_resh = L.layers.ReshapeLayer(ShiftLayer(l_gru),
                                        shape=(-1, self.rec_size))
 
-        return l_resh
-
-    def _build_full_softmax_net(self, train_emb=True, **kwargs):
-        l_resh = self._build_architecture(train_emb=train_emb)
-
-        l_soft = L.layers.DenseLayer(l_resh,
-                                     num_units=self.voc_size,
-                                     nonlinearity=L.nonlinearities.softmax,
-                                     name='soft')
-
-        l_out = L.layers.ReshapeLayer(l_soft, tuple(
-            self.input_var.shape) + (self.voc_size,))
-
-        return l_out
-
-    def _build_sampled_softmax_net(self, num_sampled, train_emb=True,
-                                   ssoft_probs=None, sample_unique=False,
-                                   **kwargs):
-        l_resh = self._build_architecture(train_emb=train_emb)
-
         l_ssoft = SampledSoftmaxDenseLayer(l_resh, num_sampled, self.voc_size,
                                            targets=self.input_var.ravel(),
                                            probs=ssoft_probs,
                                            sample_unique=sample_unique,
+                                           mode=self.mode,
                                            name='soft')
 
         l_out = L.layers.ReshapeLayer(l_ssoft, tuple(self.input_var.shape))
+
         return l_out
 
-    def _build_architecture_with_params(self, params):
+    def _build_net_with_params(self, params):
 
         l_in = L.layers.InputLayer(shape=(None, None),
                                    input_var=self.input_var)
@@ -266,12 +239,6 @@ class SimpleRNNLM(object):
                 W_cell=None,
                 b=params['GRU.b_hidden_update'],
                 nonlinearity=L.nonlinearities.tanh))
-
-        return l_gru
-
-    def _build_full_softmax_net_with_params(self, params):
-
-        l_gru = self._build_architecture_with_params(params)
 
         l_soft = L.layers.DenseLayer(l_gru,
                                      num_units=self.voc_size,
