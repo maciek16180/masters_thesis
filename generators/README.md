@@ -48,7 +48,7 @@ ipython
 %run demo -mt <mt_path> -m <model> -md <mode>
 ```
 
-`<mode>` should be 'ssoft' or 'full', and has to match the model. After the network is constructed, run
+`<mode>` should be 'ssoft' or 'full', and has to match the model. See `HRED/models/` directory for trained models or train them from scratch. After the network is constructed, run
 
 ```
 talk()

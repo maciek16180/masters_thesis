@@ -1,0 +1,530 @@
+Using cuDNN version 5105 on context None
+Preallocating 2431/8105 Mb (0.300000) on cuda
+Mapped name None to device cuda: GeForce GTX 1080 (0000:01:00.0)
+floatX == float32
+device == cuda
+
+Run params:
+trim                      300
+squad_subdir              careful_prep
+conv                      valid
+save_preds                True
+learning_rate             0.001
+negative                  []
+batch_size                64
+checkpoint_examples       64000
+output_dir                model02
+unk                       train
+glove_version             6B
+
+
+Loading data...
+Only positive samples.
+Building the model...
+Using dropout after wiq calculation.
+Compiling theano functions:
+    train_fn...
+    get_intermediate_results_fn...
+    get_start_probs_fn...
+    get_end_probs_fn...
+Done
+
+
+Starting epoch 1...
+
+Done 200 batches in 88.27s	training loss:	5.636797
+Done 400 batches in 172.74s	training loss:	4.865167
+Done 600 batches in 257.65s	training loss:	4.449493
+Done 800 batches in 339.59s	training loss:	4.182443
+Done 1000 batches in 424.43s	training loss:	3.982429
+Calculating validation F1...
+F1:  58.4552419662
+EM:  48.032166509
+Done 1200 batches in 566.83s	training loss:	3.822789
+
+
+Calculating validation F1...
+F1:  59.5683324992
+EM:  49.8107852412
+
+Training loss:   3.72555285517
+F1 after epoch 1: 59.5683324992
+Best F1 so far, model saved.
+
+
+Starting epoch 2...
+
+Done 200 batches in 83.01s	training loss:	2.794045
+Done 400 batches in 167.77s	training loss:	2.781909
+Done 600 batches in 252.15s	training loss:	2.771623
+Calculating validation F1...
+F1:  62.8892035507
+EM:  53.2734153264
+Done 800 batches in 393.61s	training loss:	2.751782
+Done 1000 batches in 477.43s	training loss:	2.730765
+Done 1200 batches in 559.57s	training loss:	2.726510
+
+
+Calculating validation F1...
+F1:  65.1245057264
+EM:  55.0236518448
+
+Training loss:   2.7082168608
+F1 after epoch 2: 65.1245057264
+Best F1 so far, model saved.
+
+
+Starting epoch 3...
+
+Done 200 batches in 85.47s	training loss:	2.441761
+Calculating validation F1...
+F1:  65.7969071192
+EM:  55.5723746452
+Done 400 batches in 226.91s	training loss:	2.433620
+Done 600 batches in 308.26s	training loss:	2.438641
+Done 800 batches in 392.67s	training loss:	2.442201
+Done 1000 batches in 476.53s	training loss:	2.444454
+Done 1200 batches in 560.84s	training loss:	2.443844
+Calculating validation F1...
+F1:  67.0851067113
+EM:  57.3131504257
+
+
+Calculating validation F1...
+F1:  68.0016680826
+EM:  57.3793755913
+
+Training loss:   2.43744538155
+F1 after epoch 3: 68.0016680826
+Best F1 so far, model saved.
+
+
+Starting epoch 4...
+
+Done 200 batches in 81.89s	training loss:	2.235203
+Done 400 batches in 165.58s	training loss:	2.235684
+Done 600 batches in 249.03s	training loss:	2.256348
+Done 800 batches in 333.04s	training loss:	2.260776
+Calculating validation F1...
+F1:  68.4161544937
+EM:  58.9593188269
+Done 1000 batches in 474.00s	training loss:	2.267271
+Done 1200 batches in 554.71s	training loss:	2.265397
+
+
+Calculating validation F1...
+F1:  68.8164160294
+EM:  59.6215704825
+
+Training loss:   2.26523494528
+F1 after epoch 4: 68.8164160294
+Best F1 so far, model saved.
+
+
+Starting epoch 5...
+
+Done 200 batches in 85.39s	training loss:	2.085457
+Done 400 batches in 169.12s	training loss:	2.088400
+Calculating validation F1...
+F1:  69.3347191475
+EM:  59.1106906339
+Done 600 batches in 307.28s	training loss:	2.100905
+Done 800 batches in 390.59s	training loss:	2.113293
+Done 1000 batches in 474.21s	training loss:	2.121195
+Done 1200 batches in 557.63s	training loss:	2.131213
+
+
+Calculating validation F1...
+F1:  69.7681624251
+EM:  60.5865657521
+
+Training loss:   2.14079357894
+F1 after epoch 5: 69.7681624251
+Best F1 so far, model saved.
+
+
+Starting epoch 6...
+
+Done 200 batches in 84.91s	training loss:	1.989732
+Calculating validation F1...
+F1:  69.4997833591
+EM:  60.2081362346
+Done 400 batches in 225.28s	training loss:	2.017247
+Done 600 batches in 308.73s	training loss:	2.025252
+Done 800 batches in 392.86s	training loss:	2.024499
+Done 1000 batches in 473.77s	training loss:	2.041726
+Done 1200 batches in 557.39s	training loss:	2.043247
+Calculating validation F1...
+F1:  70.3229742724
+EM:  60.8893093661
+
+
+Calculating validation F1...
+F1:  70.2340432214
+EM:  60.7379375591
+
+Training loss:   2.04453392625
+F1 after epoch 6: 70.2340432214
+Best F1 so far, model saved.
+
+
+Starting epoch 7...
+
+Done 200 batches in 84.70s	training loss:	1.872346
+Done 400 batches in 165.82s	training loss:	1.880802
+Done 600 batches in 249.29s	training loss:	1.908496
+Done 800 batches in 332.98s	training loss:	1.927136
+Calculating validation F1...
+F1:  69.6901959567
+EM:  60.4635761589
+Lowering learning rate to  0.0005
+Done 1000 batches in 473.10s	training loss:	1.930750
+Done 1200 batches in 557.07s	training loss:	1.924203
+
+
+Calculating validation F1...
+F1:  71.4721484507
+EM:  62.6017029328
+
+Training loss:   1.91889733909
+F1 after epoch 7: 71.4721484507
+Best F1 so far, model saved.
+
+
+Starting epoch 8...
+
+Done 200 batches in 85.46s	training loss:	1.636103
+Done 400 batches in 168.65s	training loss:	1.640284
+Calculating validation F1...
+F1:  71.5847562452
+EM:  61.9867549669
+Done 600 batches in 308.90s	training loss:	1.648802
+Done 800 batches in 390.21s	training loss:	1.657696
+Done 1000 batches in 474.20s	training loss:	1.665529
+Done 1200 batches in 557.50s	training loss:	1.669958
+
+
+Calculating validation F1...
+F1:  71.7075439929
+EM:  62.2043519395
+
+Training loss:   1.67596788271
+F1 after epoch 8: 71.7075439929
+Best F1 so far, model saved.
+
+
+Starting epoch 9...
+
+Calculating validation F1...
+F1:  71.6785806731
+EM:  62.2989593188
+Done 200 batches in 141.59s	training loss:	1.496093
+Done 400 batches in 222.48s	training loss:	1.518888
+Done 600 batches in 306.83s	training loss:	1.538362
+Done 800 batches in 390.66s	training loss:	1.551670
+Done 1000 batches in 474.08s	training loss:	1.564554
+Calculating validation F1...
+F1:  71.625677226
+EM:  62.6206244087
+Lowering learning rate to  0.00025
+Done 1200 batches in 613.73s	training loss:	1.569484
+
+
+Calculating validation F1...
+F1:  72.34538298
+EM:  63.1031220435
+
+Training loss:   1.56718264367
+F1 after epoch 9: 72.34538298
+Best F1 so far, model saved.
+
+
+Starting epoch 10...
+
+Done 200 batches in 84.97s	training loss:	1.391010
+Done 400 batches in 168.71s	training loss:	1.379219
+Done 600 batches in 252.65s	training loss:	1.381513
+Calculating validation F1...
+F1:  71.8706689331
+EM:  62.6300851466
+Done 800 batches in 389.80s	training loss:	1.382693
+Done 1000 batches in 473.20s	training loss:	1.385214
+Done 1200 batches in 557.01s	training loss:	1.389274
+
+
+Calculating validation F1...
+F1:  71.8665101152
+EM:  62.4787133396
+
+Training loss:   1.39236268103
+F1 after epoch 10: 71.8665101152
+
+
+Starting epoch 11...
+
+Done 200 batches in 82.57s	training loss:	1.277015
+Done 400 batches in 165.97s	training loss:	1.282707
+Calculating validation F1...
+F1:  71.6599160949
+EM:  62.3935666982
+Lowering learning rate to  0.000125
+Done 600 batches in 305.60s	training loss:	1.287262
+Done 800 batches in 389.74s	training loss:	1.284917
+Done 1000 batches in 473.18s	training loss:	1.287771
+Done 1200 batches in 554.00s	training loss:	1.288057
+
+
+Calculating validation F1...
+F1:  71.975737693
+EM:  62.3462630085
+
+Training loss:   1.28748562169
+F1 after epoch 11: 71.975737693
+
+
+Starting epoch 12...
+
+Calculating validation F1...
+F1:  71.7269264675
+EM:  62.280037843
+Done 200 batches in 140.52s	training loss:	1.194294
+Done 400 batches in 223.99s	training loss:	1.206916
+Done 600 batches in 304.90s	training loss:	1.206836
+Done 800 batches in 388.67s	training loss:	1.212343
+Done 1000 batches in 472.55s	training loss:	1.209007
+Calculating validation F1...
+F1:  71.9370480064
+EM:  62.270577105
+Done 1200 batches in 612.01s	training loss:	1.207947
+
+
+Calculating validation F1...
+F1:  71.8898390711
+EM:  62.2138126774
+
+Training loss:   1.20964217138
+F1 after epoch 12: 71.8898390711
+
+
+Starting epoch 13...
+
+Done 200 batches in 82.18s	training loss:	1.153899
+Done 400 batches in 165.85s	training loss:	1.155615
+Done 600 batches in 249.30s	training loss:	1.154798
+Calculating validation F1...
+F1:  71.9413238673
+EM:  62.2894985809
+Done 800 batches in 389.08s	training loss:	1.160523
+Done 1000 batches in 469.61s	training loss:	1.160552
+Done 1200 batches in 553.12s	training loss:	1.164949
+
+
+Calculating validation F1...
+F1:  71.8993624942
+EM:  62.0813623463
+
+Training loss:   1.16817186992
+F1 after epoch 13: 71.8993624942
+
+
+Starting epoch 14...
+
+Done 200 batches in 84.72s	training loss:	1.114998
+Calculating validation F1...
+F1:  71.9555191682
+EM:  62.3368022706
+Done 400 batches in 224.09s	training loss:	1.123723
+Done 600 batches in 305.39s	training loss:	1.119144
+Done 800 batches in 388.75s	training loss:	1.121345
+Done 1000 batches in 472.04s	training loss:	1.127971
+Done 1200 batches in 555.50s	training loss:	1.131000
+Calculating validation F1...
+F1:  71.8954898009
+EM:  61.816461684
+Lowering learning rate to  6.25e-05
+
+
+Calculating validation F1...
+F1:  71.7866969184
+EM:  61.7313150426
+
+Training loss:   1.1321894509
+F1 after epoch 14: 71.7866969184
+
+
+Starting epoch 15...
+
+Done 200 batches in 84.69s	training loss:	1.056242
+Done 400 batches in 168.21s	training loss:	1.052110
+Done 600 batches in 251.79s	training loss:	1.064940
+Done 800 batches in 332.69s	training loss:	1.065361
+Calculating validation F1...
+F1:  71.864757416
+EM:  61.7786187323
+Lowering learning rate to  3.125e-05
+Done 1000 batches in 473.37s	training loss:	1.065408
+Done 1200 batches in 557.29s	training loss:	1.066766
+
+
+Calculating validation F1...
+F1:  71.7414013592
+EM:  61.7407757805
+
+Training loss:   1.06712034809
+F1 after epoch 15: 71.7414013592
+
+
+Starting epoch 16...
+
+Done 200 batches in 85.25s	training loss:	1.029162
+Done 400 batches in 165.68s	training loss:	1.036575
+Done 600 batches in 249.12s	training loss:	1.030600
+Calculating validation F1...
+F1:  72.0049745661
+EM:  61.9867549669
+Done 800 batches in 389.30s	training loss:	1.029291
+Done 1000 batches in 473.09s	training loss:	1.033610
+Done 1200 batches in 556.36s	training loss:	1.035976
+
+
+Calculating validation F1...
+F1:  71.7381425887
+EM:  61.7596972564
+
+Training loss:   1.03855889722
+F1 after epoch 16: 71.7381425887
+
+
+Starting epoch 17...
+
+Done 200 batches in 85.07s	training loss:	1.009171
+Calculating validation F1...
+F1:  71.814670388
+EM:  61.8259224219
+Lowering learning rate to  1.5625e-05
+Done 400 batches in 224.97s	training loss:	1.010089
+Done 600 batches in 308.50s	training loss:	1.009222
+Done 800 batches in 389.24s	training loss:	1.013207
+Done 1000 batches in 472.73s	training loss:	1.013857
+Done 1200 batches in 556.29s	training loss:	1.016076
+Calculating validation F1...
+F1:  71.8526541836
+EM:  61.7407757805
+
+
+Calculating validation F1...
+F1:  71.9039091017
+EM:  61.8259224219
+
+Training loss:   1.018698108
+F1 after epoch 17: 71.9039091017
+
+
+Starting epoch 18...
+
+Done 200 batches in 84.26s	training loss:	0.996419
+Done 400 batches in 165.30s	training loss:	1.005133
+Done 600 batches in 248.94s	training loss:	1.010715
+Done 800 batches in 332.00s	training loss:	1.010122
+Calculating validation F1...
+F1:  71.8823231085
+EM:  61.8070009461
+Done 1000 batches in 472.06s	training loss:	1.014945
+Done 1200 batches in 552.75s	training loss:	1.013166
+
+
+Calculating validation F1...
+F1:  71.850361397
+EM:  61.7880794702
+
+Training loss:   1.01187966527
+F1 after epoch 18: 71.850361397
+
+
+Starting epoch 19...
+
+Done 200 batches in 85.14s	training loss:	1.003295
+Done 400 batches in 169.09s	training loss:	0.991067
+Calculating validation F1...
+F1:  71.9246387309
+EM:  61.8259224219
+Done 600 batches in 308.94s	training loss:	0.993487
+Done 800 batches in 389.54s	training loss:	0.996011
+Done 1000 batches in 472.15s	training loss:	0.996722
+Done 1200 batches in 555.46s	training loss:	0.999908
+
+
+Calculating validation F1...
+F1:  71.8021914368
+EM:  61.7313150426
+
+Training loss:   1.00313557338
+F1 after epoch 19: 71.8021914368
+
+
+Starting epoch 20...
+
+Calculating validation F1...
+F1:  71.7835411543
+EM:  61.6840113529
+Lowering learning rate to  7.8125e-06
+Done 200 batches in 138.51s	training loss:	0.996248
+Done 400 batches in 221.83s	training loss:	0.996300
+Done 600 batches in 305.62s	training loss:	1.000139
+Done 800 batches in 390.05s	training loss:	0.996229
+Done 1000 batches in 471.65s	training loss:	0.998883
+Calculating validation F1...
+F1:  71.8572189539
+EM:  61.7218543046
+Done 1200 batches in 615.22s	training loss:	0.998954
+
+
+Calculating validation F1...
+F1:  71.8852334785
+EM:  61.7596972564
+
+Training loss:   0.998497226352
+F1 after epoch 20: 71.8852334785
+
+
+Starting epoch 21...
+
+Done 200 batches in 84.73s	training loss:	0.974168
+Done 400 batches in 167.46s	training loss:	0.979317
+Done 600 batches in 248.86s	training loss:	0.984751
+Done 800 batches in 332.80s	training loss:	0.987555
+Calculating validation F1...
+F1:  71.752289954
+EM:  61.5799432356
+Lowering learning rate to  3.90625e-06
+Done 1000 batches in 473.59s	training loss:	0.988450
+Done 1200 batches in 556.62s	training loss:	0.990116
+
+
+Calculating validation F1...
+F1:  71.810420486
+EM:  61.6272469253
+
+Training loss:   0.992626319431
+F1 after epoch 21: 71.810420486
+
+
+Starting epoch 22...
+
+Traceback (most recent call last):
+  File "train.py", line 89, in <module>
+    train_QANet(net, train_data, model_filename, batch_size=args.batch_size)
+  File "../squad_tools.py", line 122, in train_QANet
+    log_interval=log_interval)
+  File "../QANet.py", line 217, in train_one_epoch
+    for batch in self._iterate_minibatches(train_data, batch_size, shuffle=True, train=True):
+  File "/home/i258346/.local/lib/python2.7/site-packages/theano/compile/function_module.py", line 884, in __call__
+    self.fn() if output_subset is None else\
+  File "/home/i258346/.local/lib/python2.7/site-packages/theano/scan_module/scan_op.py", line 989, in rval
+    r = p(n, [x[0] for x in i], o)
+  File "/home/i258346/.local/lib/python2.7/site-packages/theano/scan_module/scan_op.py", line 978, in p
+    self, node)
+  File "theano/scan_module/scan_perform.pyx", line 586, in theano.scan_module.scan_perform.perform (/tmp/i258346/theano.NOBACKUP/compiledir_Linux-3.13--generic-x86_64-with-debian-jessie-sid-x86_64-2.7.13-64/scan_perform/mod.cpp:6946)
+  File "/home/i258346/.local/lib/python2.7/site-packages/theano/gpuarray/type.py", line 368, in value_zeros
+    def value_zeros(self, shape):
+KeyboardInterrupt
