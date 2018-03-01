@@ -60,3 +60,7 @@ python -u test_neg.py --glove=<glove_path> --squad=<squad_path> --model=<path_to
 ```
 
 Result is saved in `output/neg_test`.
+
+**Demo**
+
+To run the demo of the system you need Jupyter Notebook (http://jupyter.org/). Open `notebooks/demo.ipynb` and follow the instructions in comments.
