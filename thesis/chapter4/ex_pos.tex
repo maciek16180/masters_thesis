@@ -1,0 +1,97 @@
+%!TEX output_directory = texaux
+%!TEX spellcheck
+%!TEX root = ../main.tex
+
+\setlength{\abovedisplayskip}{20pt}
+\setlength{\belowdisplayskip}{20pt}
+
+\small
+\noindent
+\textbf{Kontekst}:
+\textit{Other green spaces in the city include the Botanic Garden and the University Library Garden. They have extensive botanical collection of rare domestic and foreign plants, while a palm house in the New Orangery displays plants of subtropics from all over the world. Besides, within the city borders, there are also: Pole Mokotowskie (a big park in the northern Mokotów, where was the first horse racetrack and then the airport), Park Ujazdowski (close to the Sejm and John Lennon street), Park of Culture and Rest in Powsin, by the southern city border, Park Skaryszewski by the right Vistula bank, in Praga. The oldest park in Praga, the Praga Park, was established in 1865–1871 and designed by Jan Dobrowolski. In 1927 a Zoological Garden (Ogród Zoologiczny) was established on the park grounds, and in 1952 a bear run, still open today.}
+
+\noindent
+\textbf{P}: \textit{What type of space in Warsaw are the Botanic Garden and University Library Garden?}\\
+\textbf{O}: \textit{green} (0.81)\\[4pt]
+\textbf{P}: \textit{Where is a palm house with subtropic plants from all over the world on display?}\\
+\textbf{O}: \textit{New Orangery} (0.35)\\[4pt]
+\textbf{P}: \textit{Where was the first horse racetrack located?}\\
+\textbf{O}: \textit{pole mokotowskie} (0.34)\\[4pt]
+\textbf{P}: \textit{What park is close to John Lennon street?}\\
+\textbf{O}: \textit{park ujazdowski} (0.95)\\[4pt]
+\textbf{P}: \textit{When was a zoological garden established in the Praga Park?}\\
+\textbf{O}: \textit{1865 – 1871} (0.77) (błąd, poprawna odpowiedź: \textit{1927})
+
+\vspace{.3cm}
+
+\noindent
+\textbf{Kontekst}:
+\textit{Following the cretaceous–paleogene extinction event , the extinction of the dinosaurs and the wetter climate may have allowed the tropical rainforest to spread out across the continent. From 66–34 mya, the rainforest extended as far south as 45\degree. Climate fluctuations during the last 34 million years have allowed savanna regions to expand into the tropics. During the oligocene, for example, the rainforest spanned a relatively narrow band. It expanded again during the middle miocene, then retracted to a mostly inland formation at the last glacial maximum. However, the rainforest still managed to thrive during these glacial periods, allowing for the survival and evolution of a broad diversity of species.}
+
+\noindent
+\textbf{P}: \textit{Which type of climate may have allowed the rainforest to spread across the continent?}\\
+\textbf{O}: \textit{tropical} (0.52) (błąd, poprawna odpowiedź: \textit{wetter})\\[4pt]
+\textbf{P}: \textit{What has allowed for the savanna region to expand into the tropics?}\\
+\textbf{O}: \textit{climate fluctuations} (0.98)\\[4pt]
+\textbf{P}: \textit{During what time did the rainforest spanned a narrow band?}\\
+\textbf{O}: \textit{the oligocene ,} (0.20) (nieścisłość: niepotrzebny przecinek)\\[4pt]
+\textbf{P}: \textit{When did it retract to a inland formation?}\\
+\textbf{O}: \textit{middle miocene} (0.49)\\[4pt]
+\textbf{P}: \textit{Did the rainforest managed to thrive during the glacial periods?}\\
+\textbf{O}: \textit{still managed to thrive} (0.31)
+
+\vspace{.3cm}
+
+\noindent
+\textbf{Kontekst}:
+\textit{QuickBooks sponsored a ``Small Business Big Game'' contest, in which Death Wish Coffee had a 30-second commercial aired free of charge courtesy of QuickBooks. Death Wish Coffee beat out nine other contenders from across the United States for the free advertisement.}
+
+\noindent
+\textbf{P}: \textit{What company won a free advertisement due to the QuickBooks contest?}\\
+\textbf{O}: \textit{coffee} (0.34) (niepełna odpowiedź, poprawna: \textit{death wish coffee})\\[4pt]
+\textbf{P}: \textit{How long was the Death Wish Coffee commercial?}\\
+\textbf{O}: \textit{30 - second} (0.78)\\[4pt]
+\textbf{P}: \textit{Besides Death Wish Coffee, how many other competitors participated in the contest?}\\
+\textbf{O}: \textit{nine} (0.63)\\[4pt]
+\textbf{P}: \textit{Which company sponsored a contest called ``Small Business Big Game''?}\\
+\textbf{O}: \textit{quickbooks} (1.0)\\[4pt]
+\textbf{P}: \textit{How many other contestants did the company, that had their ad shown for free, beat out?}\\
+\textbf{O}: \textit{nine} (0.80)
+
+% \vspace{.3cm}
+
+% \noindent
+% \textbf{Kontekst}:
+% \textit{Despite waiving longtime running back Deangelo Williams and losing top wide receiver Kelvin Benjamin to a torn ACL in the preseason, the Carolina Panthers had their best regular season in franchise history, becoming the seventh team to win at least 15 regular season games since the league expanded to a 16-game schedule in 1978. Carolina started the season 14–0, not only setting franchise records for the best start and the longest single-season winning streak, but also posting the best start to a season by an NFC team in NFL history, breaking the 13–0 record previously shared with the 2009 New Orleans Saints and the 2011 Green Bay Packers. With their NFC-best 15–1 regular season record, the Panthers clinched home-field advantage throughout the NFC playoffs for the first time in franchise history. Ten players were selected to the Pro Bowl (the most in franchise history) along with eight all-pro selections.}
+
+% \noindent
+% \textbf{P}: \textit{Who had the best record in the NFC?}\\
+% \textbf{O}: \textit{carolina panthers} (0.39)\\[4pt]
+% \textbf{P}: \textit{How many Panthers went to the Pro Bowl?}\\
+% \textbf{O}: \textit{ten} (0.74)\\[4pt]
+% \textbf{P}: \textit{What Panther tore his ACL in the preseason?}\\
+% \textbf{O}: \textit{kelvin benjamin} (0.94)\\[4pt]
+% \textbf{P}: \textit{What year did the league begin having schedules with 16 games in them?}\\
+% \textbf{O}: \textit{1978} (0.99)\\[4pt]
+% \textbf{P}: \textit{What year did the the Saints hit a 13-0 record?}\\
+% \textbf{O}: \textit{2009} (0.94)
+
+\vspace{.3cm}
+
+\noindent
+\textbf{Kontekst}:
+\textit{Sir Charles Lyell first published his famous book, Principles of Geology, in 1830. This book, which influenced the thought of Charles Darwin, successfully promoted the doctrine of uniformitarianism. This theory states that slow geological processes have occurred throughout the Earth's history and are still occurring today. In contrast, catastrophism is the theory that Earth's features formed in single, catastrophic events and remained unchanged thereafter. Though Hutton believed in uniformitarianism, the idea was not widely accepted at the time.}
+
+\noindent
+\textbf{P}: \textit{First published by Sir Charles Lyell in 1830 this book was called what?}\\
+\textbf{O}: \textit{principles of geology} (0.96)\\[4pt]
+\textbf{P}: \textit{What doctrine did the doctrine of the Principles of Geology successfully promote?}\\
+\textbf{O}: \textit{the doctrine of uniformitarianism} (0.63)\\[4pt]
+\textbf{P}: \textit{Which theory states that slow geological processes are still occurring today, and have occurred throughout Earth's history?}\\
+\textbf{O}: \textit{uniformitarianism} (0.48)\\[4pt]
+\textbf{P}: \textit{Which theory states that Earth's features remained unchanged after forming in one single catastrophic event?}\\
+\textbf{O}: \textit{catastrophis}m (1.0)\\[4pt]
+\textbf{P}: \textit{Which famous evolutionist was influenced by the book Principles of Geology?}\\
+\textbf{O}: \textit{charles darwin} (0.65)
+
+\normalsize

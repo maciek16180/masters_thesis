@@ -1,0 +1,2 @@
+ipython2
+%run demo -mt /home/maciek/Desktop/masters_thesis/DATA/mtriples/ -m models/train.full30/model.ep02.npz -md full

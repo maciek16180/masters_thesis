@@ -138,7 +138,7 @@ def talk(
         mean=True,
         rank_penalty=0,
         group_diversity_penalty=1,
-        seq_diversity_penalty=1,
+        seq_diversity_penalty=2,
         short_context=True,
         random=False,
         sharpen_probs=None,
@@ -196,9 +196,14 @@ def talk(
         if not random:
             bot_response = print_utt(order[0][0])
         else:
-            scr = np.array([[fn_score(x, y) for x, y in order]])
+            # for x,y in order:
+            #     print(x, len(x), print_utt(x), len(print_utt(x)))
+            scr = np.array([[fn_score(x, y) if len(print_utt(x[1:-1])) < 100 \
+                else -np.inf for x, y in order]])
+            # print(scr)
             p = softmax(
                 scr if sharpen_probs is None else -(-scr)**sharpen_probs)[0]
+            # print(p)
             bot_response = print_utt(
                 order[np.random.choice(len(order), p=p)][0])
 
