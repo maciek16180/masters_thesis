@@ -1,0 +1,30 @@
+Using cuDNN version 5105 on context None
+Preallocating 903/3012 Mb (0.300000) on cuda
+Mapped name None to device cuda: GeForce GTX 780 (0000:01:00.0)
+floatX == float32
+device == cuda
+
+Run params:
+conv                      full
+save_preds                False
+batch_size                10
+model                     ../models/6B/model_neg03/model.ep07.npz
+unk                       train
+glove_version             6B
+
+
+Building the model...
+Using dropout after wiq calculation.
+Compiling theano functions:
+    get_intermediate_results_fn...
+    get_start_probs_fn...
+    get_end_probs_fn...
+Done
+
+Discarded paragraphs:
+
+wiki pos: 0.35
+wiki neg: 0.82
+dev     : 0.23
+dev rng : 0.99
+

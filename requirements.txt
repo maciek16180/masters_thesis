@@ -1,0 +1,6 @@
+Lasagne==0.2.dev1
+nltk==3.2.5
+numpy==1.14.1
+scipy==1.0.0
+six==1.11.0
+Theano==1.0.1

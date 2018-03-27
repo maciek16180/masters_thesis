@@ -1,6 +1,5 @@
 import numpy as np
 from itertools import chain
-import lasagne as L
 
 
 def split_utt(utt):
@@ -25,26 +24,26 @@ def load_mt(path, split=False, trim=200, threeD=True):
             ts = [utt for utt in ts if len(utt) <= trim]
         else:
             inds_to_remove = [set(), set(), set()]
-            for l in xrange(3):
+            for l in range(3):
                 data = [tr, vl, ts][l]
-                for k in xrange(len(data)):
+                for k in range(len(data)):
                     if len(data[k]) > trim:
-                        for i in xrange(3):
+                        for i in range(3):
                             inds_to_remove[l].add(k - (k % 3) + i)
 
-            tr = [tr[i] for i in xrange(len(tr)) if i not in inds_to_remove[0]]
-            vl = [vl[i] for i in xrange(len(vl)) if i not in inds_to_remove[1]]
-            ts = [ts[i] for i in xrange(len(ts)) if i not in inds_to_remove[2]]
+            tr = [tr[i] for i in range(len(tr)) if i not in inds_to_remove[0]]
+            vl = [vl[i] for i in range(len(vl)) if i not in inds_to_remove[1]]
+            ts = [ts[i] for i in range(len(ts)) if i not in inds_to_remove[2]]
 
     if threeD:
-        tr = [tr[i:i+3] for i in xrange(0, len(tr), 3)]
-        vl = [vl[i:i+3] for i in xrange(0, len(vl), 3)]
-        ts = [ts[i:i+3] for i in xrange(0, len(ts), 3)]
+        tr = [tr[i:i+3] for i in range(0, len(tr), 3)]
+        vl = [vl[i:i+3] for i in range(0, len(vl), 3)]
+        ts = [ts[i:i+3] for i in range(0, len(ts), 3)]
 
     return tr, vl, ts
 
 
-def get_mt_voc(path, pad_value=-1):
+def get_mt_voc(path):
     word_list = np.load(path + 'Training.dict.pkl')
     word_list.sort(key=lambda x: x[1])
     freqs = np.array([x[2] for x in word_list])

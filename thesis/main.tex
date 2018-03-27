@@ -1,0 +1,54 @@
+%!TEX output_directory = texaux
+%!TEX spellcheck
+
+\documentclass[polish,mgr,shortabstract]{iithesis}
+
+\usepackage[utf8]{inputenc}
+
+\polishtitle{Sieci neuronowe w systemach dialogowych}
+\englishtitle{Neural Networks in Dialogue Systems}
+\polishabstract{\input{abstract/polish}}
+\englishabstract{\input{abstract/english}}
+\author{Maciej Pawlikowski}
+\advisor{dr Jan Chorowski}
+\date{\today}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsfonts}            % mathbb
+\usepackage{esvect}              % strzałka nad wektorem
+\usepackage{amsmath}             % blok aligned
+\usepackage{soulutf8}            % łamane podkreślenie
+\usepackage{graphicx}            % obrazki
+\usepackage{float}               % położenie obrazków w tekście
+\usepackage[ruled]{algorithm2e}  % algorytmy
+\usepackage{breakcites}          % łamanie cytatów
+\usepackage{enumitem}            % wcięcie przy itemize
+\usepackage{makecell}            % łamanie wierszy w komórkach
+\usepackage{caption}             % odstęp między tabelką a podpisem
+\usepackage{gensymb}             % stopień (symbol)
+\usepackage{hhline}              % krawędzie tabeli kompatybilne z kolorami
+
+
+\DeclareMathOperator{\argmax}{arg\,max}
+
+\begin{document}
+
+\captionsetup[table]{skip=8pt}
+\renewcommand{\tablename}{Tabela}
+
+\input{chapter0/ch0}
+\input{chapter1/ch1}
+\input{chapter2/ch2}
+\input{chapter3/ch3}
+\input{chapter4/ch4}
+\input{chapter5/ch5}
+
+\clearpage
+\clearpage
+
+\addcontentsline{toc}{chapter}{Bibliografia}
+\bibliography{bibliography}
+\bibliographystyle{apalike}
+
+\end{document}

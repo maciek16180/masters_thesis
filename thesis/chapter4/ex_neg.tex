@@ -1,0 +1,111 @@
+%!TEX output_directory = texaux
+%!TEX spellcheck
+%!TEX root = ../main.tex
+
+\setlength{\abovedisplayskip}{20pt}
+\setlength{\belowdisplayskip}{20pt}
+
+\small
+\noindent
+\textbf{Kontekst}:
+\textit{Jacksonville is the largest city by population in the U.S. state of Florida, and the largest city by area in the contiguous United States. It is the county seat of Duval County, with which the city government consolidated in 1968. Consolidation gave Jacksonville its great size and placed most of its metropolitan population within the city limits; with an estimated population of 853,382 in 2014, it is the most populous city proper in Florida and the southeast, and the 12th most populous in the United States . Jacksonville is the principal city in the Jacksonville metropolitan area, with a population of 1,345,596 in 2010. }
+
+\noindent
+\textbf{P}: \textit{Which Florida city has the biggest population?}\\
+\textbf{O p}: \textit{jacksonville} (0.92)\\
+\textbf{O n}: \textit{jacksonville} (0.55)\\[5pt]
+\textbf{P}: \textit{What was the population Jacksonville city as of 2010?}\\
+\textbf{O p}: \textit{1 , 345 , 596} (1.0)\\
+\textbf{O n}: \textit{1 , 345 , 596} (0.41)\\[5pt]
+\textbf{P}: \textit{Based on population alone, what is Jacksonville's ranking in the United States?}\\
+\textbf{O p}: \textit{12th} (0.63)\\
+\textbf{O n}: \textit{12th} (0.45)\\[10pt]
+\textbf{P}: \textit{What is the population of Los Angeles?}\\
+\textbf{O p}: \textit{853 , 382} (0.68) (błąd, brak odpowiedzi)\\
+\textbf{O n}: \textbf{neg} (0.63)\\[5pt]
+\textbf{P}: \textit{What is the smallest city in Oklahoma?}\\
+\textbf{O p}: \textit{jacksonville} (0.80) (błąd, brak odpowiedzi)\\
+\textbf{O n}: \textbf{neg} (0.60)\\[5pt]
+\textbf{P}: \textit{Who founded Jacksonville?}\\
+\textbf{O p}: \textit{population} (0.22) (błąd, brak odpowiedzi)\\
+\textbf{O n}: \textit{population in the u . s . state of florida} (0.35) (błąd, brak odpowiedzi)
+
+\vspace{.3cm}
+
+\noindent
+\textbf{Kontekst}:
+\textit{Luther justified his opposition to the rebels on three grounds. First, in choosing violence over lawful submission to the secular government, they were ignoring Christ's counsel to ``Render unto Caesar the things that are Caesar's''; St. Paul had written in his epistle to the Romans 13:1–7 that all authorities are appointed by God and therefore should not be resisted. This reference from the Bible forms the foundation for the doctrine known as the divine right of kings, or, in the German case, the divine right of the princes. Second, the violent actions of rebelling, robbing, and plundering placed the peasants ``outside the law of God and Empire'', so they deserved ``death in body and soul, if only as highwaymen and murderers.'' Lastly, Luther charged the rebels with blasphemy for calling themselves ``Christian brethren'' and committing their sinful acts under the banner of the Gospel.}
+
+\noindent
+\textbf{P}: \textit{What were the protesters doing with Christ's counsel?}\\
+\textbf{O p}: \textit{render unto caesar the things} (0.41) (błąd, poprawna odpowiedź: \textit{ignoring})\\
+\textbf{O n}: \textbf{neg} (0.36) (błąd, poprawna odpowiedź: \textit{ignoring})\\[5pt]
+\textbf{P}: \textit{By whom did St Paul say all authorities were appointed?}\\
+\textbf{O p}: \textit{god} (1.0)\\
+\textbf{O n}: \textit{god} (0.89)\\[5pt]
+\textbf{P}: \textit{What is this doctrine of God appointing authorities called?}\\
+\textbf{O p}: \textit{the divine right of kings} (0.64)\\
+\textbf{O n}: \textbf{neg} (0.39) (błąd, odrzucenie dobrego fragmentu)\\[10pt]
+\textbf{P}: \textit{Who was Martin Luther?}\\
+\textbf{O p}: \textit{the rebels with blasphemy} (0.29) (błąd, brak odpowiedzi)\\
+\textbf{O n}: \textbf{neg} (0.72)\\[5pt]
+\textbf{P}: \textit{How many epistles did St. Paul write?}\\
+\textbf{O p}: \textit{13 : 1 – 7} (0.62) (błąd, brak odpowiedzi)\\
+\textbf{O n}: \textit{three} (0.41) (błąd, brak odpowiedzi)\\[5pt]
+\textbf{P}: \textit{When did Luther annouce his three treatises?}\\
+\textbf{O p}: \textit{second} (0.22) (błąd, brak odpowiedzi)\\
+\textbf{O n}: \textbf{neg} (0.96)
+
+\vspace{.3cm}
+
+\noindent
+\textbf{Kontekst}:
+\textit{In a report, published in early February 2007 by the Ear Institute at the University College London, and Widex, a Danish hearing aid manufacturer, Newcastle was named as the noisiest city in the whole of the UK, with an average level of 80.4 decibels. The report claimed that these noise levels would have a negative long-term impact on the health of the city's residents. The report was criticized, however, for attaching too much weight to readings at arbitrarily selected locations, which in Newcastle's case included a motorway underpass without pedestrian access.}
+
+\noindent
+\textbf{P}: \textit{What's the average decibel level of noise in Newcastle?}\\
+\textbf{O p}: \textit{80 . 4 decibels} (0.72)\\
+\textbf{O n}: \textit{80 . 4 decibels} (0.83)\\[5pt]
+\textbf{P}: \textit{What type of impact can the residents of Newcastle expect the city's noise to have on them?}\\
+\textbf{O p}: \textit{negative long - term} (0.35)\\
+\textbf{O n}: \textit{negative long - term impact} (0.41)\\[5pt]
+\textbf{P}: \textit{What was one location the noise readings in Newcastle were taken at?}\\
+\textbf{O p}: \textit{motorway underpass} (0.25)\\
+\textbf{O n}: \textbf{neg} (0.27) (błąd, odrzucenie dobrego fragmentu)\\[10pt]
+\textbf{P}: \textit{When was Widex founded?}\\
+\textbf{O p}: \textit{february 2007} (0.82) (błąd, brak odpowiedzi)\\
+\textbf{O n}: \textbf{neg} (0.35)\\[5pt]
+\textbf{P}: \textit{How many UK citizens have hearing problems?}\\
+\textbf{O p}: \textit{80 . 4} (0.46) (błąd, brak odpowiedzi)\\
+\textbf{O n}: \textbf{neg} (0.57)\\[5pt]
+\textbf{P}: \textit{What is the average length of a motorway?}\\
+\textbf{O p}: \textit{80 . 4 decibels} (0.93) (błąd, brak odpowiedzi)\\
+\textbf{O n}: \textit{80 . 4 decibels} (0.61) (błąd, brak odpowiedzi)
+
+% \vspace{.3cm}
+
+% \noindent
+% \textbf{Kontekst}:
+% \textit{}
+
+% \noindent
+% \textbf{P}: \textit{}\\
+% \textbf{O p}: \textit{} ()\\
+% \textbf{O n}: \textit{} ()\\[5pt]
+% \textbf{P}: \textit{}\\
+% \textbf{O p}: \textit{} ()\\
+% \textbf{O n}: \textit{} ()\\[5pt]
+% \textbf{P}: \textit{}\\
+% \textbf{O p}: \textit{} ()\\
+% \textbf{O n}: \textit{} ()\\[10pt]
+% \textbf{P}: \textit{}\\
+% \textbf{O p}: \textit{} ()\\
+% \textbf{O n}: \textit{} ()\\[5pt]
+% \textbf{P}: \textit{}\\
+% \textbf{O p}: \textit{} ()\\
+% \textbf{O n}: \textit{} ()\\[5pt]
+% \textbf{P}: \textit{}\\
+% \textbf{O p}: \textit{} ()\\
+% \textbf{O n}: \textit{} ()\\
+
+\normalsize

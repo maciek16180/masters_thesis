@@ -12,11 +12,10 @@ not_a_word_Str = '<not_a_word>'
 class AnswerBot:
 
     def __init__(self, model_file, glove_embs, glove_dict,
-                 glove_ver, negative, **kwargs):
+                 negative, **kwargs):
 
         self.negative = negative
         self.model_file = model_file
-        self.glove_ver = glove_ver
 
         self.words = glove_dict
         self.w_to_i = {v: k for (k, v) in enumerate(self.words)}
@@ -57,14 +56,12 @@ class AnswerBot:
             qset = set(q)
             return [w in qset for w in x]
 
-        def lower_if_needed(l):
-            if self.glove_ver == '6B':
-                return [w.lower() for w in l]
-            return l
+        def lower_list(l):
+            return [w.lower() for w in l]
 
         if type(q) is not list:
-            q = lower_if_needed(tokenize(q))
-            x = lower_if_needed(tokenize(x))
+            q = lower_list(tokenize(q))
+            x = lower_list(tokenize(x))
 
         neg = self.negative
         if neg and x[-1] == not_a_word_Str:

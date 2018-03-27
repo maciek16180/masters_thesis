@@ -1,12 +1,15 @@
 from __future__ import print_function
 
-# for use with HRED
-
 import numpy as np
 import sys
 
 
-forbidden_words = ['<unk>', '<number>', '<person>', '<continued_utterance>']
+forbidden_words = [
+    '<unk>',
+    '<number>',
+    '<person>',
+    '<continued_utterance>'
+]
 
 
 def softmax(x):
@@ -30,7 +33,6 @@ class DiverseBeamSearch(object):
                  group_diversity_penalty=1,
                  seq_diversity_penalty=1,
                  unk_penalty=100,
-                 sharpen_probs=None,
                  random_sample=False,
                  verbose_log=False,
                  whitelist=None,
@@ -39,11 +41,10 @@ class DiverseBeamSearch(object):
         assert not beam_size % group_size
 
         self.model = model
-        self.idx_to_w = words
         self.voc_size = len(words)
         self.w_to_idx = {words[i]: i for i in range(self.voc_size)}
         self.forbidden_words = [
-            w for w in forbidden_words if w in self.w_to_idx]
+            self.w_to_idx[w] for w in forbidden_words if w in self.w_to_idx]
 
         self.beam_size = beam_size
         self.group_size = group_size
@@ -55,8 +56,6 @@ class DiverseBeamSearch(object):
 
         self.verbose_log = verbose_log
         self.random_sample = random_sample
-
-        self.sharpen_probs = sharpen_probs
 
         self.whitelist = whitelist
 
@@ -91,14 +90,15 @@ class DiverseBeamSearch(object):
 
                 if self.unk_penalty is not None:
                     for w in self.forbidden_words:
-                        log_probs[:, self.w_to_idx[w]] -= self.unk_penalty
+                        log_probs[:, w] -= self.unk_penalty
 
                 dec_init = all_dec_init[g_idx]
 
                 # Here we add the dissimilarity as described in
                 # https://arxiv.org/pdf/1610.02424.pdf
                 # simple Hamming diversity
-                log_probs[:, new_seq[:, -1]] -= self.group_diversity_penalty
+                for used_w in new_seq[:, -1]:
+                    log_probs[:, used_w] -= self.group_diversity_penalty
 
                 # penalize repeating words in the same sequence
                 log_probs[np.indices((self.group_size, seq.shape[1]))[0],
@@ -124,8 +124,6 @@ class DiverseBeamSearch(object):
                         cands.append(
                             trie_positions[self.group_size * g + i].keys())
 
-                    # print(cands)
-
                     cand_scores = []
                     for i in range(self.group_size):
                         for c in cands[i]:
@@ -139,12 +137,9 @@ class DiverseBeamSearch(object):
                         else:
                             order = (-np.array(cand_scores)[:, 0]
                                      ).argsort().astype(np.int32)
-                        # print(order)
                     else:
                         count = len(cand_scores)
                         scr = np.array([c[0] for c in cand_scores])
-                        if self.sharpen_probs is not None:
-                            scr = -(-scr**self.sharpen_probs)
                         p = softmax(scr[np.newaxis])[0]
                         num_sampled = min(2 * self.group_size**2,
                                           np.nan_to_num(p).nonzero()[0].size)
@@ -162,17 +157,11 @@ class DiverseBeamSearch(object):
                             order = (-new_scores).argsort().astype(np.int32)
                     else:
                         count = new_scores.size
-                        scr = new_scores if self.sharpen_probs is None else -(
-                            -new_scores**self.sharpen_probs)
-                        p = softmax(scr[np.newaxis])[0]
+                        p = softmax(new_scores[np.newaxis])[0]
                         num_sampled = min(2 * self.group_size**2,
                                           np.nan_to_num(p).nonzero()[0].size)
                         order = np.random.choice(count, size=num_sampled,
                                                  replace=False, p=p)
-
-                # print("###############")
-                # print(new_seq.shape, order.size, new_scores.shape,
-                #       next_word_scores.shape, scores.shape)
 
                 for idx in order:
                     if new_seq.shape[0] == (g + 1) * self.group_size:
@@ -182,10 +171,6 @@ class DiverseBeamSearch(object):
                         seq_in_group, word_idx = cand_scores[idx][1:]
                     else:
                         seq_in_group, word_idx = divmod(idx, self.voc_size)
-
-                        # print(seq.shape, self.group_size * g + seq_in_group,
-                        #       seq_in_group, word_idx)
-                        # print(words)
 
                     extended_seq = np.concatenate(
                         [seq[self.group_size * g + seq_in_group],
@@ -234,7 +219,4 @@ class DiverseBeamSearch(object):
                     print('')
                 print('#############\n')
 
-    #     final_scores = np.array(map(lambda x: x[1], finished))
-    #     finished = map(lambda x: x[0], finished)
-
-        return finished, finished_dec_inits  # [final_scores.argmax()]
+        return finished, finished_dec_inits

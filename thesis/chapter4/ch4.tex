@@ -1,0 +1,289 @@
+%!TEX output_directory = texaux
+%!TEX spellcheck
+%!TEX root = ../main.tex
+
+\setlength{\abovedisplayskip}{20pt}
+\setlength{\belowdisplayskip}{20pt}
+
+\chapter{Odpowiadanie na pytania} \label{rozdzial4}
+
+Poprzednio opisane mechanizmy budowały model ogólnej rozmowy. Bot był bardzo ograniczony w swojej umiejętności rozumienia tekstu. Jego odpowiedzi co prawda zwykle pasowały do kontekstu, ale niewiele więcej można o nich powiedzieć. Większość systemów dialogowych powstaje z myślą o konkretnym celu, do którego zrealizowania nie wystarczy prowadzenie ``rozmowy o niczym''. Użyteczny robot może na przykład być w~stanie dostarczyć człowiekowi wartościowych informacji. W tym rozdziale przedstawiam kolejne wyzwanie chatbotów, które może być rozwiązane za pomocą sieci neuronowej.
+
+Chcemy nauczyć program odpowiadania na pytania o fakty formułowane w~języku naturalnym. Przykładem może być \textit{When was Battle of Grunwald?}. Sama analiza występowania słów tutaj nie wystarczy, musimy zaopatrzyć model w jakieś źródło wiedzy. Tym źródłem będzie krótki tekst w języku naturalnym. Naszym celem jest sprawić, by bot na powyższe pytanie odpowiedział poprawnie po przeczytaniu tekstu, który może wyglądać tak:\\
+
+\small\textit{The Battle of Grunwald, First Battle of Tannenberg or Battle of Žalgiris, was fought on 15 July 1410 during the Polish–Lithuanian–Teutonic War. The alliance of the Kingdom of Poland and the Grand Duchy of Lithuania, led respectively by King Władysław II Jagiełło (Jogaila) and Grand Duke Vytautas, decisively defeated the German–Prussian Teutonic Knights, led by Grand Master Ulrich von Jungingen.}\footnote{Fragment pochodzi z \url{https://en.wikipedia.org/wiki/Battle_of_Grunwald}}\\
+
+\normalsize
+Powyższy problem cieszy się rosnącym zainteresowaniem wśród społeczności zajmujących się uczeniem maszynowym. W 2016 roku opublikowany został \textit{Stanford Question Answering Dataset (SQuAD)} \cite{squaddata}, zbiór danych zawierający blisko 86\,000 pytań. Do każdego pytania dołączony jest krótki fragment stanowiący kontekst. Skuteczność na \textit{SQuAD}zie jest popularną miarą jakości systemów odpowiadających na pytania o fakty. W ostatnim czasie najlepsze z nich niemalże dorównały umiejętnościom człowieka\footnote{\url{https://rajpurkar.github.io/SQuAD-explorer/}}.
+
+W momencie przygotowywania tej pracy jedno z czołowych miejsc w rankingu \textit{SQuAD} zajmował system \textit{FastQA} \cite{fastqa}. Dalsza część rozdziału zawiera opis, przykłady zastosowania, i przedstawienie próby usprawnienia tego systemu.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{FastQA}
+
+Jak wiele innych modeli tego typu, \textit{FastQA} odpowiada cytując pewien podciąg kontekstu. Dla każdego pytania $q = q_1^{K_q}$ w zbiorze uczącym mamy odpowiadający mu tekst $x = x_1^{K_x}$ oraz parę indeksów $\mathbf{s}, \mathbf{e} \in \{1,\dots,K_x\}$ takich, że $x_{\mathbf{s}}^{\mathbf{e}}$ jest poprawną odpowiedzią. Ucząc model staramy się maksymalizować prawdopodobieństwo wybrania właściwego ciągu, czyli
+\[\hat{P}_s(\mathbf{s} \mid q, x)\ \hat{P}_e(\mathbf{e} \mid \mathbf{s}, q, x).\]
+
+%%%%%%%%%%%%%%%%%%%
+
+\subsection{Architektura sieci}
+
+Podstawowy pomysł polega na zakodowaniu pytania i kontekstu za pomocą sieci rekurencyjnej, a następnie wykorzystaniu uzyskanej informacji do obliczenia $P_s$,~$P_e$~--~rozkładów prawdopodobieństwa na $\{1,\dots,K_x\}$. Można zrealizować go tak:
+
+\begin{enumerate}
+    \item \textbf{Zanurzenia}: zanurzamy $q$ jako $v_1^{K_q}$ i $x$ jako $u_1^{K_x}$.
+    \item \textbf{Kodujący \textit{RNN}}: zamieniamy $v_1^{K_q}$ na ciąg wektorów $z_1^{K_q}$ oraz $u_1^{K_x}$ na $h_1^{K_x}$.
+    \item \textbf{Reprezentacja pytania}: w pewien sposób agregujemy ciąg $z_1^{K_q}$ do jednego wektora $\tilde{z}$ reprezentującego pytanie.
+    \item \textbf{Początki}: do każdego $h_i$ dodajemy informację o $\tilde{z}$, aby powiązać pytanie z~kontekstem. Powstaje ciąg ${h'}_1^{K_x}$. Wektory $h'_i$ są zwijane do skalarów. Funkcja \textit{softmax} nałożona na wynik daje prawdopodobieństwa $\hat{P}_s(i \mid q, x)$ dla $i \in \{1,\dots,K_x\}$.
+    \item \textbf{Końce}: każde $h'_i$ wzbogacamy dodatkowo o $h_{\mathbf{s}}$ tworząc ciąg ${h''}_1^{K_x}$. Ciąg ten zwijamy do ciągu skalarów, po czym nakładamy \textit{softmax}. W ten sposób otrzymujemy wartości $\hat{P}_e(i \mid \mathbf{s}, q, x)$.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+    \includegraphics[width=0.9\textwidth]{chapter4/img/fastqa.eps}
+  \caption{\small{Uproszczony schemat \textit{FastQA}. Dla czytelności przedstawione jest tylko obliczanie $\hat{P}_s$}. Wektory $u'_i$ to ostateczne reprezentacje słów kontekstu, po dołączeniu zanurzeń znakowych i dwóch dodatkowych cech opisanych poniżej.}
+  \label{rysfqa}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Dodatkowe cechy słów}
+
+Najważniejszą nowością wprowadzaną przez \textit{FastQA} są dwie dodatkowe cechy dla słów kontekstu. Dla każdego $x_i$ są one obliczane na podstawie zależności między $x_i$ a $q$. Okazuje się, że prosta heurystyka mówiąca jak istotne jest dane słowo dla pytania bardzo pomaga podnieść jakość modelu.
+
+Autorzy proponują cechy binarną i ważoną. Binarna stanowi informację o tym, czy słowo znajduje się w pytaniu. Dla $i \in \{1,\dots,K_x\}$:
+
+\[f_b(i, q) =
+    \begin{cases}
+        1 & \text{jeśli } x_i \text{ występuje w } q \\
+        0 & \text{w p.p.} \\[5pt]
+    \end{cases}
+\]
+
+Przy obliczaniu cechy ważonej najpierw tworzymy macierz podobieństwa pomiędzy słowami kontekstu a słowami pytania. Podobieństwa te są normalizowane funkcją \textit{softmax} i~sumowane po całym $q$.
+
+\[
+\begin{aligned}
+    \mathrm{sim}_{i,j} &= {\tau_w}^T (u_i \odot v_j) \in \mathbb{R} \\[3pt]
+    f_w(i, q) &= \sum\limits_{j \in \{1,\dots,K_q\}} (\mathrm{softmax}(\mathrm{sim}_{\,\cdot,\,j}))_i \\[5pt]
+\end{aligned}
+\]
+
+\noindent
+gdzie $\tau_w \in \mathbb{R}^n$ dla wymiaru zanurzeń $n$. Symbol $^T$ oznacza transpozycję. Parametr $\tau_w$ jest uczony wraz z resztą sieci. Dla każdego $i \in \{1,\dots,K_x\}$ wartości $f_b(i, q)$ i~$f_w(i,q)$ są doklejane do reprezentacji słowa $x_i$ w kroku~1 tworząc zaznaczony na Rysunku~\ref{rysfqa} ciąg ${u'}_1^{K_x}$.
+
+%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Reprezentacja pytania}
+
+Istotnym elementem modelu jest sposób wyliczania podsumowania pytania, $\tilde{z}$. Wykorzystywany jest do tego tzw. \textit{mechanizm uwagi} (ang. \textit{attention}). Poszczególne wektory ciągu $z_1^{K_q}$ są sumowane z wagami oznaczającymi ich istotność w pytaniu. Odbywa się to podobnie jak w przypadku obliczania $f_w$. Niech $Z = [z_1\ \cdots\ z_{K_q}] \in \mathbb{R}^{m \times K_q}$, gdzie $m$ jest rozmiarem stanu \textit{RNN}:
+
+\[
+\begin{aligned}
+    \alpha &= \mathrm{softmax}({\tau_q}^T Z) \in \mathbb{R}^{K_q} \\[3pt]
+    \tilde{z} &= \sum\limits_{j \in \{1,\dots,K_q\}} \alpha_j z_j \\[5pt]
+\end{aligned}
+\]
+
+Parametr $\tau_q \in \mathbb{R}^m$ jest uczony. Wykorzystując taką reprezentację $q$ sieć potrafi nauczyć się zwracać uwagę na specyficzne słowa. Na przykład obserwując wiele pytań rozpoczynających się od \textit{when} i mających daty za odpowiedzi, będzie w stanie tak dobrać parametry, żeby słowo \textit{when} dostawało dużą wagę. W praktyce typ pytania mocno ogranicza zakres możliwych odpowiedzi. Mechanizm uwagi pozwala modelowi wykorzystywać ten fakt.
+
+%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Zanurzenia znakowe}
+
+Zanurzać w przestrzeni wektorowej można nie tylko słowa, ale także pojedyncze znaki. \textit{FastQA} korzysta zarówno z zanurzeń słów jak i z reprezentacji liter. Niech $w$ będzie słowem złożonym ze znaków $c_1,\dots,c_l$, a $m_c$ rozmiarem zanurzeń liter. Możemy zapisać $w$ jako $A = [a_1\ \cdots\ a_l] \in \mathbb{R}^{m_c \times l}$, gdzie $a_i$ jest wektorem dla $c_i$. Macierz $A$ przekształcamy na wektor stałej długości, który będzie reprezentacją $w$ uwzględniającą wzajemne położenie liter w słowie \cite{charemb}.
+
+Wykorzystujemy do tego operację splotu. Dla filtra $H \in \mathbb{R}^{m_c \times k}, k \leq l$ i~opcjonalnego przesunięcia $b \in \mathbb{R}$ definiujemy $A*H \in \mathbb{R}^{l-k+1}$ następująco:
+\[(A*H)_i = \tanh(\mathrm{tr}([a_i\ \cdots\ a_{i+k-1}]H^T) + b)\]
+
+Interesującym nas rezultatem jest skalar $\max(A*H)$. Całą operację powtarzamy dla pewnej liczby $n_f$ różnych filtrów, a otrzymane wyniki łączymy w $n_f$-wymiarowy wektor reprezentujący $w$. Wektor ten jest doklejany do zanurzenia $w$ w kroku 1, przed dodaniem cech $f_b$ i $f_w$.
+
+Aby zapewnić dodatkową interakcję pomiędzy dwoma typami zanurzeń słów, autorzy wykorzystują warstwę \textit{highway} \cite{highway}. Niech $\mathbf{w} \in \mathbb{R}^{n+n_f}$ będzie konkatenacją obu reprezentacji $w$. Podlega ona następującym transformacjom:
+
+\[
+\begin{aligned}
+\mathbf{w}' &= P\mathbf{w}\\
+g &= \mathcal{F}_1(\mathbf{w}')\\
+\mathbf{w}'' &= \mathcal{F}_2(\mathbf{w}')\\
+\tilde{\mathbf{w}} &= g \odot \mathbf{w}' + (1-g) \odot \mathbf{w}'',
+\end{aligned}
+\]
+
+\noindent
+gdzie $P$ jest pewną macierzą, $\mathcal{F}_1$ i $\mathcal{F}_2$ oznaczają warstwy gęste, a $\tilde{\mathbf{w}}$ jest powstałą reprezentacją $w$, do której konkatenowane będą $f_b$ i $f_w$. Warstwa \textit{highway} potrafi nauczyć się proporcji w jakich powinna brać pod uwagę oryginalne i przekształcone wejście.
+
+%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Pozostałe szczegóły}
+
+W krokach 4. i 5. do kodowania kontekstu dołączamy dodatkowe informacje, które chcemy uwzględnić przy obliczaniu prawdopodobieństw. Najprościej zrobić to przez konkatenację, ale autorzy dołączają dodatkowo iloczyn Hadamarda:
+
+\[
+\begin{aligned}[c]
+    h'_i &=
+    \begin{bmatrix}
+        h_i \\
+        \tilde{z} \\
+        h_i \odot \tilde{z} \\
+    \end{bmatrix} \in \mathbb{R}^{3m}
+\end{aligned} \ \
+\begin{aligned}[c]
+    h''_i &=
+    \begin{bmatrix}
+        h_i \\
+        h_{\mathbf{s}} \\
+        \tilde{z} \\
+        h_i \odot \tilde{z} \\
+        h_i \odot h_{\mathbf{s}} \\
+    \end{bmatrix} \in \mathbb{R}^{5m}
+\end{aligned}
+\]
+
+
+Wektory $h'_i$ oraz $h''_i$ są zwijane do skalarów za pomocą podwójnej warstwy gęstej. Funkcja \textit{softmax} zwraca prawdopodobieństwa:
+
+\[
+\begin{aligned}
+    &s_i = {\tau_s}^T \mathrm{ReLU}(W_s h'_i + b_s) \in \mathbb{R}\\
+    &\hat{P}_s(i \mid q, x) = (\mathrm{softmax}(s))_i \\[10pt]
+    &e_i = {\tau_e}^T \mathrm{ReLU}(W_e h''_i + b_e) \in \mathbb{R}\\
+    &\hat{P}_e(i \mid \mathbf{s}, q, x) = (\mathrm{softmax}(e))_i\\[5pt]
+\end{aligned}
+\]
+
+Jako warstwę rekurencyjną, kodującą pytanie i kontekst, wykorzystano dwukierunkowy \textit{LSTM} (\ref{lstm}, \ref{birnn}). Agregację wyników sieci składowych przeprowadzono za pomocą przepuszczenia połączonych stanów przez warstwę gęstą o parametrze $B \in \mathbb{R}^{m \times 2m}$ (bez przesunięcia). Przetwarzanie $q$ i $x$ zostało przeprowadzone za pomocą tych samych parametrów, za wyjątkiem macierzy $B$, która była inna dla pytania i kontekstu. Wartości cech $f_b$~i~$f_w$ dla słów w pytaniu zostały ustalone na 1.
+
+Warstwa zanurzeń podlega procedurze \textit{dropout} \cite{dropout}. Jest to popularna i prosta metodą regularyzacji modelu neuronowego. Każdy element wejścia podlega wyzerowaniu z prawdopodobieństwem $p$, a następnie całość jest mnożona przez $1\, /\, (1-p)$, żeby zachować stałą średnią wyniku. W ten sposób symulujemy uśrednianie wielu modeli. Częstym wyborem $p$ jest $0.5$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Eksperymenty}
+
+Model został wyuczony procedurą \textit{ADAM} (\ref{adam}) na danych \textit{SQuAD}. Wykorzystane zanurzenia słów pochodzą z GloVe i nie były uczone. Zanurzenia znakowe zostały wytrenowane. Co 64\,000 elementów znajdował się punkt kontrolny. Jeśli efektywność na zbiorze testowym malała między punktami kontrolnymi, tempo uczenia było zmniejszane dwukrotnie. Cały proces był dość szybki: 20 przejść po całym zbiorze uczącym zajęło około 4 godziny. Najlepszy rezultat pojawił się już po 9 przejściach.
+
+Miarą jakości modelu jest procent poprawnie udzielonych odpowiedzi na zbiorze testowym. Oficjalny skrypt ewaluacyjny oblicza również miarę F1, stanowiącą balans pomiędzy precyzją (ang. \textit{precision}) i czułością (ang. \textit{recall}). Niestety nie udało mi się zreplikować wyniku z \cite{fastqa}. Model uzyskał 72.34 F1, co jest wynikiem trochę niższym od 76.30 F1 prezentowanym w artykule. Powodem mogą być pojawiające się tam drobne niejasności, które mogłem źle zinterpretować. Nie wykluczam oczywiście błędnej implementacji, chociaż nie potrafiłem znaleźć żadnej usterki. Nie mniej jednak otrzymany wynik jest wystarczająco dobry, żeby przekonać się jak sieć sprawdza się w praktyce.
+
+%%%%%%%%%%%%%%%%%%%
+
+\subsection{Przykłady zastosowania}
+
+Wytrenowana sieć stara się znaleźć podciąg kontekstu, który z największym prawdopodobieństwem jest dobrą odpowiedzią. Sprawdzenie wszystkich możliwych podciągów jest niepraktyczne, więc stosuje się przeszukiwanie wiązkowe (\ref{beamsearch}). Zmniejszenie rozmiaru wiązki do 1 skutkuje jednak dużo szybszym algorytmem zachłannym, który działa tylko nieznacznie gorzej. Takiej właśnie wersji używam.
+
+W tej części zamieszczam przykładowe odpowiedzi udzielone przez model. W~nawiasach znajdują się zwrócone prawdopodobieństwa. Wartości bliskie 1 oznaczają, że sieć jest pewna odpowiedzi. Mniejsze liczby sygnalizują trudniejsze przypadki. Pytania i konteksty pochodzą ze zbioru testowego \textit{SQuAD}. Błędne odpowiedzi są opatrzone dodatkowymi komentarzami.\\\\
+
+\input{chapter4/ex_pos}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Negatywne odpowiedzi} \label{negans}
+
+W zbiorze \textit{SQuAD} każde pytanie jest połączone z pasującym do niego kontekstem i~\textit{FastQA} korzysta z tej własności. Model uczy się znajdować dobre odpowiedzi we fragmentach, które faktycznie je zawierają. W prawdziwym zastosowaniu trudno oczekiwać, że właściwy tekst zawsze będzie pod ręką. Niestety opisana architektura w żaden sposób nie potrafi wykrywać, czy właściwa odpowiedź znajduje się w dostarczonym jej fragmencie. Prawdopodobieństwa, które zwraca, są warunkowe, i nie mogą być rozważane bez kontekstu. Żeby to zaobserwować, weźmy poprzednio przytoczony fragment o bitwie pod Grunwaldem, oraz~krótki tekst o Chopinie:\\
+
+\small
+\textbf{1}. \textit{The Battle of Grunwald, First Battle of Tannenberg or Battle of Žalgiris, was fought on \textbf{15 July 1410} during the Polish–Lithuanian–Teutonic War. The alliance of the Kingdom of Poland and the Grand Duchy of Lithuania, led respectively by King Władysław II Jagiełło (Jogaila) and Grand Duke Vytautas, decisively defeated the German–Prussian Teutonic Knights, led by Grand Master Ulrich von Jungingen.\\}
+
+\textbf{2}. \textit{Born on March 1, 1810, in Zelazowa Wola, Poland, Frédéric Chopin, grew up in a middle-class family. He published his first composition at age 7 and began performing one year later. In 1832, he moved to Paris, socialized with high society and was known as an excellent piano teacher. His piano compositions were highly influential.}\footnote{Fragment pochodzi z https://www.biography.com/people/frederic-chopin-9247162}\\
+
+\normalsize
+Dla pytania \textit{When was Battle of Grunwald?} algorytm wysoko ocenia odpowiedzi znalezione w obu tekstach:\\
+
+\small
+\textbf{O1}: \textit{15 july 1410} (0.95)
+
+\textbf{O2}: \textit{march 1 , 1810} (0.88)\\
+
+\normalsize
+Widząc pytanie o czas, model, opierając się na założeniu, że odpowiedź znajduje się w tekście, przypisuje datom duże prawdopodobieństwo. Drugi tekst nie zawiera jednak właściwej odpowiedzi, czego nie jesteśmy w stanie stwierdzić patrząc tylko na wynik.
+
+Ten podrozdział opisuje moją próbę nauczenia \textit{FastQA} wykrywania niepasujących kontekstów. Oczekujemy, że sieć będzie umiała wyłuskać dobrą odpowiedź z~pierwszego z powyższych fragmentów, oraz stwierdzić, że w przypadku drugiego nie potrafi tego zrobić.
+
+Motywacją do przeprowadzenia eksperymentu były problemy napotkane podczas tworzenia chatbota \url{poetwanna.be} (\ref{celpracy}). System miał odpowiadać na pytania dwuetapowo. Najpierw przeprowadzał wyszukiwanie w Wikipedii. Następnie zgromadzone teksty były przetwarzane przez \textit{FastQA}, a najbardziej prawdopodobna odpowiedź stanowiła rezultat algorytmu. Nasza wyszukiwarka była jednak dość prosta, więc nie zawsze udawało się znaleźć pasujące fragmenty. Trudno było ocenić jakość wyniku, ponieważ model mógł zwracać wysokie prawdopodobieństwo odpowiedzi nawet dla niewłaściwych akapitów. Gdyby zamiast tego potrafił je ignorować, współpraca wyszukiwarki i \textit{FastQA} byłaby dużo efektywniejsza.
+
+Pomysł opiera się na lekkiej zmianie procesu uczenia. Oprócz pozytywnych przykładów pokażemy sieci także teksty, które nie zawierają odpowiedzi. Nie ingerujemy w żaden sposób w architekturę \textit{FastQA}, ale dostosowujemy dane do jej ograniczeń. Ponieważ model zakłada, że zawsze musi odpowiedzieć pozytywnie, doklejamy do wszystkich kontekstów sztuczne słowo \textbf{neg}. Uznajemy je za poprawną odpowiedź we wszystkich przypadkach, w których fragment nie odpowiada na pytanie. Fragmenty z przykładu (po tokenizacji, czyli podzieleniu napisu na słowa) będą wyglądały tak:\\
+
+\small
+\textit{the battle of grunwald , first battle} [...] \textit{jungingen .} \textbf{neg}
+
+\textit{born on march 1, 1810, in zelazowa} [...] \textit{influential .} \textbf{neg}\\
+
+\normalsize
+W pierwszym przypadku nadal spodziewamy się zobaczyć wynik \textit{15 july 1410}. W drugim mamy nadzieję na \textbf{neg}, co pozwoli nam wywnioskować, że fragment nie zawiera właściwej odpowiedzi. Podczas uczenia dalej korzystamy z ustalonych zanurzeń GloVe, za wyjątkiem wektora dla słowa \textbf{neg}, który jest optymalizowany.
+
+\subsection{Wzbogacanie danych}
+
+Przygotowałem cztery dodatkowe zestawy danych uczących. Dwa z nich są przerobionymi wersjami \textit{SQuAD}:
+
+\begin{itemize}
+    \item \texttt{SQuAD-rng} to zbiór uczący \textit{SQuAD} z pomieszanymi kontekstami. Każde pytanie dostało losowo wybrany, niezawierający odpowiedzi, i niepasujący do niego tematycznie fragment.
+
+    \item \texttt{SQuAD-cut} zawiera te same pary $(q, x)$, co dane uczące \textit{SQuAD}, ale w każdej parze z $x$ wycięte zostało zdanie zawierające odpowiedź. Sprawia to, że teksty są na temat, ale nie zawierają odpowiedzi. Obserwacja tego zbioru może pomóc sieci zrozumieć, że nawet mocno związany tematycznie fragment nie musi być właściwy.
+\end{itemize}
+
+Robot \texttt{poetwanna.be} szukał odpowiedzi w Wikipedii, co starałem się wziąć pod uwagę w procesie uczenia. W pozostałych dwóch zbiorach pytania pochodzą ze \textit{SQuAD}u, a konteksty z Wikipedii. Akapity w danych \textit{SQuAD} mogą mieć inną charakterystykę niż te zwracane przez wyszukiwarkę. Ich powiązanie z pytaniem również może wyglądać inaczej. Jeśli więc wszystkie przykłady z Wikipedii byłyby negatywne, model mógłby nauczyć się odrzucać je ze względu na cechy inne niż brak właściwej odpowiedzi. Mając to na uwadze, jeden z poniższych zbiorów zawiera pozytywne konteksty:
+
+\begin{itemize}
+    \item \texttt{Wiki-pos} składa się z pytań \textit{SQuAD} połączonych z pozytywnymi akapitami znalezionymi w Wikipedii. Nie udało się znaleźć pasujących fragmentów dla każdego pytania, więc ten zbiór zawiera tylko 52\,600 elementów, co stanowi $61\%$ całego \textit{SQuAD}.
+    \item \texttt{Wiki-neg} jest zbudowany tak jak \texttt{Wiki-pos}, ale zawiera tylko negatywne przykłady. Akapity pochodzą z wyników wyszukiwarki, więc są w pewien sposób tematycznie związane z pytaniami.
+\end{itemize}
+
+Analogiczne zbiory zostały utworzone dla zbioru testowego \textit{SQuAD}, \texttt{SQuAD-dev}. Korzystałem z \texttt{SQuAD-rng-dev}, \texttt{Wiki-pos-dev}, \texttt{Wiki-neg-dev}, oraz \texttt{SQuAD-dev}, żeby zmierzyć efektywność sieci wyuczonych w różnych warunkach.
+
+\subsection{Wyniki}
+
+Eksperyment polegał na wzbogacaniu oryginalnego zbioru uczącego \textit{SQuAD} różnymi kombinacjami czterech dodatkowych zestawów danych. Weryfikacja jakości modelu polegała na sprawdzeniu ile kontekstów zostało odrzuconych z~każdego ze~zbiorów testowych. Idealny model udzieliłby poprawnych odpowiedzi dla każdego przykładu w \texttt{Wiki-pos-dev} i oryginalnym \texttt{SQuAD-dev}, a odrzucił wszystkie fragmenty znajdujące się w \texttt{SQuAD-rng-dev} i \texttt{Wiki-neg-dev}.
+
+Wyniki przedstawione są w Tabeli~\ref{squadtab}. Każdy wiersz reprezentuje jeden model. Kolumna \textbf{Dane} zawiera zbiory danych, o które został rozszerzony zbiór uczący \textit{SQuAD}. Sprawdzam również jak bardzo postawienie przed architekturą dodatkowej trudności wpływa na wynik w oryginalnym zadaniu. \textbf{Pos F1} oznacza F1 na \texttt{SQuAD-dev}, gdy model nie może udzielić odpowiedzi negatywnej (bez doklejania \textbf{neg}). \textbf{Neg F1} jest mierzone tak samo, ale ze słowem \textbf{neg}. Wartości te stanowią miarę pogorszenia jakości rozwiązywania podstawowego problemu \textit{SQuAD}.
+
+W Tabeli~\ref{squadtab} widzimy, że wybór danych uczących ma olbrzymi wpływ na wynik. Lepiej przygotowane negatywne przykłady prawdopodobnie poprawiłyby rezultat. Można też zauważyć kompromis między liczbą odrzucanych niewłaściwych kontekstów a liczbą pozytywnych przykładów, które rozwiązujemy poprawnie. Wybór ``najlepszego'' modelu jest z tego powodu trudny.
+
+Ostatecznie bot \texttt{poetwanna.be} nie korzystał z negatywnych modeli; tracimy zbyt dużo poprawnych odpowiedzi, żeby sobie na to pozwolić. Doświadczenie pokazuje jednak, że odrzucanie złych kontekstów ma potencjał. Odpowiednie modyfikacje sieci lub danych uczących mogłyby umożliwić zastosowanie tego pomysłu w praktyce.
+
+\setlength{\tabcolsep}{3pt}
+\begin{table}[ht]
+    \centering
+    \caption{Procent odrzuconych fragmentów dla różnych modeli}
+    \label{squadtab}
+    \begin{tabular}{|l|r|r|r|r|r|r|}
+        \hline
+        \rowcolor[gray]{.85}
+        \textbf{Dane} & \textbf{Wiki-pos} & \textbf{SQuAD} & \textbf{Wiki-neg} & \textbf{SQuAD-rng} & \textbf{neg F1} & \textbf{pos F1}\\
+        \hline
+         & 0 & 0 & 0.01 & 0.03 & 72.36 & 72.34\\
+        \hline
+        \makecell[l]{\texttt{SQuAD-rng}} & 0.01 & 0.02 & 0.07 & 0.98 & 69.73 & 70.34\\
+        \hline
+        \makecell[l]{\texttt{SQuAD-cut}} & 0.25 & 0.22 & 0.62 & 1 & 60.99 & 70.5\\
+        \hline
+        \makecell[l]{\texttt{Wiki-neg}} & 0.53 & 0.27 & 0.92 & 0.53 & 55.11 & 70.6\\
+        \hline
+        \makecell[l]{\texttt{Wiki-neg}\\\texttt{Wiki-pos}} & 0.4 & 0.23 & 0.87 & 0.65 & 58.72 & 70.19\\
+        \hline
+        \makecell[l]{\texttt{SQuAD-rng}\\\texttt{Wiki-neg}\\\texttt{Wiki-pos}} & 0.35 & 0.23 & 0.82 & 0.99 & 57.83 & 69.15\\
+        \hline
+        \makecell[l]{\texttt{SQuAD-rng}\\\texttt{SQuAD-cut}} & 0.26 & 0.22 & 0.63 & 1 & 61.05 & 71.05\\
+        \hline
+    \end{tabular}\par
+\end{table}
+
+\subsection{Przykłady negatywnych odpowiedzi}
+
+Ta część zawiera przykłady odpowiedzi udzielanych przez przedostatni model z~Tabeli~\ref{squadtab}. Najpierw przypomnijmy wcześniej przytoczone fragmenty o bitwie pod Grunwaldem i Chopinie. \textbf{p} oznacza model pozytywny, a \textbf{n} negatywny.\\
+
+\small
+\textbf{1}. \textit{The Battle of Grunwald, First Battle of Tannenberg or Battle of Žalgiris, was fought on \textbf{15 July 1410} during the Polish–Lithuanian–Teutonic War. The alliance of the Kingdom of Poland and the Grand Duchy of Lithuania, led respectively by King Władysław II Jagiełło (Jogaila) and Grand Duke Vytautas, decisively defeated the German–Prussian Teutonic Knights, led by Grand Master Ulrich von Jungingen.\\}
+
+\textbf{2}. \textit{Born on March 1, 1810, in Zelazowa Wola, Poland, Frédéric Chopin, grew up in a middle-class family. He published his first composition at age 7 and began performing one year later. In 1832, he moved to Paris, socialized with high society and was known as an excellent piano teacher. His piano compositions were highly influential.}\\
+
+\textbf{O1 p}: \textit{15 july 1410} (0.95)\\\indent
+\textbf{O1 n}: \textit{15 july 1410} (0.54)
+
+\textbf{O2 p}: \textit{march 1 , 1810} (0.88)\\\indent
+\textbf{O2 n}: \textbf{neg} (0.96)\\
+
+\normalsize
+Model negatywny zachował się zgodnie z oczekiwaniami. Potrafił znaleźć właściwą odpowiedź w pierwszym tekście oraz stwierdzić, że drugi jej nie zawiera. Należy jednak zwrócić uwagę na mniejsze prawdopodobieństwo w pierwszym przypadku. Oznacza to dużo większą niepewność modelu.
+
+Dalej zamieszczam kilka kolejnych przykładów. Na temat każdego akapitu zadaję trzy pytania z możliwością odpowiedzi, i trzy, na które nie da się odpowiedzieć na podstawie fragmentu. Pytania, które są w pewien sposób związane z tekstem, są znacznie trudniejsze. Brak komentarza oznacza poprawną odpowiedź. Podobnie jak powyżej, można zaobserwować większą niepewność modelu negatywnego na pytaniach pozytywnych.\\\\
+
+\input{chapter4/ex_neg}

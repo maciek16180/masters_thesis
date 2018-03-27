@@ -1,5 +1,9 @@
-""" Official evaluation script for v1.1 of the SQuAD dataset. """
 from __future__ import print_function
+
+""" The only change is an unanswered questions message - Maciej Pawlikowski """
+
+""" Official evaluation script for v1.1 of the SQuAD dataset. """
+
 from collections import Counter
 import string
 import re

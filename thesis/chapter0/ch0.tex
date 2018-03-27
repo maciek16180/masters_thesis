@@ -1,0 +1,20 @@
+%!TEX output_directory = texaux
+%!TEX spellcheck
+%!TEX root = ../main.tex
+
+\setlength{\abovedisplayskip}{20pt}
+\setlength{\belowdisplayskip}{20pt}
+
+\chapter{Wstęp}
+
+System dialogowy (inaczej \textit{chatbot}) to program komputerowy umożliwiający porozumienie w języku naturalnym między człowiekiem a maszyną. Możliwość naturalnej rozmowy z komputerem była kiedyś utożsamiana ze sztuczną inteligencją. Alan Turing, w swojej słynnej publikacji \cite{turing}, pytał czy da się napisać program konwersacyjny, którego ludzki obserwator nie byłby w stanie odróżnić od człowieka. Eksperyment ten dzisiaj nosi miano testu Turinga. Jego obecną formą jest Nagroda Loebnera -- coroczny konkurs, w którym twórcy programów starają się oszukać sędziów. Dotychczas wręczano jedynie nagrodę dla najlepszego chatbota. Nagrody głównej, jednorazowo przyznawanej programowi nieodróżnialnemu od człowieka, nie zdobył jeszcze żaden bot.
+
+Przejście testu Turinga nie jest jednak celem każdego systemu dialogowego. Dzisiejsze chatboty mogą mieć bardzo różne przeznaczenie. Obecna w systemie iOS Siri\footnote{\url{https://www.apple.com/ios/siri/}} stanowi interaktywną pomoc dla użytkownika. Zastosowanie wykrywania mowy umożliwia wydawanie urządzeniu poleceń głosowych w języku naturalnym. Robot będący częścią portalu Visit Wroclaw\footnote{\url{https://www.facebook.com/visitwro/}} pełni rolę informacji turystycznej. Bardzo popularny Cleverbot\footnote{\url{http://www.cleverbot.com/}} cały czas uczy się lepiej mówić wykorzystując historię przeprowadzanych dialogów. Jest to system ogólnego przeznaczenia, potrafiący rozmawiać na wiele tematów. W biznesie chatboty często pełnią rolę interaktywnych asystentów, pomagając znaleźć połączenia lotnicze, zarezerwować miejsca w restauracji, czy zapoznać się z ofertą firmy.
+
+Techniczne aspekty konstrukcji chatbotów również mogą się drastycznie różnić. Napisany w 1995 roku system \textit{Artificial Linguistic Internet Computer Entity} (w~skrócie A.L.I.C.E. lub Alice) \cite{alice} formułuje odpowiedzi wykorzystując dopasowanie wzorca i wypełnianie luk w schematach. Alice wymaga dużej liczby ręcznie utworzonych reguł, co ją mocno ogranicza. Obecnie często eksperymentuje się z wykorzystaniem metod uczenia maszynowego do budowania botów dialogowych. Szczególnie popularne są sieci neuronowe, które w ostatnich latach znacznie zwiększyły nasze możliwości w dziedzinie przetwarzania języka naturalnego.
+
+\section{Cel i zawartość pracy} \label{celpracy}
+
+Celem tej pracy jest przedstawienie niektórych mechanizmów neuronowych znajdujących zastosowanie w systemach konwersacyjnych. Rozdział~\ref{rozdzial1} stanowi wstęp do tematu sieci neuronowych i wprowadzenie niezbędnej nomenklatury. Kolejny opisuje statystyczne modelowanie języka, które jest podstawą sieci pracujących na języku naturalnym. Następne dwa rozdziały są główną częścią pracy. Rozdział~\ref{rozdzial3} pokazuje architekturę generującą wypowiedzi w dialogu korzystając z pojedynczych słów. Zamieszczam tam także przykłady otrzymanych dialogów. Rozdział~\ref{rozdzial4} jest opisem modelu potrafiącego wyciągać z tekstu odpowiedzi na pytania. Zawiera on też moją próbę rozszerzenia oryginalnej funkcji algorytmu, wraz z wynikami. Do pracy dołączone są implementacje opisywanych metod w Pythonie oraz instrukcja powtórzenia eksperymentów. Ze względu na uniwersalność i dostępność danych w przykładach korzystam z języka angielskiego.
+
+Podczas przygotowywania tego opracowania byłem członkiem reprezentacji Uniwersytetu Wrocławskiego na NIPS 2017 Conversational Intelligence Challenge\footnote{\url{http://convai.io/}}. Celem konkursu było zaprogramowanie chatbota rozmawiającego o zadanym na początku rozmowy krótkim artykule. Zaprezentowany przez UWr robot \texttt{poetwanna.be} zdobył w zawodach 1. miejsce ex aequo. Mój wkład obejmował między innymi obsługę trudniejszych pytań o fakty. Udział w konkursie był przyczyną powstania rozdziału~\ref{rozdzial4} tego opracowania, oraz motywacją do przeprowadzenia opisanego w~sekcji~\ref{negans} eksperymentu z negatywnymi odpowiedziami.

@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+    xmlns:latexdraw="http://latexdraw.sourceforge.net/namespaces/latexdraw"
+    version="1.1" baseProfile="full">
+    <defs/>
+    <g>
+        <g latexdraw:type="text" id="id1668" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="288.0">
+            <text x="288.0" y="54.0"><![CDATA[\textbf{start}]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1671" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="183.0">
+            <text x="183.0" y="101.0"><![CDATA[The]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1674" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="277.0">
+            <text x="277.0" y="101.0"><![CDATA[A]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1677" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="370.0">
+            <text x="370.0" y="101.0"><![CDATA[No]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1680" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="473.0">
+            <text x="473.0" y="101.0"><![CDATA[I]]></text>
+        </g>
+        <g latexdraw:type="line" id="id1683">
+            <line x1="306.0" x2="199.0" y1="55.0" y2="89.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1684">
+            <line x1="321.0" x2="284.0" y1="57.0" y2="88.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1685">
+            <line x1="345.0" x2="373.0" y1="57.0" y2="88.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1686">
+            <line x1="361.0" x2="472.0" y1="54.0" y2="87.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="text" id="id1687" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="183.0">
+            <text x="183.0" y="150.0"><![CDATA[cat]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1690" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="278.0">
+            <text x="278.0" y="152.0"><![CDATA[,]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1693" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="380.0">
+            <text x="380.0" y="150.0"><![CDATA[.]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1696" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="465.0">
+            <text x="465.0" y="152.0"><![CDATA[am]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1699" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="184.0">
+            <text x="184.0" y="201.0"><![CDATA[sits]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1702" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="255.0">
+            <text x="255.0" y="201.0"><![CDATA[thanks]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1705" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="360.0">
+            <text x="360.0" y="203.0"><![CDATA[sorry]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1708" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="431.0">
+            <text x="431.0" y="201.0"><![CDATA[\textbf{end}]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1711" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="174.0">
+            <text x="174.0" y="252.0"><![CDATA[calmly]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1714" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="274.0">
+            <text x="274.0" y="254.0"><![CDATA[.]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1717" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="377.0">
+            <text x="377.0" y="250.0"><![CDATA[!]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1720" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="468.0">
+            <text x="468.0" y="253.0"><![CDATA[--]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1723" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="194.0">
+            <text x="194.0" y="301.0"><![CDATA[.]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1726" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="232.0">
+            <text x="232.0" y="301.0"><![CDATA[\textbf{end}]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1729" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="334.0">
+            <text x="334.0" y="301.0"><![CDATA[\textbf{end}]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1732" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="469.0">
+            <text x="469.0" y="303.0"><![CDATA[--]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1735" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="469.0">
+            <text x="469.0" y="353.0"><![CDATA[--]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1738" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="372.0">
+            <text x="372.0" y="354.0"><![CDATA[--]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1741" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="271.0">
+            <text x="271.0" y="354.0"><![CDATA[--]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1744" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="151.0">
+            <text x="151.0" y="350.0"><![CDATA[\textbf{end}]]></text>
+        </g>
+        <g latexdraw:type="line" id="id1747">
+            <line x1="278.0" x2="196.0" y1="105.0" y2="137.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1748">
+            <line x1="375.0" x2="280.0" y1="103.0" y2="138.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1749">
+            <line x1="381.0" x2="381.0" y1="103.0" y2="139.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1750">
+            <line x1="475.0" x2="475.0" y1="104.0" y2="138.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1751">
+            <line x1="196.0" x2="196.0" y1="153.0" y2="188.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1752">
+            <line x1="276.0" x2="276.0" y1="155.0" y2="190.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1753">
+            <line x1="286.0" x2="379.0" y1="154.0" y2="187.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1754">
+            <line x1="382.0" x2="474.0" y1="152.0" y2="185.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1755">
+            <line x1="196.0" x2="196.0" y1="206.0" y2="241.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1756">
+            <line x1="276.0" x2="276.0" y1="206.0" y2="241.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1757">
+            <line x1="287.0" x2="376.0" y1="207.0" y2="237.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1758">
+            <line x1="473.0" x2="473.0" y1="205.0" y2="240.0"
+                stroke-width="1.0" stroke="black" stroke-linecap="round"
+                stroke-dasharray="1, 9.0" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1759">
+            <line x1="276.0" x2="276.0" y1="256.0" y2="291.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1760">
+            <line x1="379.0" x2="379.0" y1="255.0" y2="290.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1761">
+            <line x1="196.0" x2="196.0" y1="258.0" y2="293.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1762">
+            <line x1="196.0" x2="196.0" y1="303.0" y2="338.0"
+                stroke-width="1.0" stroke="black" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1763">
+            <line x1="276.0" x2="276.0" y1="307.0" y2="342.0"
+                stroke-width="1.0" stroke="black" stroke-linecap="round"
+                stroke-dasharray="1, 9.0" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1764">
+            <line x1="377.0" x2="377.0" y1="308.0" y2="343.0"
+                stroke-width="1.0" stroke="black" stroke-linecap="round"
+                stroke-dasharray="1, 9.0" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1765">
+            <line x1="473.0" x2="473.0" y1="254.0" y2="289.0"
+                stroke-width="1.0" stroke="black" stroke-linecap="round"
+                stroke-dasharray="1, 9.0" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="line" id="id1766">
+            <line x1="474.0" x2="474.0" y1="305.0" y2="340.0"
+                stroke-width="1.0" stroke="black" stroke-linecap="round"
+                stroke-dasharray="1, 9.0" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="text" id="id1767" font-family="Dialog"
+            fill="black" font-size="17" latexdraw:x="81.0">
+            <text x="81.0" y="55.0"><![CDATA[$w_1$]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1770" font-family="Dialog"
+            fill="black" font-size="17" latexdraw:x="81.0">
+            <text x="81.0" y="151.0"><![CDATA[$w_3$]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1773" font-family="Dialog"
+            fill="black" font-size="17" latexdraw:x="81.0">
+            <text x="81.0" y="252.0"><![CDATA[$w_5$]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1776" font-family="Dialog"
+            fill="black" font-size="17" latexdraw:x="81.0">
+            <text x="81.0" y="201.0"><![CDATA[$w_4$]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1779" font-family="Dialog"
+            fill="black" font-size="17" latexdraw:x="81.0">
+            <text x="81.0" y="349.0"><![CDATA[$w_7$]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1782" font-family="Dialog"
+            fill="black" font-size="17" latexdraw:x="81.0">
+            <text x="81.0" y="301.0"><![CDATA[$w_6$]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1785" font-family="Dialog"
+            fill="black" font-size="17" latexdraw:x="81.0">
+            <text x="81.0" y="101.0"><![CDATA[$w_2$]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1788" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="140.0">
+            <text x="140.0" y="382.0"><![CDATA[A cat sits calmly.]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1791" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="241.0">
+            <text x="241.0" y="382.0"><![CDATA[No, thanks.]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1794" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="342.0">
+            <text x="342.0" y="382.0"><![CDATA[No, thanks!]]></text>
+        </g>
+        <g latexdraw:type="text" id="id1797" font-family="Dialog"
+            fill="black" font-size="14" latexdraw:x="468.0">
+            <text x="468.0" y="381.0"><![CDATA[No.]]></text>
+        </g>
+    </g>
+    <metadata>
+        <latexdraw:metadata>
+            <latexdraw:displayBorders>false</latexdraw:displayBorders>
+            <latexdraw:autoAdjust>true</latexdraw:autoAdjust>
+            <latexdraw:ppc>50</latexdraw:ppc>
+            <latexdraw:zoom>2.25</latexdraw:zoom>
+            <latexdraw:unit>cm</latexdraw:unit>
+            <latexdraw:classicGrid>false</latexdraw:classicGrid>
+            <latexdraw:gridGap>10</latexdraw:gridGap>
+            <latexdraw:code>0</latexdraw:code>
+            <latexdraw:displayGrid>true</latexdraw:displayGrid>
+            <latexdraw:magneticGrid>false</latexdraw:magneticGrid>
+            <latexdraw:autoUpdate>true</latexdraw:autoUpdate>
+            <latexdraw:version>2.0.8</latexdraw:version>
+            <latexdraw:size>
+                <latexdraw:width>1920</latexdraw:width>
+                <latexdraw:height>1056</latexdraw:height>
+            </latexdraw:size>
+            <latexdraw:position>
+                <latexdraw:x>0</latexdraw:x>
+                <latexdraw:y>24</latexdraw:y>
+            </latexdraw:position>
+            <latexdraw:dividerPosition>0.8578125</latexdraw:dividerPosition>
+            <latexdraw:displayCodePanel>true</latexdraw:displayCodePanel>
+            <latexdraw:displayXScale>true</latexdraw:displayXScale>
+            <latexdraw:displayYScale>true</latexdraw:displayYScale>
+            <latexdraw:delimitorOpacity>130</latexdraw:delimitorOpacity>
+        </latexdraw:metadata>
+    </metadata>
+</svg>
